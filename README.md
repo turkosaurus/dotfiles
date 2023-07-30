@@ -6,3 +6,5 @@ cli tools to install
 - rg
 - docker-something?
 - terraform
+- vscode extentions and settings?
+
