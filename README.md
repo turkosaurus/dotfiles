@@ -1,1 +1,8 @@
-https://www.atlassian.com/git/tutorials/dotfiles
+- https://www.atlassian.com/git/tutorials/dotfiles
+---
+
+cli tools to install
+- zsh
+- rg
+- docker-something?
+- terraform
