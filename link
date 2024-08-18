@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -eu
+
+# path default
+dot="$(pwd)/dotfiles/.bashrc"
+
+# .bashrc
+ln -sf "$dot/.bashrc" "$HOME/.bashrc"
+
+# .vscode
+ln -sf "$dot/.vscode/*" "$HOME/.vscode/"
