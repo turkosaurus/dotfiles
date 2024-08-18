@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+usage () {
+    echo "Usage: $0 [cmd]"
+    echo "Examples:"
+    echo "  $ $0 root"
+    echo "  $ $0 help"
+}
+
+if [ -n "$DEBUG" ]; then
+    set -x
+fi
+
+case "$1" in
+    root)
+        if [ "$(id -u)" -ne 0 ]; then
+            echo "❌ Root reqiured to proceed."
+            exit 1
+        fi
+        ;;
+    *)
+        echo "❌ command argument required."
+        usage
+        exit 1
+        ;;
+esac
+
+exit 0
