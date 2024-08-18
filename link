@@ -3,7 +3,7 @@
 set -eu
 
 # path default
-dot="$(pwd)/dotfiles/.bashrc"
+dot="$(pwd)/dotfiles"
 
 # .bashrc
 ln -sf "$dot/.bashrc" "$HOME/.bashrc"
