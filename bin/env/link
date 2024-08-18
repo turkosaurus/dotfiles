@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
+# shellcheck source=/dev/null
 source bin/util/set -eu
 
 # path default
 dot="$(pwd)/dotfiles"
 
 # .bashrc
-ln -sf "$dot/.bashrc" "$HOME/.bashrc"
+ln -f "$dot/.bashrc" "$HOME/.bashrc"
 
 # .vscode
-ln -sf "$dot/.vscode/*" "$HOME/.vscode/"
+ln -f "$dot/.vscode/*" "$HOME/.vscode/"
