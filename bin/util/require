@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# shellcheck source=/dev/null
+source bin/util/opts
+
 usage () {
     echo "Usage: $0 [cmd]"
     echo "Examples:"

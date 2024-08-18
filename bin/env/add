@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
 
+echo $ahh
+
 echo "TODO - write an add script"
 exit 127

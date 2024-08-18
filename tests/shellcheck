@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+# install shellcheck
+echo "🔬 Installing shellcheck ..."
+if ! command -v shellcheck; then
+    echo "🟨 Installing shellcheck ..."
+    if ! sudo apt install shellcheck -y; then
+        echo "❌ Failed to install shellcheck."
+        exit 1
+    fi
+    echo "🟢 shellcheck newly installed."
+fi
+
+# run shellcheck
+echo "🔍 Running shellcheck ..."
+if ! shellcheck bin/*/*; then
+    echo "❌ Failed to lint bin/install/go."
+    exit 1
+fi
+echo "🟢 shellcheck lint passed!"
