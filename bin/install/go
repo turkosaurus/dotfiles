@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 
-if [ -z "GO_VERSION" ]; then
+if [ -z "$GO_VERSION" ]; then
     GO_VERSION="1.23.0"
 fi
 TARBAL_NAME="go$GO_VERSION.linux-amd64.tar.gz"
 GO_DL=https://go.dev/dl/"$TARBAL_NAME"
 
-SHELL_RC="$HOME/.bashrc"
+# SHELL_RC="$HOME/.bashrc"
 
+# shellcheck source=/dev/null
 if ! bin/util/require root; then
     exit 1
 fi
 
 
 # TODO I don't understand why this is needed but it is
-# computer: goose
+# for computer: goose
+# shellcheck source=/dev/null
 source dotfiles/.bashrc
 
 if go version; then
@@ -22,24 +24,25 @@ if go version; then
     exit 0
 fi
 
-trap "rm -f $TARBAL_NAME" EXIT
-if ! wget -O $TARBAL_NAME $GO_DL; then
+trap 'rm -f $TARBAL_NAME' EXIT
+if ! wget -O "$TARBAL_NAME" "$GO_DL"; then
     echo "Failed to download go."
     exit 1
 fi
 
-trap "rm -rf $TARBAL_NAME" EXIT
-rm -rf /usr/local/go && tar -C /usr/local -xzf $TARBAL_NAME
+trap 'rm -rf $TARBAL_NAME' EXIT
+rm -rf /usr/local/go && tar -C /usr/local -xzf "$TARBAL_NAME"
 
-# update path
-inPATH=$(grep -c ":usr/local/go/bin" "$SHELL_RC")
-if [ "$inPATH" == 0 ]; then
-else
-    echo "Go path is set."
-fi
+# # update path
+# inPATH=$(grep -c ":usr/local/go/bin" "$SHELL_RC")
+# if [ "$inPATH" -eq 0 ]; then
+#     source "$SHELL_RC"
+# else
+#     echo "Go path is set."
+# fi
 
 if go version; then
-    echo Installed: $(go version)
+    echo Installed: "$(go version)"
     exit 0
 else
     echo "Failed to install go. :("
