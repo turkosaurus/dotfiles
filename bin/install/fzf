@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+echo "🔍 Installing fuzzy finder (fzf) ..."
+
+if ! bin/util/require root; then
+    exit 1
+fi
+
+if fzf --version; then
+    echo "🟢 fzf already installed."
+    exit 0
+fi
+
+echo "🟨 Installing fzf ..."
+if ! sudo apt-get install fzf -y; then
+    echo "❌ Failed to install fzf."
+    exit 1
+fi
+
+if fzf --version; then
+    echo "🟢 fzf newly installed."
+    exit 0
+fi
