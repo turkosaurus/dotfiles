@@ -2,15 +2,17 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"flag"
+	"log/slog"
 )
 
 func main() {
 	force := flag.Bool("force", false, "force overwrite of local files")
 	flag.Parse()
 
-	slog.InfoConext(ctx, "starting dotfiles",
+	ctx := context.Background()
+
+	slog.InfoContext(ctx, "starting dotfiles",
 		"force", force,
-)
+	)
 }
