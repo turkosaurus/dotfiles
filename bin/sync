@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 
+git diff --exit-code &> /dev/null
+if [ $? -eq 0 ]; then
+    echo "No changes to sync."
+    exit 0
+fi
+
 git add .
 
 # iso8601 date
 git commit -m "autosync"
 
+git push
