@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+require root
+
+sudo apt install htop -y
