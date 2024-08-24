@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 
-git pull
+echo "Fetching remote ... "
+if ! git pull; then
+    echo "Failed to fetch remote."
+    exit 1
+fi
 
 git add .
 
