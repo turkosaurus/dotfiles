@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
-require root
+bin/util/require root
 
-sudo apt install htop -y
+if ! htop --version &> /dev/null; then
+    echo "Installing htop..."
+    if ! sudo apt install htop -y; then
+        echo "Failed to install htop."
+        exit 1
+    fi
+    echo "htop installed!"
+    exit 0
+fi
