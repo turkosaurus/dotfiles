@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSpellcheck(t *testing.T) {
+func TestShellcheck(t *testing.T) {
 	cmd := exec.Command("sh", "-c", "tests/shellcheck")
 	t.Logf("command: %s\n", cmd.String())
 	output, err := cmd.Output()
@@ -25,5 +25,4 @@ func TestSpellcheck(t *testing.T) {
 	output, err = cmd.Output()
 	require.Empty(t, string(output))
 	require.NoError(t, err)
-
 }

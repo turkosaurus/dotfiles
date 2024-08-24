@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+git add .
+
+# iso8601 date
+git commit -m "autosync"
+
