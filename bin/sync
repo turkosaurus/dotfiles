@@ -17,6 +17,6 @@ echo "Syncing $changes changes ... "
 git commit -m "autosync"
 
 git status
-# git push
+git push
 
 echo "Completed syncing $changes changes."
