@@ -5,19 +5,15 @@ if ! git pull; then
     echo "Failed to fetch remote."
     exit 1
 fi
+echo
 
 git add .
-
 changes=$(git diff --cached | wc -l)
 if [ "$changes" -eq 0 ]; then
     echo "No changes to sync."
     exit 0
 fi
-
 echo "Syncing $changes changes ... "
-
-
-# iso8601 date
 git commit -m "autosync"
 
 git status
