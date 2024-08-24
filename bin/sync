@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 
-git diff --exit-code &> /dev/null
+git add .
+
+changes=$(git diff | wc -l)
 if [ $? -eq 0 ]; then
     echo "No changes to sync."
     exit 0
 fi
 
-git add .
+echo "Syncing $changes changes ... "
+
 
 # iso8601 date
 git commit -m "autosync"
 
-git push
+git status
+# git push
+
+echo "Completed syncing $changes changes."
