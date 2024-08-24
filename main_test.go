@@ -19,4 +19,11 @@ func TestSpellcheck(t *testing.T) {
 	output, err = cmd.Output()
 	require.Empty(t, string(output))
 	require.NoError(t, err)
+
+	cmd = exec.Command("sh", "-c", "../..bin/test")
+	t.Logf("command: %s\n", cmd.String())
+	output, err = cmd.Output()
+	require.Empty(t, string(output))
+	require.NoError(t, err)
+
 }
