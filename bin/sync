@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
+git pull
+
 git add .
 
-changes=$(git diff | wc -l)
-if [ $? -eq 0 ]; then
+changes=$(git diff --cached | wc -l)
+if [ "$changes" -eq 0 ]; then
     echo "No changes to sync."
     exit 0
 fi
