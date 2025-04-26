@@ -1,0 +1,28 @@
+hostname: ubuntu
+manage_etc_hosts: true
+
+users:
+  - name: turk
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFHMlkVBdWPXL5Ry+VjUsvFTiLYdRvAuSUjVUlle8wkR turk@goose
+
+packages:
+  - curl
+  - vim
+  - git
+  - python3
+  - iproute2
+  - iw
+  - iputils-ping
+  - wireguard
+
+# TODO add traceroute and tcpdump?
+
+runcmd:
+  - apt-get update
+  - apt-get upgrade -y
+  - echo "Cloud-init setup $(date) complete!" >> /etc/motd
+
