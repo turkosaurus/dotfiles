@@ -6,13 +6,20 @@ if [ ! -d "$dotfiles_dir" ]; then
     echo "Directory \"$dotfiles_dir\" does not exist"
     exit 1
 fi
-find "$dotfiles_dir" -type f | while read -r entry; do
-    echo "Symlink: $entry <-- $HOME/$(basename "$entry")"
-    if ! ln -sf "$entry" "$HOME/$(basename "$entry")"; then
-        echo "Failed: $(basename "$entry")"
-        exit 1
-    else
-        updated=$((updated + 1))
+
+find "$dotfiles_dir" -print | while read -r entry; do
+    relative_path="${entry#"$dotfiles_dir"/}"
+    target_path="$HOME/$relative_path"
+
+    if [ -d "$entry" ]; then
+        mkdir -p "$target_path" # create if not exists
+    elif [ -f "$entry" ]; then
+        echo "Symlink: $entry <-- $target_path"
+        if ! ln -sf "$entry" "$target_path"; then
+            echo "Failed: $relative_path"
+            exit 1
+        fi
     fi
 done
+
 echo "dotfiles synced"
