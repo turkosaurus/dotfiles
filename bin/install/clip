@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+# create clipboard file if it doesn't exist
+if [ ! -f ~/.clipboard ]; then
+    touch ~/.clipboard
+fi
+
+# copy command
+cat << 'EOF' > /usr/local/bin/c
+#!/usr/bin/env bash
+
+cat > ~/.clipboard
+EOF
+chmod +x /usr/local/bin/c
+
+# paste command
+cat << 'EOF' > /usr/local/bin/v
+#!/usr/bin/env bash
+
+cat ~/.clipboard
+EOF
+chmod +x /usr/local/bin/v
+
