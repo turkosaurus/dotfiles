@@ -1,22 +1,18 @@
 #!/usr/bin/env bash
 
-echo "Fetching remote ... "
-if ! git pull; then
-    echo "Failed to fetch remote."
+# require dotfiles/home
+dotfiles_dir="$(pwd)/home"
+if [ ! -d "$dotfiles_dir" ]; then
+    echo "Directory \"$dotfiles_dir\" does not exist"
     exit 1
 fi
-echo
-
-git add .
-changes=$(git diff --cached | wc -l)
-if [ "$changes" -eq 0 ]; then
-    echo "No changes to sync."
-    exit 0
-fi
-echo "Syncing $changes changes ... "
-git commit -m "autosync"
-
-git status
-git push
-
-echo "Completed syncing $changes changes."
+find "$dotfiles_dir" -type f | while read -r entry; do
+    echo "Symlink: $entry <-- $HOME/$(basename "$entry")"
+    if ! ln -sf "$entry" "$HOME/$(basename "$entry")"; then
+        echo "Failed: $(basename "$entry")"
+        exit 1
+    else
+        updated=$((updated + 1))
+    fi
+done
+echo "dotfiles synced"
