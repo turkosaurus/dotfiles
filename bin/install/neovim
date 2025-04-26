@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+sudo apt update
+
+if ! sudo apt install build-essential -y; then
+	echo "error: install build-essential"
+	exit 1
+fi
+
+if ! snap install nvim; then
+	echo "error: install neovim"
+	exit 1
+fi
+
