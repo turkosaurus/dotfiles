@@ -29,4 +29,4 @@ packages:
 runcmd:
   - apt-get update
   - apt-get upgrade -y
-  - echo "Cloud-init setup $(date) complete!" >> /etc/motd
+  - echo "Cloud-init complete! $(date)!" >> /etc/motd
