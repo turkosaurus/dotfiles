@@ -29,4 +29,8 @@ packages:
 runcmd:
   - apt-get update
   - apt-get upgrade -y
+  - git clone https://github.com/turkosaurus/dotfiles
+  - find dotfiles/bin/ -type f -exec chmod +x {} \;
+  - dotfiles/bin/sync
+  - dotfiles/install/neovim
   - echo "Cloud-init complete! $(date)!" >> /etc/motd
