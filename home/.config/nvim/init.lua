@@ -214,6 +214,18 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
+-- Format and organize imports on save for Go files
+vim.api.nvim_create_autocmd("BufWritePre", {
+  pattern = "*.go",
+  callback = function()
+    vim.lsp.buf.format({ async = false })
+    vim.lsp.buf.code_action({
+      context = { only = { "source.organizeImports" } },
+      apply = true,
+    })
+  end,
+})
+
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
@@ -664,7 +676,19 @@ require('lazy').setup({
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
         -- clangd = {},
-        -- gopls = {},
+        gopls = {
+          cmd = { 'gopls', 'serve' },
+          filetypes = { 'go', 'gomod' },
+          settings = {
+            gopls = {
+              gofumpt = true, -- Use stricter formatting with gofumpt
+              analyses = {
+                unusedparams = true, -- Enable analysis for unused parameters
+              },
+              staticcheck = true, -- Enable static analysis
+            },
+          },
+        },
         -- pyright = {},
         -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
@@ -954,6 +978,43 @@ require('lazy').setup({
     --    - Incremental selection: Included, see `:help nvim-treesitter-incremental-selection-mod`
     --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
+  },
+  -- probably trash?
+  -- {
+  --   'neovim/nvim-lspconfig',
+  --   config = function()
+  --     local lspconfig = require('lspconfig')
+
+  --     -- Configure gopls
+  --     lspconfig.gopls.setup {
+  --       settings = {
+  --         gopls = {
+  --           gofumpt = true, -- Use gofumpt for formatting
+  --           analyses = {
+  --             unusedparams = true,
+  --           },
+  --           staticcheck = true,
+  --         },
+  --       },
+  --     }
+
+  --     -- where to put this?
+  --     vim.api.nvim_create_autocmd("BufWritePre", {
+  --       pattern = "*.go",
+  --       callback = function()
+  --         vim.lsp.buf.format({ async = false })
+  --       end,
+  --     })
+
+  --   end,
+  -- },
+  {
+    'github/copilot.vim',
+    event = 'InsertEnter',
+    config = function()
+      vim.g.copilot_no_tab_map = true
+      vim.api.nvim_set_keymap('i', '<C-l>', 'copilot#Accept("<CR>")', { silent = true, expr = true })
+    end,
   },
 
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
