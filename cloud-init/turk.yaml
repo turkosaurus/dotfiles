@@ -11,6 +11,10 @@ users:
 
 disable_root: true
 
+system_info:
+  default_user:
+    name: turk
+
 packages:
   - vim
   - tree
@@ -29,8 +33,9 @@ packages:
 runcmd:
   - apt-get update
   - apt-get upgrade -y
-  - git clone https://github.com/turkosaurus/dotfiles
-  - find dotfiles/bin/ -type f -exec chmod +x {} \;
-  - dotfiles/bin/sync
-  - dotfiles/install/neovim
   - echo "Cloud-init complete! $(date)!" >> /etc/motd
+  # - git clone https://github.com/turkosaurus/dotfiles
+  # - cd dotfiles
+  # - find bin/ -type f -exec chmod +x {} \;
+  # - bin/sync
+  # - bin/install/neovim
