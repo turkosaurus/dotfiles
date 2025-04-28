@@ -215,14 +215,14 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 })
 
 -- Format and organize imports on save for Go files
-vim.api.nvim_create_autocmd("BufWritePre", {
-  pattern = "*.go",
+vim.api.nvim_create_autocmd('BufWritePre', {
+  pattern = '*.go',
   callback = function()
-    vim.lsp.buf.format({ async = false })
-    vim.lsp.buf.code_action({
-      context = { only = { "source.organizeImports" } },
+    vim.lsp.buf.format { async = false }
+    vim.lsp.buf.code_action {
+      context = { only = { 'source.organizeImports' } },
       apply = true,
-    })
+    }
   end,
 })
 
@@ -979,35 +979,6 @@ require('lazy').setup({
     --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
   },
-  -- probably trash?
-  -- {
-  --   'neovim/nvim-lspconfig',
-  --   config = function()
-  --     local lspconfig = require('lspconfig')
-
-  --     -- Configure gopls
-  --     lspconfig.gopls.setup {
-  --       settings = {
-  --         gopls = {
-  --           gofumpt = true, -- Use gofumpt for formatting
-  --           analyses = {
-  --             unusedparams = true,
-  --           },
-  --           staticcheck = true,
-  --         },
-  --       },
-  --     }
-
-  --     -- where to put this?
-  --     vim.api.nvim_create_autocmd("BufWritePre", {
-  --       pattern = "*.go",
-  --       callback = function()
-  --         vim.lsp.buf.format({ async = false })
-  --       end,
-  --     })
-
-  --   end,
-  -- },
   {
     'github/copilot.vim',
     event = 'InsertEnter',
