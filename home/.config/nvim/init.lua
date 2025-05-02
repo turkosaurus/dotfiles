@@ -420,6 +420,16 @@ require('lazy').setup({
                 -- --   },
                 -- },
                 defaults = {
+                    vimgrep_arguments = {
+                        'rg',
+                        '--color=never',
+                        '--no-heading',
+                        '--with-filename',
+                        '--line-number',
+                        '--column',
+                        '--smart-case',
+                        '--hidden',
+                    },
                     file_ignore_patterns = { '.git/' },
                     hidden = true,
                 },
@@ -497,14 +507,19 @@ require('lazy').setup({
         'stevearc/aerial.nvim',
         config = function()
             require('aerial').setup {
-                close_on_select = false,
-                attach_mode = 'global',
+                close_on_select = true,
+                attach_mode = 'window',
+                layout = {
+                    default_direction = 'prefer_right',
+                    placement = 'window',
+                },
+                tresitter = true,
             }
             require('telescope').load_extension 'aerial'
         end,
         keys = {
             { '<leader>a', '<cmd>AerialToggle<CR>', desc = 'Toggle Aerial Symbols' },
-            { '<leader>aa', '<cmd>Telescope aerial<CR>', desc = 'Search Aerial Symbols' },
+            { '<leader>sm', '<cmd>Telescope aerial<CR>', desc = 'Search Aerial Symbols' },
         },
     },
     { -- Adds a number of useful commands for working with LSP
