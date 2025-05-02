@@ -735,11 +735,20 @@ require('lazy').setup({
                     filetypes = { 'go', 'gomod' },
                     settings = {
                         gopls = {
-                            gofumpt = true, -- Use stricter formatting with gofumpt
-                            analyses = {
-                                unusedparams = true, -- Enable analysis for unused parameters
-                            },
+                            gofumpt = true,
                             staticcheck = true, -- Enable static analysis
+                            hoverKind = 'FullDocumentation',
+                            usePlaceholders = true,
+                            completeUnimported = true,
+                            symbolMatcher = 'FastFuzzy',
+                            hints = {
+                                parameterNames = true,
+                                rangeVariableTypes = true,
+                                compositeLiteralFields = true,
+                                compositeLiteralTypes = true,
+                                constantValues = true,
+                                functionTypeParameters = true,
+                            },
                         },
                     },
                 },
@@ -1051,6 +1060,14 @@ require('lazy').setup({
         --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
     },
     {
+        'github/copilot.vim',
+        config = function()
+            vim.g.copilot_no_tab_map = true
+            vim.api.nvim_set_keymap('i', '<C-l>', 'copilot#Accept("")', { silent = true, expr = true, noremap = true })
+            vim.g.copilot_chat_accept_key = '<C-l>'
+        end,
+    },
+    {
         'CopilotC-Nvim/CopilotChat.nvim',
         dependencies = {
             { 'github/copilot.vim' }, -- or zbirenbaum/copilot.lua
@@ -1058,7 +1075,13 @@ require('lazy').setup({
         },
         build = 'make tiktoken', -- Only on MacOS or Linux
         opts = {
-            -- See Configuration section for options
+            accept = '<C-l>',
+            keymap = {
+                accept = '<C-l>',
+                next = '<C-n>', -- Navigate to the next suggestion
+                prev = '<C-p>', -- Navigate to the previous suggestion
+                complete = '<C-Space>',
+            },
         },
         -- See Commands section for default commands if you want to lazy load on them
     },
