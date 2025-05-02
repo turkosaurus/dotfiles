@@ -483,6 +483,20 @@ require('lazy').setup({
         },
     },
     {
+        'stevearc/aerial.nvim',
+        config = function()
+            require('aerial').setup {
+                close_on_select = false,
+                attach_mode = 'global',
+            }
+            require('telescope').load_extension 'aerial'
+        end,
+        keys = {
+            { '<leader>a', '<cmd>AerialToggle<CR>', desc = 'Toggle Aerial Symbols' },
+            { '<leader>aa', '<cmd>Telescope aerial<CR>', desc = 'Search Aerial Symbols' },
+        },
+    },
+    { -- Adds a number of useful commands for working with LSP
         -- Main LSP Configuration
         'neovim/nvim-lspconfig',
         dependencies = {
