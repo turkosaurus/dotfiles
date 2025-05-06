@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
 
-# Hasklug font found from nerdfonts.com/font-downloads
-url=https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hasklig.zip
+if [[ $# -ne 1 ]]; then
+    echo "Usage: $0 <font-url.zip>"
+    exit 1
+fi
+
 if [[ $(uname) == "Linux" ]]; then
-    if fc-list | grep -i "hasklug" > /dev/null; then
-        echo "Hasklug font is already installed."
-    else
-        mkdir -p ~/.local/share/fonts
-        curl -L https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hasklig.zip -o /tmp/Hasklug.zip
-        unzip -o /tmp/Hasklug.zip -d ~/.local/share/fonts
-        fc-cache -f -v
-        echo "Hasklug font installed successfully."
-    fi
+    mkdir -p ~/.local/share/fonts
+    curl -L "$1" -o /tmp/font.zip
+    unzip -o /tmp/font.zip -d ~/.local/share/fonts
+    fc-cache -f -v
 else
     echo "$0: unsupported OS"
 fi
