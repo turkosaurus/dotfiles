@@ -1,3 +1,13 @@
 # dotfiles
 
-- [ ] fix blank line for go files
+Configuration and setup scripts.
+
+## use
+Clone the repo, then run [`bin/sync`](bin/sync) to symlink all dotfiles.
+```bash
+git clone https://github.com/turkosaurus/dotfiles
+cd dotfiles
+chmod +x bin/*/*
+bin/sync
+```
+
