@@ -70,9 +70,10 @@ vim.opt.confirm = true
 -- Sets how neovim will display certain whitespace characters in the editor.
 --  See `:help 'list'`
 --  and `:help 'listchars'`
-vim.opt.list = true
+-- commenting out to fix errors with lines on go files per
+-- https://github.com/nvim-lua/kickstart.nvim/issues/1237
+-- vim.opt.list = true
 vim.opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }
-
 -- Preview substitutions live, as you type!
 vim.opt.inccommand = "split"
 
@@ -991,6 +992,9 @@ require("lazy").setup({
                 "query",
                 "vim",
                 "vimdoc",
+                -- "yaml",
+                -- "json",
+                -- "go",
             },
             -- Autoinstall languages that are not installed
             auto_install = true,
