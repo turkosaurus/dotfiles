@@ -36,11 +36,7 @@ vim.g.have_nerd_font = true
 
 -- Make line numbers default
 vim.opt.number = true
--- You can also add relative line numbers, to help with jumping.
---  Experiment for yourself to see if you like it!
--- vim.opt.relativenumber = true
-
--- Enable mouse mode, can be useful for resizing splits for example!
+vim.opt.relativenumber = true
 vim.opt.mouse = "a"
 
 -- Don't show the mode, since it's already in the status line
@@ -66,6 +62,9 @@ vim.opt.splitbelow = true
 vim.opt.cursorline = true
 vim.opt.scrolloff = 10
 vim.opt.confirm = true
+vim.opt.tabstop = 4
+vim.opt.shiftwidth = 4
+vim.opt.expandtab = true
 
 -- Sets how neovim will display certain whitespace characters in the editor.
 --  See `:help 'list'`
@@ -73,7 +72,7 @@ vim.opt.confirm = true
 -- commenting out to fix errors with lines on go files per
 -- https://github.com/nvim-lua/kickstart.nvim/issues/1237
 -- vim.opt.list = true
-vim.opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }
+-- vim.opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }
 -- Preview substitutions live, as you type!
 vim.opt.inccommand = "split"
 
@@ -142,7 +141,8 @@ vim.api.nvim_create_autocmd("BufWritePre", {
     callback = function()
         vim.bo.tabstop = 4
         vim.bo.shiftwidth = 4
-        vim.bo.expandtab = false
+        vim.bo.expandtab = true
+        -- vim.bo.softtabstop = 4
         vim.lsp.buf.format { async = false }
         vim.lsp.buf.code_action {
             context = {
