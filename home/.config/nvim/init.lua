@@ -140,6 +140,9 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 vim.api.nvim_create_autocmd("BufWritePre", {
     pattern = "*.go",
     callback = function()
+        vim.bo.tabstop = 4
+        vim.bo.shiftwidth = 4
+        vim.bo.expandtab = false
         vim.lsp.buf.format { async = false }
         vim.lsp.buf.code_action {
             context = {
