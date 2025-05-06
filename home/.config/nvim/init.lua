@@ -225,16 +225,6 @@ vim.api.nvim_set_keymap("v", "<A-k>", ":m '<-2<CR>gv=gv", {
     silent = true,
 })
 
--- vim.opt.fillchars = {
---     vert = '┃', -- Thicker vertical separator
---     horiz = '━', -- Thicker horizontal separator
---     horizup = '┻',
---     horizdown = '┳',
---     vertleft = '┫',
---     vertright = '┣',
---     verthoriz = '╋',
--- }
-
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath "data" .. "/lazy/lazy.nvim"
@@ -1192,8 +1182,8 @@ require("lazy").setup({
                 "vimdoc",
                 -- "yaml",
                 -- "json",
-                -- "go",
             },
+            -- "go",
             -- Autoinstall languages that are not installed
             auto_install = true,
             highlight = {
@@ -1319,4 +1309,4 @@ require("lazy").setup({
 })
 
 -- The line beneath this is called `modeline`. See `:help modeline`
--- vim: ts=2 sts=2 sw=2 et
+-- vim: ts=4 sts=4 sw=4 et
