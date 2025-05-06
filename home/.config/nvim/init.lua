@@ -64,7 +64,17 @@ vim.opt.scrolloff = 10
 vim.opt.confirm = true
 vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4
-vim.opt.expandtab = true
+vim.opt.expandtab = false
+
+-- Line wrapping options
+vim.opt.wrap = false
+vim.opt.linebreak = true
+vim.opt.breakindent = true
+vim.keymap.set("", "<leader>lw", function()
+    local wrap_enabled = vim.wo.wrap
+    vim.wo.wrap = not wrap_enabled
+    vim.wo.linebreak = not wrap_enabled
+end, { desc = "[L]ine [W]rap toggle" })
 
 -- Sets how neovim will display certain whitespace characters in the editor.
 --  See `:help 'list'`
@@ -84,7 +94,12 @@ vim.opt.inccommand = "split"
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>")
 
 -- Diagnostic keymaps
-vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagnostic [Q]uickfix list" })
+vim.keymap.set(
+    "n",
+    "<leader>q",
+    vim.diagnostic.setloclist,
+    { desc = "Open diagnostic [Q]uickfix list" }
+)
 
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
@@ -92,7 +107,12 @@ vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagn
 --
 -- NOTE: This won't work in all terminal emulators/tmux/etc. Try your own mapping
 -- or just use <C-\><C-n> to exit terminal mode
-vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
+vim.keymap.set(
+    "t",
+    "<Esc><Esc>",
+    "<C-\\><C-n>",
+    { desc = "Exit terminal mode" }
+)
 
 -- Automatically start terminal in insert mode
 vim.api.nvim_create_autocmd("TermOpen", {
@@ -110,10 +130,30 @@ vim.keymap.set("t", "<Esc>", "<C-\\><C-n>", {
 --  Use CTRL+<hjkl> to switch between windows
 --  See `:help wincmd` for a list of all window commands
 --
-vim.keymap.set({ "n", "t" }, "<C-l>", "<C-w><C-l>", { desc = "Move focus to the right window" })
-vim.keymap.set({ "n", "t" }, "<C-h>", "<C-w><C-h>", { desc = "Move focus to the left window" })
-vim.keymap.set({ "n", "t" }, "<C-j>", "<C-w><C-j>", { desc = "Move focus to the lower window" })
-vim.keymap.set({ "n", "t" }, "<C-k>", "<C-w><C-k>", { desc = "Move focus to the upper window" })
+vim.keymap.set(
+    { "n", "t" },
+    "<C-l>",
+    "<C-w><C-l>",
+    { desc = "Move focus to the right window" }
+)
+vim.keymap.set(
+    { "n", "t" },
+    "<C-h>",
+    "<C-w><C-h>",
+    { desc = "Move focus to the left window" }
+)
+vim.keymap.set(
+    { "n", "t" },
+    "<C-j>",
+    "<C-w><C-j>",
+    { desc = "Move focus to the lower window" }
+)
+vim.keymap.set(
+    { "n", "t" },
+    "<C-k>",
+    "<C-w><C-k>",
+    { desc = "Move focus to the upper window" }
+)
 
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
@@ -129,9 +169,19 @@ vim.keymap.set({ "n", "t" }, "<C-k>", "<C-w><C-k>", { desc = "Move focus to the 
 --  See `:help vim.highlight.on_yank()`
 vim.api.nvim_create_autocmd("TextYankPost", {
     desc = "Highlight when yanking (copying) text",
-    group = vim.api.nvim_create_augroup("kickstart-highlight-yank", { clear = true }),
+    group = vim.api.nvim_create_augroup(
+        "kickstart-highlight-yank",
+        { clear = true }
+    ),
     callback = function()
         vim.highlight.on_yank()
+    end,
+})
+
+-- Show diagnostics on hover
+vim.api.nvim_create_autocmd("CursorHold", {
+    callback = function()
+        vim.diagnostic.open_float(nil, { focusable = false })
     end,
 })
 
@@ -190,7 +240,14 @@ vim.api.nvim_set_keymap("v", "<A-k>", ":m '<-2<CR>gv=gv", {
 local lazypath = vim.fn.stdpath "data" .. "/lazy/lazy.nvim"
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
     local lazyrepo = "https://github.com/folke/lazy.nvim.git"
-    local out = vim.fn.system { "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath }
+    local out = vim.fn.system {
+        "git",
+        "clone",
+        "--filter=blob:none",
+        "--branch=stable",
+        lazyrepo,
+        lazypath,
+    }
     if vim.v.shell_error ~= 0 then
         error("Error cloning lazy.nvim:\n" .. out)
     end
@@ -309,6 +366,7 @@ require("lazy").setup({
                 { "<leader>s", group = "[S]earch" },
                 { "<leader>t", group = "[T]oggle" },
                 { "<leader>h", group = "Git [H]unk", mode = { "n", "v" } },
+                { "<leader>l", group = "[L]ine" },
             },
         },
     },
@@ -321,8 +379,8 @@ require("lazy").setup({
     -- Use the `dependencies` key to specify the dependencies of a particular plugin
 
     { -- Fuzzy Finder (files, lsp, etc)
-        "nvim-telescope/telescope.nvim",
         event = "VimEnter",
+        "nvim-telescope/telescope.nvim",
         dependencies = {
             "nvim-lua/plenary.nvim",
             { -- If encountering errors, see telescope-fzf-native README for installation instructions
@@ -409,24 +467,76 @@ require("lazy").setup({
 
             -- See `:help telescope.builtin`
             local builtin = require "telescope.builtin"
-            vim.keymap.set("n", "<leader>sh", builtin.help_tags, { desc = "[S]earch [H]elp" })
-            vim.keymap.set("n", "<leader>sk", builtin.keymaps, { desc = "[S]earch [K]eymaps" })
-            vim.keymap.set("n", "<leader>sf", builtin.find_files, { desc = "[S]earch [F]iles" })
-            vim.keymap.set("n", "<leader>ss", builtin.builtin, { desc = "[S]earch [S]elect Telescope" })
-            vim.keymap.set("n", "<leader>sw", builtin.grep_string, { desc = "[S]earch current [W]ord" })
-            vim.keymap.set("n", "<leader>sg", builtin.live_grep, { desc = "[S]earch by [G]rep" })
-            vim.keymap.set("n", "<leader>sd", builtin.diagnostics, { desc = "[S]earch [D]iagnostics" })
-            vim.keymap.set("n", "<leader>sr", builtin.resume, { desc = "[S]earch [R]esume" })
-            vim.keymap.set("n", "<leader>s.", builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
-            vim.keymap.set("n", "<leader><leader>", builtin.buffers, { desc = "[ ] Find existing buffers" })
+            vim.keymap.set(
+                "n",
+                "<leader>sh",
+                builtin.help_tags,
+                { desc = "[S]earch [H]elp" }
+            )
+            vim.keymap.set(
+                "n",
+                "<leader>sk",
+                builtin.keymaps,
+                { desc = "[S]earch [K]eymaps" }
+            )
+            vim.keymap.set(
+                "n",
+                "<leader>sf",
+                builtin.find_files,
+                { desc = "[S]earch [F]iles" }
+            )
+            vim.keymap.set(
+                "n",
+                "<leader>ss",
+                builtin.builtin,
+                { desc = "[S]earch [S]elect Telescope" }
+            )
+            vim.keymap.set(
+                "n",
+                "<leader>sw",
+                builtin.grep_string,
+                { desc = "[S]earch current [W]ord" }
+            )
+            vim.keymap.set(
+                "n",
+                "<leader>sg",
+                builtin.live_grep,
+                { desc = "[S]earch by [G]rep" }
+            )
+            vim.keymap.set(
+                "n",
+                "<leader>sd",
+                builtin.diagnostics,
+                { desc = "[S]earch [D]iagnostics" }
+            )
+            vim.keymap.set(
+                "n",
+                "<leader>sr",
+                builtin.resume,
+                { desc = "[S]earch [R]esume" }
+            )
+            vim.keymap.set(
+                "n",
+                "<leader>s.",
+                builtin.oldfiles,
+                { desc = '[S]earch Recent Files ("." for repeat)' }
+            )
+            vim.keymap.set(
+                "n",
+                "<leader><leader>",
+                builtin.buffers,
+                { desc = "[ ] Find existing buffers" }
+            )
 
             -- Slightly advanced example of overriding default behavior and theme
             vim.keymap.set("n", "<leader>/", function()
                 -- You can pass additional configuration to Telescope to change the theme, layout, etc.
-                builtin.current_buffer_fuzzy_find(require("telescope.themes").get_dropdown {
-                    winblend = 10,
-                    previewer = false,
-                })
+                builtin.current_buffer_fuzzy_find(
+                    require("telescope.themes").get_dropdown {
+                        winblend = 10,
+                        previewer = false,
+                    }
+                )
             end, { desc = "[/] Fuzzily search in current buffer" })
 
             -- It's also possible to pass additional configuration options.
@@ -473,8 +583,16 @@ require("lazy").setup({
             require("telescope").load_extension "aerial"
         end,
         keys = {
-            { "<leader>a", "<cmd>AerialToggle<CR>", desc = "Toggle Aerial Symbols" },
-            { "<leader>sm", "<cmd>Telescope aerial<CR>", desc = "Search Aerial Symbols" },
+            {
+                "<leader>a",
+                "<cmd>AerialToggle<CR>",
+                desc = "Toggle Aerial Symbols",
+            },
+            {
+                "<leader>sm",
+                "<cmd>Telescope aerial<CR>",
+                desc = "Search Aerial Symbols",
+            },
         },
     },
     { -- Adds a number of useful commands for working with LSP
@@ -525,7 +643,10 @@ require("lazy").setup({
             --    an lsp (for example, opening `main.rs` is associated with `rust_analyzer`) this
             --    function will be executed to configure the current buffer
             vim.api.nvim_create_autocmd("LspAttach", {
-                group = vim.api.nvim_create_augroup("kickstart-lsp-attach", { clear = true }),
+                group = vim.api.nvim_create_augroup(
+                    "kickstart-lsp-attach",
+                    { clear = true }
+                ),
                 callback = function(event)
                     -- NOTE: Remember that Lua is a real programming language, and as such it is possible
                     -- to define small helper and utility functions so you don't have to repeat yourself.
@@ -534,7 +655,12 @@ require("lazy").setup({
                     -- for LSP related items. It sets the mode, buffer and description for us each time.
                     local map = function(keys, func, desc, mode)
                         mode = mode or "n"
-                        vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = "LSP: " .. desc })
+                        vim.keymap.set(
+                            mode,
+                            keys,
+                            func,
+                            { buffer = event.buf, desc = "LSP: " .. desc }
+                        )
                     end
 
                     -- Rename the variable under your cursor.
@@ -543,19 +669,36 @@ require("lazy").setup({
 
                     -- Execute a code action, usually your cursor needs to be on top of an error
                     -- or a suggestion from your LSP for this to activate.
-                    map("gra", vim.lsp.buf.code_action, "[G]oto Code [A]ction", { "n", "x" })
+                    map(
+                        "gra",
+                        vim.lsp.buf.code_action,
+                        "[G]oto Code [A]ction",
+                        { "n", "x" }
+                    )
 
                     -- Find references for the word under your cursor.
-                    map("grr", require("telescope.builtin").lsp_references, "[G]oto [R]eferences")
+                    map(
+                        "grr",
+                        require("telescope.builtin").lsp_references,
+                        "[G]oto [R]eferences"
+                    )
 
                     -- Jump to the implementation of the word under your cursor.
                     --  Useful when your language has ways of declaring types without an actual implementation.
-                    map("gri", require("telescope.builtin").lsp_implementations, "[G]oto [I]mplementation")
+                    map(
+                        "gri",
+                        require("telescope.builtin").lsp_implementations,
+                        "[G]oto [I]mplementation"
+                    )
 
                     -- Jump to the definition of the word under your cursor.
                     --  This is where a variable was first declared, or where a function is defined, etc.
                     --  To jump back, press <C-t>.
-                    map("grd", require("telescope.builtin").lsp_definitions, "[G]oto [D]efinition")
+                    map(
+                        "grd",
+                        require("telescope.builtin").lsp_definitions,
+                        "[G]oto [D]efinition"
+                    )
 
                     -- WARN: This is not Goto Definition, this is Goto Declaration.
                     --  For example, in C this would take you to the header.
@@ -563,16 +706,28 @@ require("lazy").setup({
 
                     -- Fuzzy find all the symbols in your current document.
                     --  Symbols are things like variables, functions, types, etc.
-                    map("gO", require("telescope.builtin").lsp_document_symbols, "Open Document Symbols")
+                    map(
+                        "gO",
+                        require("telescope.builtin").lsp_document_symbols,
+                        "Open Document Symbols"
+                    )
 
                     -- Fuzzy find all the symbols in your current workspace.
                     --  Similar to document symbols, except searches over your entire project.
-                    map("gW", require("telescope.builtin").lsp_dynamic_workspace_symbols, "Open Workspace Symbols")
+                    map(
+                        "gW",
+                        require("telescope.builtin").lsp_dynamic_workspace_symbols,
+                        "Open Workspace Symbols"
+                    )
 
                     -- Jump to the type of the word under your cursor.
                     --  Useful when you're not sure what type a variable is and you want to see
                     --  the definition of its *type*, not where it was *defined*.
-                    map("grt", require("telescope.builtin").lsp_type_definitions, "[G]oto [T]ype Definition")
+                    map(
+                        "grt",
+                        require("telescope.builtin").lsp_type_definitions,
+                        "[G]oto [T]ype Definition"
+                    )
 
                     -- This function resolves a difference between neovim nightly (version 0.11) and stable (version 0.10)
                     ---@param client vim.lsp.Client
@@ -583,7 +738,10 @@ require("lazy").setup({
                         if vim.fn.has "nvim-0.11" == 1 then
                             return client:supports_method(method, bufnr)
                         else
-                            return client.supports_method(method, { bufnr = bufnr })
+                            return client.supports_method(
+                                method,
+                                { bufnr = bufnr }
+                            )
                         end
                     end
 
@@ -592,7 +750,8 @@ require("lazy").setup({
                     --    See `:help CursorHold` for information about when this is executed
                     --
                     -- When you move your cursor, the highlights will be cleared (the second autocommand).
-                    local client = vim.lsp.get_client_by_id(event.data.client_id)
+                    local client =
+                        vim.lsp.get_client_by_id(event.data.client_id)
                     if
                         client
                         and client_supports_method(
@@ -601,25 +760,39 @@ require("lazy").setup({
                             event.buf
                         )
                     then
-                        local highlight_augroup =
-                            vim.api.nvim_create_augroup("kickstart-lsp-highlight", { clear = false })
-                        vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
-                            buffer = event.buf,
-                            group = highlight_augroup,
-                            callback = vim.lsp.buf.document_highlight,
-                        })
+                        local highlight_augroup = vim.api.nvim_create_augroup(
+                            "kickstart-lsp-highlight",
+                            { clear = false }
+                        )
+                        vim.api.nvim_create_autocmd(
+                            { "CursorHold", "CursorHoldI" },
+                            {
+                                buffer = event.buf,
+                                group = highlight_augroup,
+                                callback = vim.lsp.buf.document_highlight,
+                            }
+                        )
 
-                        vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
-                            buffer = event.buf,
-                            group = highlight_augroup,
-                            callback = vim.lsp.buf.clear_references,
-                        })
+                        vim.api.nvim_create_autocmd(
+                            { "CursorMoved", "CursorMovedI" },
+                            {
+                                buffer = event.buf,
+                                group = highlight_augroup,
+                                callback = vim.lsp.buf.clear_references,
+                            }
+                        )
 
                         vim.api.nvim_create_autocmd("LspDetach", {
-                            group = vim.api.nvim_create_augroup("kickstart-lsp-detach", { clear = true }),
+                            group = vim.api.nvim_create_augroup(
+                                "kickstart-lsp-detach",
+                                { clear = true }
+                            ),
                             callback = function(event2)
                                 vim.lsp.buf.clear_references()
-                                vim.api.nvim_clear_autocmds { group = "kickstart-lsp-highlight", buffer = event2.buf }
+                                vim.api.nvim_clear_autocmds {
+                                    group = "kickstart-lsp-highlight",
+                                    buffer = event2.buf,
+                                }
                             end,
                         })
                     end
@@ -630,10 +803,18 @@ require("lazy").setup({
                     -- This may be unwanted, since they displace some of your code
                     if
                         client
-                        and client_supports_method(client, vim.lsp.protocol.Methods.textDocument_inlayHint, event.buf)
+                        and client_supports_method(
+                            client,
+                            vim.lsp.protocol.Methods.textDocument_inlayHint,
+                            event.buf
+                        )
                     then
                         map("<leader>th", function()
-                            vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf })
+                            vim.lsp.inlay_hint.enable(
+                                not vim.lsp.inlay_hint.is_enabled {
+                                    bufnr = event.buf,
+                                }
+                            )
                         end, "[T]oggle Inlay [H]ints")
                     end
                 end,
@@ -645,14 +826,16 @@ require("lazy").setup({
                 severity_sort = true,
                 float = { border = "rounded", source = "if_many" },
                 underline = { severity = vim.diagnostic.severity.ERROR },
-                signs = vim.g.have_nerd_font and {
-                    text = {
-                        [vim.diagnostic.severity.ERROR] = "󰅚 ",
-                        [vim.diagnostic.severity.WARN] = "󰀪 ",
-                        [vim.diagnostic.severity.INFO] = "󰋽 ",
-                        [vim.diagnostic.severity.HINT] = "󰌶 ",
-                    },
-                } or {},
+                signs = vim.g.have_nerd_font
+                        and {
+                            text = {
+                                [vim.diagnostic.severity.ERROR] = "󰅚 ",
+                                [vim.diagnostic.severity.WARN] = "󰀪 ",
+                                [vim.diagnostic.severity.INFO] = "󰋽 ",
+                                [vim.diagnostic.severity.HINT] = "󰌶 ",
+                            },
+                        }
+                    or {},
                 virtual_text = {
                     source = "if_many",
                     spacing = 2,
@@ -751,7 +934,9 @@ require("lazy").setup({
             vim.list_extend(ensure_installed, {
                 "stylua", -- Used to format Lua code
             })
-            require("mason-tool-installer").setup { ensure_installed = ensure_installed }
+            require("mason-tool-installer").setup {
+                ensure_installed = ensure_installed,
+            }
 
             require("mason-lspconfig").setup {
                 ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
@@ -762,7 +947,12 @@ require("lazy").setup({
                         -- This handles overriding only values explicitly passed
                         -- by the server configuration above. Useful when disabling
                         -- certain features of an LSP (for example, turning off formatting for ts_ls)
-                        server.capabilities = vim.tbl_deep_extend("force", {}, capabilities, server.capabilities or {})
+                        server.capabilities = vim.tbl_deep_extend(
+                            "force",
+                            {},
+                            capabilities,
+                            server.capabilities or {}
+                        )
                         require("lspconfig")[server_name].setup(server)
                     end,
                 },
@@ -778,7 +968,10 @@ require("lazy").setup({
             {
                 "<leader>f",
                 function()
-                    require("conform").format { async = true, lsp_format = "fallback" }
+                    require("conform").format {
+                        async = true,
+                        lsp_format = "fallback",
+                    }
                 end,
                 mode = "",
                 desc = "[F]ormat buffer",
@@ -824,7 +1017,10 @@ require("lazy").setup({
                     -- Build Step is needed for regex support in snippets.
                     -- This step is not supported in many windows environments.
                     -- Remove the below condition to re-enable on windows.
-                    if vim.fn.has "win32" == 1 or vim.fn.executable "make" == 0 then
+                    if
+                        vim.fn.has "win32" == 1
+                        or vim.fn.executable "make" == 0
+                    then
                         return
                     end
                     return "make install_jsregexp"
@@ -890,7 +1086,10 @@ require("lazy").setup({
             sources = {
                 default = { "lsp", "path", "snippets", "lazydev" },
                 providers = {
-                    lazydev = { module = "lazydev.integrations.blink", score_offset = 100 },
+                    lazydev = {
+                        module = "lazydev.integrations.blink",
+                        score_offset = 100,
+                    },
                 },
             },
 
@@ -924,10 +1123,6 @@ require("lazy").setup({
                     comments = { italic = false }, -- Disable italics in comments
                 },
             }
-
-            -- Load the colorscheme here.
-            -- Like many other themes, this one has different styles, and you could load
-            -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
             vim.cmd.colorscheme "tokyonight-night"
         end,
     },
