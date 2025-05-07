@@ -11,3 +11,6 @@ chmod +x bin/*/*
 bin/sync
 ```
 
+## TODO
+- [ ] neo-tree: auto_close = true
+- [ ] tmux gutter text color
