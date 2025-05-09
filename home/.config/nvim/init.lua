@@ -76,6 +76,11 @@ vim.keymap.set("", "<leader>lw", function()
     vim.wo.linebreak = not wrap_enabled
 end, { desc = "[L]ine [W]rap toggle" })
 
+-- Fold options
+vim.opt.foldmethod = "expr"
+vim.opt.foldexpr = "nvim_treesitter#foldexpr()"
+vim.opt.foldenable = false
+
 -- Sets how neovim will display certain whitespace characters in the editor.
 --  See `:help 'list'`
 --  and `:help 'listchars'`
@@ -117,7 +122,7 @@ vim.keymap.set(
 -- Automatically start terminal in insert mode
 vim.api.nvim_create_autocmd("TermOpen", {
     pattern = "*",
-    command = "botright split | startinsert",
+    command = "startinsert",
 })
 
 vim.keymap.set("t", "<Esc>", "<C-\\><C-n>", {
@@ -568,7 +573,7 @@ require("lazy").setup({
                     default_direction = "right",
                     placement = "window",
                 },
-                tresitter = true,
+                treesitter = true,
             }
             require("telescope").load_extension "aerial"
         end,
@@ -1194,6 +1199,7 @@ require("lazy").setup({
                 additional_vim_regex_highlighting = { "ruby" },
             },
             indent = { enable = true, disable = { "ruby" } },
+            fold = { enable = true },
         },
         -- There are additional nvim-treesitter modules that you can use to interact
         -- with nvim-treesitter. You should go explore a few and see what interests you:
