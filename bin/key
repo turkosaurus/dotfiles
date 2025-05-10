@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+# Provide access for running via
+# read -ep "Enter your username: " USERNAME
+# SUBSYSTEM=="usb", ATTR{idVendor}=="3434", ATTR{idProduct}=="02A0", GROUP="plugdev", TAG+="uaccess
+
+# function usage() {
+#     echo "Usage: $0 TODO [VID] [PID]"
+#     echo "  [t]emporary: change permission that will reset after reboot."
+#     echo "  [p]ersistent: create permanent device rules using Vid and Pid."
+# }
+TARGET="Keychron Q11"
+
+function debug() {
+	if [ -n "$DEBUG" ]; then
+		echo "$(date +%T) DBG: $1"
+	fi
+}
+
+function info() {
+	echo "$(date +%T) INF: $1"
+}
+
+function error() {
+	echo "$(date +%T) ERR: $1"
+}
+
+# Require root privileges
+if [ "$EUID" -ne 0 ]; then
+	error "Root permissions required for devices changes."
+	exit 1
+fi
+
+# This whole thing is pretty fucked. Nothing worked, idk why. Breadcrumbs below:
+# https://private-user-images.githubusercontent.com/30833038/344477585-152d0349-f49f-4cd0-9232-82ca695dab01.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDY4NDk3MTgsIm5iZiI6MTc0Njg0OTQxOCwicGF0aCI6Ii8zMDgzMzAzOC8zNDQ0Nzc1ODUtMTUyZDAzNDktZjQ5Zi00Y2QwLTkyMzItODJjYTY5NWRhYjAxLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTA1MTAlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwNTEwVDAzNTY1OFomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTYxMmI1NGY1ZmYyMjU1YzBiZTJiYjBmODRiOGNlOTMwOGE1Y2MyODQxYWQ3YzQ3Njk4N2M4NDdjZjgwOGQyM2MmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.E5N_kZWLaLI-VXCRGEfqTC3q7WTfnQBIEESNTbsXIlg
+# https://github.com/the-via/app/issues/236
+# https://github.com/the-via/app/pull/256
+# https://github.com/the-via/app/issues/292
+
+# Changes made with chmod are overwritten after reboot.
+# Use udev rules for persistent permissions changes.
+function temp_fix() {
+	for f in /dev/hidraw*; do
+		DEVICE=$(basename "$f")
+		if ! grep -q "$TARGET" "/sys/class/hidraw/$DEVICE/device/uevent"; then
+			debug "skipping $DEVICE"
+			continue
+		fi
+		debug "found: $DEVICE ($TARGET)"
+		debug "run: sudo chmod a+rw $f"
+		if ! sudo chmod 666 "$f"; then
+			error "failed to update $f"
+			exit 1
+		else
+			info "updated (temporarily): $f"
+		fi
+	done
+}
+
+# temp_fix # Does not work :(
+
+function persistent_fix() {
+	if [ $# -ne 2 ]; then
+		exit 1
+	fi	
+	VID=$1 # TODO make this interactive and flexible
+	PID=$2 # "
+
+	if grep -q "$TARGET" /etc/udev/rules.d/99-keychron.rules; then
+		info "udev rule already exists"
+		exit 0
+	fi
+
+	echo SUBSYSTEM==\"usb\", ATTR{idVendor}==\"3434\", ATTR{idProduct}==\"01E0\", TAG+=\"uaccess\" KERNEL==\"hidraw*\", MODE=\"660\", TAG+=\"uaccess\", TAG+=\"udev-acl\" GROUP=\"plugdev\" \
+		> /etc/udev/rules.d/99-keychron.rules
+	
+	# echo "KERNEL==\"hidraw*\" SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"$VIoD\", ATTRS{idProduct}==\"$PID\", MODE=\"0666\"" | \
+	# 		sudo tee /etc/udev/rules.d/99-keychron.rules > /dev/null
+	# echo "SUBSYSTEM==\"hidraw\", ATTR{idVendor}==\""$VID""\", ATTR{idProduct}==\""$PID""\", MODE=\"0666\"" \ 
+	# 	> sudo tee /etc/udev/rules.d/99-keychron.rules
+
+	sudo udevadm control --reload-rules
+	sudo udevadm trigger
+
+	info "udev rule created, reloaded"
+}
+
+persistent_fix 13364 480 # FIXME: this isn't even the real value, and is hardcoded
+
