@@ -15,7 +15,7 @@ bin/sync
 - [ ] neo-tree: auto_close = true
 - [ ] tmux gutter text color
 - [ ] setup shellcheck lsp
-
+- [ ] tmux open in same dir
 ---
 
 
