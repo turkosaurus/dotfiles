@@ -645,7 +645,22 @@ require("lazy").setup({
                 -- But for many setups, the LSP (`ts_ls`) will work just fine
                 -- ts_ls = {},
                 --
-
+                bashls = {
+                    cmd = { "bash-language-server", "start" },
+                    filetypes = { "sh", "zsh", "bash" },
+                    settings = {
+                        bashIde = {
+                            completion = {
+                                addBrackets = true,
+                                addSpaces = true,
+                            },
+                            diagnostics = {
+                                enable = true,
+                                enableParameterHints = true,
+                            },
+                        },
+                    },
+                },
                 lua_ls = {
                     -- cmd = { ... },
                     -- filetypes = { ... },
