@@ -5,6 +5,13 @@ vim.keymap.set("", "<leader>lw", function()
     vim.wo.linebreak = not wrap_enabled
 end, { desc = "[L]ine [W]rap toggle" })
 
+-- Line relative number shortcut
+vim.keymap.set("", "<leader>lr", function()
+    local relativenumber_enabled = vim.wo.relativenumber
+    vim.wo.relativenumber = not relativenumber_enabled
+    vim.wo.number = true
+end, { desc = "[L]ine [R]elative Numbers" })
+
 -- Diagnostic keymaps
 vim.keymap.set(
     "n",
