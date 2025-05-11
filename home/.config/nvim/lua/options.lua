@@ -104,3 +104,14 @@ vim.api.nvim_set_keymap("v", "<A-k>", ":m '<-2<CR>gv=gv", {
     noremap = true,
     silent = true,
 })
+
+-- Spell Checker
+vim.opt.spell = true
+vim.opt.spelllang = "en"
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = { "markdown", "text", "gitcommit" },
+    callback = function()
+        vim.opt_local.spell = true
+        vim.opt_local.spelllang = "en"
+    end,
+})
