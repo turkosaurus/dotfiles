@@ -115,3 +115,12 @@ vim.api.nvim_create_autocmd("FileType", {
         vim.opt_local.spelllang = "en"
     end,
 })
+
+-- Window separator
+vim.opt.fillchars:append { vert = "┃" } -- Use a thicker vertical separator
+vim.api.nvim_set_hl(
+    0,
+    "WinSeparator",
+    { bold = false } -- Change color to green for better visibility
+)
+vim.opt.winhighlight = "VertSplit:WinSeparator"
