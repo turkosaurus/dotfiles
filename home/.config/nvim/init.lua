@@ -1,6 +1,6 @@
 --[[
 =====================================================================
-==================== READ THIS BEFORE CONTINUING ====================
+j=================== READ THIS BEFORE CONTINUING ====================
 =====================================================================
 ========                                    .-----.          ========
 ========         .----------------------.   | === |          ========
@@ -27,20 +27,13 @@ vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
+-- TODO: check this dynamically for portability
 vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.opt`
--- NOTE: You can change these options as you wish!
 --  For more options, you can see `:help option-list`
-
--- Make line numbers default
-vim.opt.number = true
-vim.opt.relativenumber = true
-vim.opt.mouse = "a"
-
--- Don't show the mode, since it's already in the status line
-vim.opt.showmode = false
+require "options"
 
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
@@ -50,61 +43,13 @@ vim.schedule(function()
     vim.opt.clipboard = "unnamedplus"
 end)
 
-vim.opt.breakindent = true
-vim.opt.undofile = true
-vim.opt.ignorecase = true
-vim.opt.smartcase = true
-vim.opt.signcolumn = "yes"
-vim.opt.updatetime = 250
-vim.opt.timeoutlen = 300
-vim.opt.splitright = true
-vim.opt.splitbelow = true
-vim.opt.cursorline = true
-vim.opt.scrolloff = 10
-vim.opt.confirm = true
-vim.opt.tabstop = 4
-vim.opt.shiftwidth = 4
-vim.opt.expandtab = false
-
--- Line wrapping options
-vim.opt.wrap = false
-vim.opt.linebreak = true
-vim.opt.breakindent = true
-vim.keymap.set("", "<leader>lw", function()
-    local wrap_enabled = vim.wo.wrap
-    vim.wo.wrap = not wrap_enabled
-    vim.wo.linebreak = not wrap_enabled
-end, { desc = "[L]ine [W]rap toggle" })
-
--- Fold options
-vim.opt.foldmethod = "expr"
-vim.opt.foldexpr = "nvim_treesitter#foldexpr()"
-vim.opt.foldenable = false
-
--- Sets how neovim will display certain whitespace characters in the editor.
---  See `:help 'list'`
---  and `:help 'listchars'`
--- commenting out to fix errors with lines on go files per
--- https://github.com/nvim-lua/kickstart.nvim/issues/1237
--- vim.opt.list = true
--- vim.opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }
--- Preview substitutions live, as you type!
-vim.opt.inccommand = "split"
-
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
+require "keymaps"
 
 -- Clear highlights on search when pressing <Esc> in normal mode
 --  See `:help hlsearch`
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>")
-
--- Diagnostic keymaps
-vim.keymap.set(
-    "n",
-    "<leader>q",
-    vim.diagnostic.setloclist,
-    { desc = "Open diagnostic [Q]uickfix list" }
-)
 
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
