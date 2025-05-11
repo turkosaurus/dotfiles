@@ -13,7 +13,6 @@ bin/sync
 
 ## TODO
 - [ ] setup shellcheck lsp
-- [ ] tmux open in same dir
 ---
 
 
