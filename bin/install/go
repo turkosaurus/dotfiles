@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+if [ "$EUID" -ne 0 ]; then
+	echo "Error: root required."
+	exit 1
+fi
+
+if 	[ -z "$1" ]; then
+	read -p "Provide a link to the go binary: " URL
+	read -p "Provide the sha256sum of the binary: " SUM
+fi
+
+# Allow "default" to be specified.
+if [ "$1" = "default" ]; then
+	URL="https://go.dev/dl/go1.24.3.linux-amd64.tar.gz"
+	SUM="3333f6ea53afa971e9078895eaa4ac7204a8c6b5c68c10e6bc9a33e8e391bdd8"
+else
+	URL="$1"
+fi
+
+sudo rm /tmp/go.tar.gz
+if ! curl -L "$URL" -o /tmp/go.tar.gz; then
+	echo "Error: download go binary from: $URL"
+	exit 1
+fi
+# Check sha256sum
+if ! echo "$SUM  /tmp/go.tar.gz" | sha256sum -c -; then
+	echo "Error: checksum failed"
+	exit 1
+fi
+
+# Replace existing go and extract new. 
+sudo rm -rf /usr/local/go
+if ! sudo tar -C /usr/local -xzf /tmp/go.tar.gz; then
+	echo "Error: extract go binary"
+	exit 1
+fi
+
+# Set path and verify.
+export PATH="$PATH:/usr/local/go/bin"
+if ! go version; then 
+	echo "Failed to set up go binary"
+	exit 1
+fi
+
+echo "Go binary installed successfully. Remember to add to path:"
+echo '  export PATH="$PATH:/usr/local/go/bin"'; echo
+
