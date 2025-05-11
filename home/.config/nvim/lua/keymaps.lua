@@ -9,7 +9,7 @@ end, { desc = "[L]ine [W]rap toggle" })
 vim.keymap.set("", "<leader>lr", function()
     local relativenumber_enabled = vim.wo.relativenumber
     vim.wo.relativenumber = not relativenumber_enabled
-    vim.wo.number = true
+    vim.wo.number = not relativenumber_enabled
 end, { desc = "[L]ine [R]elative Numbers" })
 
 -- Diagnostic keymaps
@@ -41,3 +41,29 @@ vim.keymap.set("t", "<Esc>", "<C-\\><C-n>", {
 -- Clear highlights on search when pressing <Esc> in normal mode
 --  See `:help hlsearch`
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>")
+
+-- Resize just like .tmux.conf
+vim.keymap.set(
+    "n",
+    "<C-w>H",
+    "<cmd>vertical resize +24<CR>",
+    { desc = "Resize window right by 24" }
+)
+vim.keymap.set(
+    "n",
+    "<C-w>L",
+    "<cmd>vertical resize -24<CR>",
+    { desc = "Resize window left by 24" }
+)
+vim.keymap.set(
+    "n",
+    "<C-w>J",
+    "<cmd>resize -24<CR>",
+    { desc = "Resize window up by 24" }
+)
+vim.keymap.set(
+    "n",
+    "<C-w>K",
+    "<cmd>resize +24<CR>",
+    { desc = "Resize window down by 24" }
+)
