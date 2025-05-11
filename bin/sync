@@ -23,3 +23,4 @@ find "$dotfiles_dir" -print | while read -r entry; do
 done
 
 echo "dotfiles synced"
+
