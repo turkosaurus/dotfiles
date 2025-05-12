@@ -3,7 +3,7 @@
 ### VALIDATION ###
 
 function usage() {
-	echo "Usage: $0 <ip>"
+	echo "usage: $0 <ip>"
 	# echo "Options:"
 	# echog "  -h, --help        Show this help message"
 	# echo "  -c, --config      Generate WireGuard configuration" echo "  -p, --peers       List peers"
@@ -12,6 +12,7 @@ function usage() {
 
 if [[ $EUID -ne 0 ]]; then
 	echo "error: root required"
+	usage
 	exit 1
 fi
 
@@ -33,12 +34,8 @@ if [[ ! -f "$WG_DIR/privatekey" || ! -f "$WG_DIR/publickey" ]]; then
 else
 	echo "wg keys exist: $WG_DIR"
 fi
-if [[ ! -d "$WG_DIR" ]]; then
-	mkdir -p "$WG_DIR" # TODO: check for both keys, not just the dir
-	wg genkey | tee "$WG_DIR"/privatekey | wg pubkey > "$WG_DIR"/publickey
-fi
 KEY_PRIVATE=$(cat "$WG_DIR"/privatekey)
-KEY_PUBLIC=$(cat "$WG_DIR"/pubkey)
+KEY_PUBLIC=$(cat "$WG_DIR"/publickey)
 IP_PUBLIC=$(curl -s ifconfig.me)
 
 ### FUNCTIONS ###
