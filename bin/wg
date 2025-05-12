@@ -2,9 +2,11 @@
 
 function usage() {
 	echo "usage: $0 <ip>"
-	# echo "Options:"
+	echo
+	echo "Options:"
 	echo "  -h, --help	Show this help message"
 	echo "  -l, --local	Use local (192.168.0.0/16) IP, not public."
+	echo
 }
 
 while [ $# -gt 0 ]; do
@@ -34,13 +36,14 @@ while [ $# -gt 0 ]; do
 done
 
 
-
+# Require root.
 if [[ $EUID -ne 0 ]]; then
 	echo "error: root required"
 	usage
 	exit 1
 fi
 
+# Usage.
 if [[ -z "$1" ]]; then
 	usage
 	exit 1
@@ -53,6 +56,8 @@ HOSTNAME=$(hostname)
 PORT=51820
 WG_DIR="/etc/wireguard"
 REGISTRY_PATH="registry.psv" # pipe separated value TODO: use git? db?
+
+# Create private and public keys in WG_DIR if not exists.
 if [[ ! -f "$WG_DIR/privatekey" || ! -f "$WG_DIR/publickey" ]]; then
 	mkdir -p "$WG_DIR"
 	wg genkey | tee "$WG_DIR/privatekey" | wg pubkey > "$WG_DIR/"
@@ -63,8 +68,8 @@ fi
 KEY_PRIVATE=$(cat "$WG_DIR"/privatekey)
 KEY_PUBLIC=$(cat "$WG_DIR"/publickey)
 
-# Use public IP address by default.
-# Use 192.168.0.0/16 when -l (local) is set.
+# Use public IP address by default,
+# use 192.168.0.0/16 when -l (local) is set.
 if [[ -n "$LOCAL" ]]; then
 	IP_PUBLIC=$(ip -4 addr show | awk '/inet 192\.168\./ {print $2}' | cut -d/ -f1)
 	echo "ip (local): $IP_PUBLIC"
@@ -116,18 +121,11 @@ Endpoint = $ip_pub:$PORT
 EOF
 done < /tmp/registry_filtered
 rm /tmp/registry_filtered
-# grep -v "^$HOSTNAME|" $REGISTRY_PATH | while IFS='|' read -r name ip_pub ip_priv key_pub; do
-# 	echo "peer: $name|$ip_external|$ip_internal|$key_pub"
-# cat <<EOF >> "$WG_DIR/wg0.conf"
-# [Peer]
-# PublicKey = $key_pub
-# AllowedIPs = $ip_internal/16
-# Endpoint = $ip_external:"$PORT" 
-# EOF
-# done
+
 chmod 600 "$WG_DIR/wg0.conf"
 }
 
+# TODO: use registry for etc/hosts
 function registry_push() {
 	echo "registry push..."
 	if [[ ! -f $REGISTRY_PATH ]]; then
@@ -144,6 +142,19 @@ function registry_push() {
 	fi
 }
 
+function known_hosts() {
+    echo "known hosts..."
+    if [[ ! -f $REGISTRY_PATH ]]; then
+        echo "error: file not found: $REGISTRY_PATH"
+        return 1
+    fi
+    sudo cp /etc/hosts /etc/hosts.bak # backup
+
+    grep -v "^$HOSTNAME|" "$REGISTRY_PATH" | while IFS='|' read -r name _ ip_int key_pub; do
+        sudo sed -i "/$name/d" /etc/hosts
+        echo "$ip_int $name" | sudo tee -a /etc/hosts
+    done
+}
 ### EXECUTION ###
 
 # pull peers
@@ -155,6 +166,8 @@ registry_push
 # write new wireguard config
 config
 
+known_hosts 
+
 # start
 sudo wg-quick up /etc/wireguard/wg0.conf
-sudo systemctl enable wg-quick@wg0 --now
+sudo systemctl enable wg-quick@wg0
