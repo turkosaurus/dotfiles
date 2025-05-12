@@ -166,7 +166,7 @@ registry_push
 # write new wireguard config
 config
 
-known_hosts 
+known_hosts # TODO: put this behind a flag
 
 # start
 sudo wg-quick up /etc/wireguard/wg0.conf
