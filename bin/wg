@@ -38,7 +38,7 @@ if [[ ! -d "$WG_DIR" ]]; then
 	wg genkey | tee "$WG_DIR"/privatekey | wg pubkey > "$WG_DIR"/publickey
 fi
 KEY_PRIVATE=$(cat "$WG_DIR"/privatekey)
-KEY_PUBLIC=$(cat "$WG_DIR"/publickey)
+KEY_PUBLIC=$(cat "$WG_DIR"/pubkey)
 IP_PUBLIC=$(curl -s ifconfig.me)
 
 ### FUNCTIONS ###
