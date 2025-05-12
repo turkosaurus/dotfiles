@@ -2,6 +2,14 @@
 
 ### VALIDATION ###
 
+function usage() {
+	echo "Usage: $0 <ip>"
+	# echo "Options:"
+	# echog "  -h, --help        Show this help message"
+	# echo "  -c, --config      Generate WireGuard configuration" echo "  -p, --peers       List peers"
+	# echo "  -r, --registry    Push to registry"
+}
+
 if [[ $EUID -ne 0 ]]; then
 	echo "error: root required"
 	exit 1
@@ -18,12 +26,12 @@ IP_PRIVATE="$1"
 HOSTNAME=$(hostname)
 WG_DIR="/etc/wireguard"
 REGISTRY_PATH="registry.psv" # pipe separated value TODO: use git? db?
-if [[ ! -f "$KEY_DIR/privatekey" || ! -f "$KEY_DIR/publickey" ]]; then
-    mkdir -p "$KEY_DIR"
-    wg genkey | tee "$KEY_DIR/privatekey" | wg pubkey > "$KEY_DIR/publickey"
-    echo "generated keys: $KEY_DIR"
+if [[ ! -f "$WG_DIR/privatekey" || ! -f "$WG_DIR/publickey" ]]; then
+    mkdir -p "$WG_DIR"
+    wg genkey | tee "$WG_DIR/privatekey" | wg pubkey > "$WG_DIR/publickey"
+    echo "generated keys: $WG_DIR"
 else
-	echo "wg keys exist: $KEY_DIR"
+	echo "wg keys exist: $WG_DIR"
 fi
 if [[ ! -d "$WG_DIR" ]]; then
 	mkdir -p "$WG_DIR" # TODO: check for both keys, not just the dir
@@ -35,13 +43,6 @@ IP_PUBLIC=$(curl -s ifconfig.me)
 
 ### FUNCTIONS ###
 
-function usage() {
-	echo "Usage: $0 <ip>"
-	# echo "Options:"
-	# echog "  -h, --help        Show this help message"
-	# echo "  -c, --config      Generate WireGuard configuration" echo "  -p, --peers       List peers"
-	# echo "  -r, --registry    Push to registry"
-}
 
 function registry_pull() {
 	if [[ ! -f $REGISTRY_PATH ]]; then
@@ -62,7 +63,7 @@ ListenPort = 51820
 EOF
 grep -v "^$HOSTNAME|" $REGISTRY_PATH | while IFS='|' read -r name ip_pub ip_priv key_pub; do
 	echo "peer: $name|$ip_pub|$ip_priv|$key_pub"
-cat <<EOF >> wg0.conf
+cat <<EOF >> "$WG_DIR/wg0.conf"
 [Peer]
 PublicKey = $key_pub
 AllowedIPs = $ip_priv/16
