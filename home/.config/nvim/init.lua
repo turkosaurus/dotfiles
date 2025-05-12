@@ -62,3 +62,23 @@ require "lazy-bootstrap"
 --    :Lazy update
 --
 require "lazy-plugins"
+
+-- TODO: find a support for this?
+-- vim.api.nvim_set_keymap(
+--     "",
+--     "<CapsLock>",
+--     "<Esc>",
+--     { noremap = true, silent = true }
+-- )
+-- vim.api.nvim_set_keymap(
+--     "i",
+--     "<CapsLock>",
+--     "<Esc>",
+--     { noremap = true, silent = true }
+-- )
+-- vim.api.nvim_set_keymap(
+--     "v",
+--     "<CapsLock>",
+--     "<Esc>",
+--     { noremap = true, silent = true }
+-- )
