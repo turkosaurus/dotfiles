@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+
+### VALIDATION ###
+
+if [[ $EUID -ne 0 ]]; then
+	echo "error: root required"
+	exit 1
+fi
+
+if [[ -z "$1" ]]; then
+	usage
+	exit 1
+fi
+IP_PRIVATE="$1"
+
+### VARIABLES ###
+
+HOSTNAME=$(hostname)
+WG_DIR="/etc/wireguard"
+REGISTRY_PATH="registry.psv" # pipe separated value TODO: use git? db?
+if [[ ! -f "$KEY_DIR/privatekey" || ! -f "$KEY_DIR/publickey" ]]; then
+    mkdir -p "$KEY_DIR"
+    wg genkey | tee "$KEY_DIR/privatekey" | wg pubkey > "$KEY_DIR/publickey"
+    echo "generated keys: $KEY_DIR"
+else
+	echo "wg keys exist: $KEY_DIR"
+fi
+if [[ ! -d "$WG_DIR" ]]; then
+	mkdir -p "$WG_DIR" # TODO: check for both keys, not just the dir
+	wg genkey | tee "$WG_DIR"/privatekey | wg pubkey > "$WG_DIR"/publickey
+fi
+KEY_PRIVATE=$(cat "$WG_DIR"/privatekey)
+KEY_PUBLIC=$(cat "$WG_DIR"/publickey)
+IP_PUBLIC=$(curl -s ifconfig.me)
+
+### FUNCTIONS ###
+
+function usage() {
+	echo "Usage: $0 <ip>"
+	# echo "Options:"
+	# echog "  -h, --help        Show this help message"
+	# echo "  -c, --config      Generate WireGuard configuration" echo "  -p, --peers       List peers"
+	# echo "  -r, --registry    Push to registry"
+}
+
+function registry_pull() {
+	if [[ ! -f $REGISTRY_PATH ]]; then
+		touch $REGISTRY_PATH
+	fi
+	grep -v "^$HOSTNAME|" $REGISTRY_PATH | while IFS='|' read -r name ip_pub ip_priv key_pub; do
+		echo "peer: $name|$ip_pub|$ip_priv|$key_pub"
+	done
+}
+
+function config() {
+cat <<EOF > wg0.conf
+[Interface]
+PrivateKey = $KEY_PRIVATE
+Address = $IP_PRIVATE/16
+ListenPort = 51820
+
+EOF
+grep -v "^$HOSTNAME|" $REGISTRY_PATH | while IFS='|' read -r name ip_pub ip_priv key_pub; do
+	echo "peer: $name|$ip_pub|$ip_priv|$key_pub"
+cat <<EOF >> wg0.conf
+[Peer]
+PublicKey = $key_pub
+AllowedIPs = $ip_priv/16
+Endpoint = $ip_pub:51820 
+
+EOF
+done
+}
+
+function registry_push() {
+	if [[ ! -f $REGISTRY_PATH ]]; then
+		touch $REGISTRY_PATH
+	fi
+	DATA="$HOSTNAME|$IP_PUBLIC|$IP_PRIVATE|$KEY_PUBLIC"
+	echo "self: $DATA"
+	if ! grep -q "^$HOSTNAME|" $REGISTRY_PATH; then
+		echo "$DATA" >> $REGISTRY_PATH
+		echo "added: $DATA"
+	else
+		sed -i "s/^$HOSTNAME|.*/$DATA/" $REGISTRY_PATH
+		echo "updated: $DATA"
+	fi
+}
+#
+
+### EXECUTION ###
+
+# pull peers
+registry_pull
+
+# write self info to registry
+registry_push 
+
+# write new wireguard config
+config
+
+# wg up
+# wg enable
