@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+if ! apt install wireguard -y; then
+	echo "error: install wireguard"
+	exit 1
+fi
