@@ -7,10 +7,13 @@ end, { desc = "[L]ine [W]rap toggle" })
 
 -- Line relative number shortcut
 vim.keymap.set("", "<leader>lr", function()
-    local relativenumber_enabled = vim.wo.relativenumber
-    vim.wo.relativenumber = not relativenumber_enabled
-    vim.wo.number = not relativenumber_enabled
-end, { desc = "[L]ine [R]elative Numbers" })
+    vim.wo.relativenumber = not vim.wo.relativenumber
+end, { desc = "[L]ine [R]elative Numbers toggle" })
+
+-- Line number toggle
+vim.keymap.set("", "<leader>ln", function()
+    vim.wo.number = not vim.wo.number
+end, { desc = "[L]ine [N]umbers toggle" })
 
 -- Diagnostic keymaps
 vim.keymap.set(
