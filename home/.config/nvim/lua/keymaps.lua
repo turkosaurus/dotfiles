@@ -1,4 +1,4 @@
--- Line wrapping options
+-- Line wrap toggle
 vim.keymap.set("", "<leader>lw", function()
     local wrap_enabled = vim.wo.wrap
     vim.wo.wrap = not wrap_enabled
@@ -12,6 +12,11 @@ end, { desc = "[L]ine [R]elative Numbers toggle" })
 
 -- Line number toggle
 vim.keymap.set("", "<leader>ln", function()
+    if vim.wo.number then
+        if vim.wo.relativenumber then
+            vim.wo.relativenumber = false
+        end
+    end
     vim.wo.number = not vim.wo.number
 end, { desc = "[L]ine [N]umbers toggle" })
 
