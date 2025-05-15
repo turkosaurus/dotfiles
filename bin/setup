@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 function install () {
-	if ! command -v "$1" &> /dev/null
-	then
+	if ! command -v "$1" &> /dev/null; then
 		if ! bin/install/"$1"; then
 			echo "error: installation: $1"
 			exit 1
@@ -17,3 +16,4 @@ install nvim
 
 install go
 
+bin/key swap
