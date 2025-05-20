@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# require sudo
+if [ "$EUID" -ne 0 ]; then
+    echo "root required, try again with sudo"
+    exit
+fi
+
+# install multipass
+if ! apt-get install -y multipass; then
+    echo "apt-get install multipass failed"
+    exit 1
+fi
+
