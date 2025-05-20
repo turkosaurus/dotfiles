@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+# require sudo
+if [ "$EUID" -ne 0 ]; then
+    echo "root required, try again with sudo"
+    exit
+fi
+
+# create clipboard file if it doesn't exist
+if [ ! -f ~/.clipboard ]; then
+    touch ~/.clipboard
+fi
+
+# copy command
+cat << 'EOF' > /usr/local/bin/c
+#!/usr/bin/env bash
+
+cat > ~/.clipboard
+EOF
+chmod +x /usr/local/bin/c
+
+# paste command
+cat << 'EOF' > /usr/local/bin/v
+#!/usr/bin/env bash
+
+cat ~/.clipboard
+EOF
+chmod +x /usr/local/bin/v
+
