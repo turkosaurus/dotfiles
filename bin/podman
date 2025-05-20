@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# require sudo
+if [ "$EUID" -ne 0 ]; then
+    echo "root required, try again with sudo"
+    exit
+fi
+
+# install podman
+if ! apt-get install -y podman; then
+    echo "apt-get install podman failed"
+    exit 1
+fi
+
