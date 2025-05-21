@@ -12,3 +12,13 @@ if ! apt-get install -y curl python3 iproute2 iw iputils-ping tcpdump wireguard;
     exit 1
 fi
 
+# possible others to investigate
+# `iperf` (sniffnet)
+# `ip`
+# `netstat` / `nr`
+# `ss --plant`
+# `iproute` `-get`
+# `nsenter` --pid -n
+# `tcpdump`
+# `wg`
+# traceroute / mtr
