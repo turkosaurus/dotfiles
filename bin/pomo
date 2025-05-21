@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+#############
+# VARIABLES #
+#############
+
+if [[ -z "$POMO_LEN" ]]; then
+  POMO_LEN=25 # length of a pomodoro
+fi
+
+if [[ -z "$POMO_BREAK" ]]; then
+  POMO_BREAK=5 # break length (unused)
+fi
+
+if [[ -z "$POMO_LOG" ]]; then
+  # pomodoro log with date/timestamp and pomo name and len/break
+  POMO_LOG="$HOME/pomo.log"
+fi
+
+if [[ -z "$POMO_WARN" ]]; then
+  # minutes remaning on which to warn
+  POMO_WARN=(1 5)
+fi
+
+##############
+# VALIDATION #
+##############
+
+if [[ -z "$1" ]]; then
+  echo "Usage: $0 <task-name>"
+  exit 1
+else
+  TASK="$*"
+fi
+
+#############
+# FUNCTIONS #
+#############
+
+timestamp() {
+  date +%Y-%M-%dT%R
+}
+
+format_time() {
+  minutes=$(( $1 / 60 ))
+  seconds=$(( $1 % 60 ))
+  printf "%02d:%02d" $minutes $seconds
+}
+
+warn() {
+  for warning in "${POMO_WARN[@]}"; do
+    if (( $1 == warning * 60 )); then
+      notify "$TASK: $(format_time "$1") remaining"
+    fi
+  done
+}
+
+count() {
+  echo "$(timestamp) $TASK ($POMO_LEN/$POMO_BREAK)" >> "$POMO_LOG"
+  
+  local duration="$POMO_LEN"
+  local interval=1
+  local total_seconds=$((duration * 60))
+  local elapsed=0
+
+  while [ $elapsed -lt $total_seconds ]; do
+    elapsed=$((elapsed + interval))
+    remaining=$((total_seconds - elapsed))
+    echo -ne "\r$1: $(format_time $remaining)"
+    warn $remaining
+    sleep $interval
+  done
+
+  notify "$1: complete!"
+  echo; echo "$1: complete!"
+}
+
+notify() {
+  if [[ $(uname) == "Linux" ]]; then
+    echo -e "\a"
+    notify-send "$1"
+    tmux display-message "$1"
+    # spd-say "$1" # kinda freightening tbh
+    return 0
+  else
+    echo "Notification not supported on this OS."
+    return 1
+  fi
+}
+
+########
+# MAIN #
+########
+
+count "$TASK"
