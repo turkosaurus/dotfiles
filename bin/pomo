@@ -4,13 +4,13 @@
 # Each timer is named to facilitate clarity of focus.
 #
 # Name and remaining time are displayed:
-# - terminal
 # - tmux window heading (if tmux is active)
+# - terminal (if tmux is not active)
 # 
 # Warnings (set per POMO_WARN) are sent to:
-# - notify-send
-# - tmux message bar
 # - terminal (audible bell)
+# - notify-send (if Linux)
+# - tmux message bar (if active)
 # 
 # Terminated and completed timers are logged to $POMO_LOG.
 
