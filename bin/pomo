@@ -90,6 +90,9 @@ main() {
     # Record the end of every pomodoro into log.
     trap 'echo "$(timestamp) ${completed}/${POMO_LEN}m $TASK" >> "$POMO_LOG"' EXIT
 
+    if ! [[ -z "$TMUX" ]]; then
+      tmux rename-window "$TASK: $(format_time "$remaining")"
+    fi
     # TODO: keep countdown live on tmux bar
     echo -ne "\r$1: $(format_time $remaining)"
     warn $remaining
