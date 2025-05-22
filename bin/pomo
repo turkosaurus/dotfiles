@@ -1,37 +1,46 @@
+#!/usr/bin/env bash
 
-
-#############
-# VARIABLES #
-#############
+# Pomo implements a timer, defaulting 25 minutes per pomodoro norms.
+# Each timer is named to facilitate clarity of focus.
+#
+# Name and remaining time are displayed:
+# - terminal
+# - tmux window heading (if tmux is active)
+# 
+# Warnings (set per POMO_WARN) are sent to:
+# - notify-send
+# - tmux message bar
+# - terminal (audible bell)
+# 
+# Terminated and completed timers are logged to $POMO_LOG.
 
 if [[ -z "$POMO_LEN" ]]; then
-  POMO_LEN=25 # length of a pomodoro
-fi
-
-if [[ -z "$POMO_BREAK" ]]; then
-  POMO_BREAK=5 # break length (unused)
+  POMO_LEN=25 # default length of a pomodoro
 fi
 
 if [[ -z "$POMO_LOG" ]]; then
-  # pomodoro log with date/timestamp and pomo name and len/break
+  # pomodoro log, format:
+  # timestamp | {elapsed/total}m | task name
   POMO_LOG="$HOME/.pomo.log"
 fi
 
 if [[ -z "$POMO_WARN" ]]; then
-  # minutes remaning on which to warn
+  # minutes remaining on which to warn
   POMO_WARN=(1 5)
 fi
 
-##############
-# VALIDATION #
-##############
+# Capture the current tmux window name and index.
+# Reset this upon exit.
+TMUX_INDEX=$(tmux display-message -p '#I')
+TMUX_WIN_NAME=$(tmux display-message -p '#W')
 
+# Require task name for every timer.
 if [[ -z "$1" ]]; then
   echo "Usage: $0 <task-name>"
+  echo "Example: $0 review PR #123"
   exit 1
-else
-  TASK="$*"
 fi
+TASK="$*"
 
 #############
 # FUNCTIONS #
@@ -63,12 +72,16 @@ warn() {
 # - OS system
 # - tmux message bar
 notify() {
+  if [[ -n "$TMUX" ]]; then
+    tmux display-message "$1"
+  else
+    echo "$1"
+  fi
+  echo -ne "\a" # audible bell
+
+  # OS-specific notifications
   if [[ $(uname) == "Linux" ]]; then
-    echo -ne "\a"
     notify-send "$1" 2> /dev/null # don't care if the popup fails
-    if ! [[ -z "$TMUX" ]]; then
-      tmux display-message "$1"
-    fi
     # spd-say "$1" # kinda frightening tbh
     return 0
   else
@@ -87,24 +100,37 @@ main() {
     elapsed=$((elapsed + interval))
     remaining=$((total_seconds - elapsed))
     completed=$(( elapsed / 60 ))
-    # Record the end of every pomodoro into log.
-    trap 'echo "$(timestamp) ${completed}/${POMO_LEN}m $TASK" >> "$POMO_LOG"' EXIT
 
-    if ! [[ -z "$TMUX" ]]; then
-      tmux rename-window "$TASK: $(format_time "$remaining")"
+    if [[ -n "$TMUX" ]]; then
+      # Rename the tmux window to show the task name and remaining time.
+      tmux rename-window -t \
+        "$TMUX_INDEX" \
+        "$TASK $(format_time "$remaining")"
+    else
+      # Update the terminal with the task name and remaining time.
+      echo -ne "\r$1: $(format_time $remaining)"
     fi
-    # TODO: keep countdown live on tmux bar
-    echo -ne "\r$1: $(format_time $remaining)"
+
     warn $remaining
     sleep $interval
   done
 
   notify "$1: session over"
-  echo; echo "$1: session over"
+}
+
+cleanup() {
+  # Record the end of every pomodoro into log.
+  echo "$(timestamp) ${completed}/${POMO_LEN}m $TASK" >> "$POMO_LOG"
+
+  # Reset the window name to the original.
+  if [[ -n "$TMUX" ]]; then
+    tmux rename-window -t "$TMUX_INDEX" "$TMUX_WIN_NAME"
+  fi
 }
 
 ########
 # MAIN #
 ########
 
+trap cleanup EXIT
 main "$TASK"
