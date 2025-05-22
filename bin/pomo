@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+
 
 #############
 # VARIABLES #
@@ -14,7 +14,7 @@ fi
 
 if [[ -z "$POMO_LOG" ]]; then
   # pomodoro log with date/timestamp and pomo name and len/break
-  POMO_LOG="$HOME/pomo.log"
+  POMO_LOG="$HOME/.pomo.log"
 fi
 
 if [[ -z "$POMO_WARN" ]]; then
@@ -37,16 +37,20 @@ fi
 # FUNCTIONS #
 #############
 
+# 1999-12-31T23:59
 timestamp() {
-  date +%Y-%M-%dT%R
+  date +%Y-%m-%dT%R
 }
 
+# format_time() converts '85' seconds into '01:25' string
 format_time() {
   minutes=$(( $1 / 60 ))
   seconds=$(( $1 % 60 ))
   printf "%02d:%02d" $minutes $seconds
 }
 
+# warn() provides a notification when n minutes remain
+# as defined by POMO_WARN array of minutes.
 warn() {
   for warning in "${POMO_WARN[@]}"; do
     if (( $1 == warning * 60 )); then
@@ -55,41 +59,49 @@ warn() {
   done
 }
 
-count() {
-  echo "$(timestamp) $TASK ($POMO_LEN/$POMO_BREAK)" >> "$POMO_LOG"
-  
+# notify() sends notifications to
+# - OS system
+# - tmux message bar
+notify() {
+  if [[ $(uname) == "Linux" ]]; then
+    echo -ne "\a"
+    notify-send "$1" 2> /dev/null # don't care if the popup fails
+    if ! [[ -z "$TMUX" ]]; then
+      tmux display-message "$1"
+    fi
+    # spd-say "$1" # kinda frightening tbh
+    return 0
+  else
+    echo "error: notifications not supported on OS: $(uname)"
+    return 1
+  fi
+}
+
+main() {
   local duration="$POMO_LEN"
-  local interval=1
   local total_seconds=$((duration * 60))
+  local interval=1
   local elapsed=0
 
   while [ $elapsed -lt $total_seconds ]; do
     elapsed=$((elapsed + interval))
     remaining=$((total_seconds - elapsed))
+    completed=$(( elapsed / 60 ))
+    # Record the end of every pomodoro into log.
+    trap 'echo "$(timestamp) ${completed}/${POMO_LEN}m $TASK" >> "$POMO_LOG"' EXIT
+
+    # TODO: keep countdown live on tmux bar
     echo -ne "\r$1: $(format_time $remaining)"
     warn $remaining
     sleep $interval
   done
 
-  notify "$1: complete!"
-  echo; echo "$1: complete!"
-}
-
-notify() {
-  if [[ $(uname) == "Linux" ]]; then
-    echo -e "\a"
-    notify-send "$1"
-    tmux display-message "$1"
-    # spd-say "$1" # kinda freightening tbh
-    return 0
-  else
-    echo "Notification not supported on this OS."
-    return 1
-  fi
+  notify "$1: session over"
+  echo; echo "$1: session over"
 }
 
 ########
 # MAIN #
 ########
 
-count "$TASK"
+main "$TASK"
