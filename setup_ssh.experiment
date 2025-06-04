@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+
+set -eux
+
+# now=$(date +"%Y%m%d%H%M%S")
+KEY_TYPE="ed25519"
+KEY_PATH_BASE=~/.ssh/id_"$KEY_TYPE"
+
+# ssh-keygen -t ed25519 -C "your_email@example.com" -f ~/.ssh/id_ed25519
+if [ -z "$1" ]; then
+    echo "Usage: setup_ssh <public-key>"
+    exit 1
+fi
+PROVIDED_PUB_KEY="$*"
+
+# start ssh server
+if ! sudo apt install openssh-server; then
+    echo "Failed to install openssh-server"
+    exit 1
+fi
+
+# install openssh-client
+if ! sudo apt install openssh-client; then
+    echo "Failed to install openssh-client"
+    exit 1
+fi
+
+# disable password authentication
+sudo sed -i '/PasswordAuthentication/c\PasswordAuthentication no' /etc/ssh/sshd_config
+if ! sudo systemctl daemon-reload; then
+    echo "Failed to reload system daemon"
+fi
+if ! sudo systemctl restart ssh; then
+    echo "Failed to restart ssh service"
+    exit 1
+fi
+
+# add requestor's public key to authorized_keys
+KEYS_FILE=~/.ssh/authorized_keys
+if [ -n "$PROVIDED_PUB_KEY" ]; then
+    # if keys file exists
+    if [ -f "$KEYS_FILE" ]; then
+        # see if they key already exists
+        exists=$(cat $KEYS_FILE | grep -c "$PROVIDED_PUB_KEY")
+        if [ "$exists" -gt 0 ]; then
+            echo "Key already exists in authorized_keys."
+            echo "1"
+        else
+            echo "Adding provided public key $KEYS_FILE"
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            echo "$PROVIDED_PUB_KEY" >> "$KEYS_FILE"
+            echo "Key addded to $KEYS_FILE"
+        fi
+
+    fi
+fi
+echo 2
+
+# # # number of qualifying keys
+# echo 3
+# keys=$(find ~/.ssh | grep -c "$KEY_TYPE.pub")
+# echo 4
+# echo "Eligible $KEY_TYPE keys found: $keys"
+# echo 5
+keys=0
+
+if [ "$keys" -eq 0 ]; then
+    # generate new key if none exists
+    ssh-keygen \
+        -t "$KEY_TYPE" \
+        -f "$KEY_PATH_BASE" \
+        -N ""
+else
+    # lookup newest key name
+    KEY_PATH_PUB=$(find ~/.ssh | grep "$KEY_TYPE.pub" | sort -r | xargs | awk '{print $1}')
+    echo "Newest named key found: $KEY_PATH_PUB"
+fi
+
+# generate own ssh key
+
+echo "Public key ($KEY_PATH_BASE):"; echo
+echo "  $(cat "$KEY_PATH_BASE".pub)"; echo
+
+HOST_NAME=$(hostname -f)
+HOST_ADDRS=$(hostname -I)
+echo "$HOST_NAME listening for connections:"
+for addr in $HOST_ADDRS; do
+    echo "  $HOST_NAME@$addr"
+done
