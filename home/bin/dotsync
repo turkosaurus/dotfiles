@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+debug () {
+    if [[ -n "$DEBUG" ]]; then
+        echo "$1"
+    fi
+}
+
+error () {
+    echo "error: $1" >&2
+}
+
+# require dotfiles repo at $HOME/dotfiles 
+dotrepo_dir="$HOME/dotfiles"
+if [[ ! -d "$dotrepo_dir/.git" ]]; then
+    error "no dotfiles repo found at $dotrepo_dir/.git"
+    exit 1
+fi
+
+# require 'home' directory in dotfiles repo, to be synced to $HOME 
+if [ ! -d "$dotrepo_dir/home" ]; then
+    error "no home directory found in $dotrepo_dir"
+    exit 1
+fi
+
+find "$dotrepo_dir/home" -print | while read -r entry; do
+    relative_path="${entry#"$dotrepo_dir/home"/}"
+    target_path="$HOME/$relative_path"
+
+    if [ -d "$entry" ]; then
+        # create if not exists
+        mkdir -p "$target_path" 
+    elif [ -f "$entry" ]; then
+        if ! ln -sf "$entry" "$target_path"; then
+            error "symlink failed: $relative_path --> $target_path"
+            exit 1
+        else
+            debug "linked: $relative_path"
+        fi
+    fi
+done
+
+debug "dotfiles synced"
