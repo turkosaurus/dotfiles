@@ -25,9 +25,6 @@ usage () {
     echo "  - l  local only (don't fetch remote repo)"
     echo "  - v  verbose output"
     echo "  - h  show this help message"
-    debug "test debug"
-    warn "test warn"
-    error "test error"
 }
 
 while getopts "lvh" opt; do
@@ -86,9 +83,10 @@ find "$DOTFILES_DIR/home" -print | while read -r entry; do
     target_path="$HOME/$relative_path"
 
     if [ -d "$entry" ]; then
-        # create if not exists
+        # create directory which may not exist
         mkdir -p "$target_path" 
     elif [ -f "$entry" ]; then
+        # TODO: implement -f flag to allow for optional force link
         if ! ln -sf "$entry" "$target_path"; then
             error "symlink failed: $relative_path --> $target_path"
             exit 1
