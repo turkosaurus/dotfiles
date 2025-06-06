@@ -1,30 +1,88 @@
 #!/usr/bin/env bash
 
+red='\033[0;31m'
+orange='\033[0;33m' # Approximation for orange
+blue='\033[0;34m'
+reset='\033[0m'
+
 debug () {
     if [[ -n "$DEBUG" ]]; then
-        echo "$1"
+        echo -e "${blue}DBG${reset}: $1"
     fi
 }
 
-error () {
-    echo "error: $1" >&2
+warn () {
+    echo -e "${orange}WRN${reset}: $1" >&2
 }
 
+error () {
+    echo -e "${red}ERR${reset}: $1" >&2
+}
+
+usage () {
+    echo "usage: $(basename $0) [flags]"
+    echo "flags:"
+    echo "  - l  local only (don't fetch remote repo)"
+    echo "  - v  verbose output"
+    echo "  - h  show this help message"
+    debug "test debug"
+    warn "test warn"
+    error "test error"
+}
+
+while getopts "lvh" opt; do
+    case "$opt" in
+        l)
+            LOCAL_ONLY=1
+            ;;
+        v)
+            DEBUG=1
+            ;;
+        h)
+            usage
+            exit 0
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+DOTFILES_REPO="https://github.com/turkosaurus/dotfiles"
+
 # require dotfiles repo at $HOME/dotfiles 
-dotrepo_dir="$HOME/dotfiles"
-if [[ ! -d "$dotrepo_dir/.git" ]]; then
-    error "no dotfiles repo found at $dotrepo_dir/.git"
-    exit 1
+DOTFILES_DIR="$HOME/dotfiles"
+if [[ ! -d "$DOTFILES_DIR/.git" ]]; then
+    warn "no dotfiles repo found at $DOTFILES_DIR/.git"
+    cd "$HOME" || exit 1
+    if [[ -z "$LOCAL_ONLY" ]]; then
+        debug "cloning remote dotfiles repo"
+        if ! git clone "$DOTFILES_REPO" "$DOTFILES_DIR"; then
+            error "git clone failed"
+            exit 1
+        fi
+    else
+        error "no local dotfiles found at $DOTFILES_DIR/.git, and local only flag prevents cloning"
+        exit 1
+    fi
+else
+    debug "dotfiles repo found at $DOTFILES_DIR/.git"
+    if [[ -z "$LOCAL_ONLY" ]]; then
+        debug "updating dotfiles repo"
+        if ! git -C "$DOTFILES_DIR" pull --rebase; then
+            error "git pull --rebase failed in $DOTFILES_DIR"
+            exit 1
+        else
+            debug "dotfiles repo up to date"
+        fi
+    else
+        debug "local only flag set, skipping git pull"
+    fi
 fi
 
-# require 'home' directory in dotfiles repo, to be synced to $HOME 
-if [ ! -d "$dotrepo_dir/home" ]; then
-    error "no home directory found in $dotrepo_dir"
-    exit 1
-fi
-
-find "$dotrepo_dir/home" -print | while read -r entry; do
-    relative_path="${entry#"$dotrepo_dir/home"/}"
+find "$DOTFILES_DIR/home" -print | while read -r entry; do
+    relative_path="${entry#"$DOTFILES_DIR/home"/}"
     target_path="$HOME/$relative_path"
 
     if [ -d "$entry" ]; then
