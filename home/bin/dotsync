@@ -7,21 +7,46 @@ green='\033[0;32m'
 reset='\033[0m'
 
 debug () {
-    if [[ -n "$DEBUG" ]]; then
-        echo -e "${blue}DBG${reset}: $*" >&1
+    if [[ -z "$DEBUG" ]]; then
+        return 0
+    fi
+    if [[ $# -eq 0 ]]; then
+        while IFS= read -r line; do
+            echo -e "${blue}DBG${reset}: $line" >&2
+        done
+    else
+        echo -e "${blue}DBG${reset}: $*" >&2
     fi
 }
 
 git_msg () {
-    echo -e "${green}GIT${reset}: $*" >&1
+    if [[ $# -eq 0 ]]; then
+        while IFS= read -r line; do
+            echo -e "${green}GIT${reset}: $line" >&1
+        done
+    else
+        echo -e "${green}GIT${reset}: $*" >&1
+    fi
 }
 
 warn () {
-    echo -e "${orange}WRN${reset}: $*" >&2
+    if [[ $# -eq 0 ]]; then
+        while IFS= read -r line; do
+            echo -e "${yellow}WRN${reset}: $line" >&2
+        done
+    else
+        echo -e "${yellow}WRN${reset}: $*" >&2
+    fi
 }
 
 error () {
-    echo -e "${red}ERR${reset}: $*" >&2
+    if [[ $# -eq 0 ]]; then
+        while IFS= read -r line; do
+            echo -e "${red}ERR${reset}: $line" >&2
+        done
+    else
+        echo -e "${red}ERR${reset}: $*" >&2
+    fi
 }
 
 usage () {
@@ -72,8 +97,7 @@ else
     debug "dotfiles repo found at $DOTFILES_DIR/.git"
     if [[ -z "$LOCAL_ONLY" ]]; then
         debug "updating dotfiles repo"
-        cmd="git -C $DOTFILES_DIR pull --rebase"
-        if ! "$cmd" 1> >(git_msg) 2> >(error); then
+        if ! git -C $DOTFILES_DIR pull --rebase 1> >(git_msg) 2> >(error); then
             error "git pull --rebase failed in $DOTFILES_DIR"
             exit 1
         fi
