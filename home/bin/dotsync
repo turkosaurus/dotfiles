@@ -8,7 +8,9 @@ reset='\033[0m'
 
 debug () {
     if [[ -z "$DEBUG" ]]; then
-        while IFS= read -r line; do :; done
+        if [[ ! -t 0 ]]; then
+            while IFS= read -r line; do :; done
+        fi
         return 0
     fi
     if [[ $# -eq 0 ]]; then
@@ -22,7 +24,9 @@ debug () {
 
 git_dbg () {
     if [[ -z "$DEBUG" ]]; then
-        while IFS= read -r line; do :; done
+        if [[ ! -t 0 ]]; then
+            while IFS= read -r line; do :; done
+        fi
         return 0
     fi
     if [[ $# -eq 0 ]]; then
