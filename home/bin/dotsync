@@ -3,12 +3,17 @@
 red='\033[0;31m'
 orange='\033[0;33m' # Approximation for orange
 blue='\033[0;34m'
+green='\033[0;32m'
 reset='\033[0m'
 
 debug () {
     if [[ -n "$DEBUG" ]]; then
         echo -e "${blue}DBG${reset}: $1"
     fi
+}
+
+info () {
+    echo -e "${green}INF${reset}: $1"
 }
 
 warn () {
@@ -96,4 +101,4 @@ find "$DOTFILES_DIR/home" -print | while read -r entry; do
     fi
 done
 
-debug "dotfiles synced"
+info "dotfiles synced"
