@@ -3,16 +3,23 @@
 Configuration and setup scripts.
 
 ## first use
-Clone the repo, then run [`dotsync`](home/bin/dotsync) to symlink all dotfiles in a `stow`-like fasion.
+Clone the repo, then `source init.sh` to setup.
 
 ```bash
 git clone https://github.com/turkosaurus/dotfiles
-chmod +x dotfiles/home/bin/*/*
-./dotfiles/home/bin/dotsync -v
+source init.sh
 ```
+- [home/*](home) is symlinked to `$HOME`
+- [home/bin](home/bin) binaries are added to path (can be invoked directly)
 
 ## updating
-All files in [home/bin](home/bin) are added to path.
+
+[`dotsync`](home/bin/dotsync) symlinks dotfiles in a `stow`-like fashion.
+
+Normal usage updates all files from remote and adds symlinks.
+```bash
+dotsync
+```
 
 For a verbose (`-v`), local-only (`-l`) run:
 ```bash
