@@ -8,20 +8,20 @@ reset='\033[0m'
 
 debug () {
     if [[ -n "$DEBUG" ]]; then
-        echo -e "${blue}DBG${reset}: $1"
+        echo -e "${blue}DBG${reset}: $*" >&1
     fi
 }
 
-info () {
-    echo -e "${green}INF${reset}: $1"
+git_msg () {
+    echo -e "${green}GIT${reset}: $*" >&1
 }
 
 warn () {
-    echo -e "${orange}WRN${reset}: $1" >&2
+    echo -e "${orange}WRN${reset}: $*" >&2
 }
 
 error () {
-    echo -e "${red}ERR${reset}: $1" >&2
+    echo -e "${red}ERR${reset}: $*" >&2
 }
 
 usage () {
@@ -72,12 +72,12 @@ else
     debug "dotfiles repo found at $DOTFILES_DIR/.git"
     if [[ -z "$LOCAL_ONLY" ]]; then
         debug "updating dotfiles repo"
-        if ! git -C "$DOTFILES_DIR" pull --rebase; then
+        cmd="git -C $DOTFILES_DIR pull --rebase"
+        if ! "$cmd" 1> >(git_msg) 2> >(error); then
             error "git pull --rebase failed in $DOTFILES_DIR"
             exit 1
-        else
-            debug "dotfiles repo up to date"
         fi
+        debug "dotfiles repo up to date"
     else
         debug "local only flag set, skipping git pull"
     fi
