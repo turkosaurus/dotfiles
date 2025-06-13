@@ -110,3 +110,7 @@ export PATH=$PATH:/home/$USER/.pulumi/bin
 
 # custom binaries
 export PATH=$PATH:~/bin
+
+
+export EDITOR=nvim
+
