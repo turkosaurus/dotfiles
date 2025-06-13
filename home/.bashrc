@@ -116,6 +116,8 @@ if ! shopt -oq posix; then
   fi
 fi
 
+export EDITOR=nvim 
+
 # custom binaries
 export PATH=$PATH:~/bin
 
