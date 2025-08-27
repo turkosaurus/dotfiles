@@ -116,7 +116,7 @@ else
     fi
 fi
 
-find "$DOTFILES_DIR/home" -print | while read -r entry; do
+for entry in "$DOTFILES_DIR/home"/**; do
     relative_path="${entry#"$DOTFILES_DIR/home"/}"
     target_path="$HOME/$relative_path"
 
