@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 echo "running dotsync..."
 ./home/bin/dotsync -v
 
