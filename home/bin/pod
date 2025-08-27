@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -x
+
+if [[ -z "$1" ]]; then
+	echo "Usage: $0 <dockerfile>"
+	exit 1
+fi
+
+path="$1"
+dockerfile="$(basename "$path")"
+name="${dockerfile#*.}"
+echo "$name"
+
+podman build -t "$name" -f "$path"
+
+podman run --name "$name" --hostname "$name" -it "$name"
