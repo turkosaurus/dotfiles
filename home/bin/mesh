@@ -36,15 +36,16 @@ while [ $# -gt 0 ]; do
 done
 
 
-# Require root.
+# Require root
 if [[ $EUID -ne 0 ]]; then
 	echo "error: root required"
 	usage
 	exit 1
 fi
 
-# Usage.
+# Require IP address
 if [[ -z "$1" ]]; then
+	echo "error: missing required argument <ip>"
 	usage
 	exit 1
 fi
@@ -55,7 +56,7 @@ IP_PRIVATE="$1"
 HOSTNAME=$(hostname)
 PORT=51820
 WG_DIR="/etc/wireguard"
-REGISTRY_PATH="registry.psv" # pipe separated value TODO: use git? db?
+REGISTRY_PATH="$WG_DIR/registry" # pipe separated value
 
 # Create private and public keys in WG_DIR if not exists.
 if [[ ! -f "$WG_DIR/privatekey" || ! -f "$WG_DIR/publickey" ]]; then
@@ -74,7 +75,11 @@ if [[ -n "$LOCAL" ]]; then
 	IP_PUBLIC=$(ip -4 addr show | awk '/inet 192\.168\./ {print $2}' | cut -d/ -f1)
 	echo "ip (local): $IP_PUBLIC"
 else
-	IP_PUBLIC=$(curl -s ifconfig.me)
+	IP_PUBLIC=$(curl -s ifconfig.me) # NOTE: network call without redundancy
+	if [[ -z "$IP_PUBLIC" ]]; then
+		echo "error: cannot determine public IP address"
+		exit 1
+	fi
 	echo "ip (public): $IP_PUBLIC"
 fi
 
@@ -93,6 +98,7 @@ function registry_pull() {
 		| while IFS='|' read -r name ip_external ip_internal key_pub; do
 		echo "peer: $name|$ip_external|$ip_internal|$key_pub"
 		current=$(echo "$ip_internal" | cut -d. -f4)
+		# TODO: cannot handle more than 254 peers
 		echo "  current: $current"
 		echo "  next: $((current + 1))"
 	done
@@ -142,6 +148,7 @@ function registry_push() {
 	fi
 }
 
+# Updates the known hosts file, replacing any existing entries for peers.
 function known_hosts() {
     echo "known hosts..."
     if [[ ! -f $REGISTRY_PATH ]]; then
