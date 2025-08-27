@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
-set -x
-
 if [[ -z "$1" ]]; then
-	echo "Usage: $0 <dockerfile>"
+	echo "usage: $0 <dockerfile>"
 	exit 1
 fi
 
@@ -12,6 +10,14 @@ dockerfile="$(basename "$path")"
 name="${dockerfile#*.}"
 echo "$name"
 
-podman build -t "$name" -f "$path"
+if ! podman build -t "$name" -f "$path"; then
+	echo "error: build image from $path"
+	exit 1
+fi
 
-podman run --name "$name" --hostname "$name" -it "$name"
+# TODO: mount volumes
+# TODO: install and init dotfiles
+if ! podman run --replace --volume --name "$name" --hostname "$name" -it "$name"; then
+	echo "error: run image $name"
+	exit 1
+fi
