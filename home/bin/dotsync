@@ -116,7 +116,9 @@ else
     fi
 fi
 
+echo "A" # FIXME: temp
 for entry in "$DOTFILES_DIR/home"/**; do
+    echo "B: $entry" # FIXME: temp
     relative_path="${entry#"$DOTFILES_DIR/home"/}"
     target_path="$HOME/$relative_path"
 
