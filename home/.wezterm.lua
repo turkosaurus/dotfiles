@@ -4,21 +4,21 @@ local config = {}
 config.color_scheme = "Tokyo Night"
 config.font = wezterm.font("Roboto Mono Nerd Font Mono", { weight = "Regular", stretch = "Normal", style = "Normal" })
 config.font_size = 16
-config.window_background_opacity = 0.7
+
+-- -- ~/.wezterm.lua
+-- wezterm.on("format-window-title", function(tab, pane, tabs, panes, config)
+-- 	local title = tab.active_pane.title
+-- 	local window_width = wezterm.gui.screens().main.width
+-- 	local title_length = #title
+-- 	local padding_needed = math.max(0, math.floor((window_width / config.font_size / 2) - (title_length / 2)))
+-- 	local left_padding = string.rep("  ", padding_needed)
+--
+-- 	return left_padding .. title
+-- end)
 config.keys = {
 	{
 		key = "F11",
 		action = wezterm.action.ToggleFullScreen,
-	},
-	{
-		key = "V",
-		mods = "CTRL",
-		action = wezterm.action.PasteFrom("Clipboard"),
-	},
-	{
-		key = "V",
-		mods = "CTRL",
-		action = wezterm.action.PasteFrom("PrimarySelection"),
 	},
 }
 
