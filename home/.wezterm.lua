@@ -4,11 +4,21 @@ local config = {}
 config.color_scheme = "Tokyo Night"
 config.font = wezterm.font("Roboto Mono Nerd Font Mono", { weight = "Regular", stretch = "Normal", style = "Normal" })
 config.font_size = 16
-
+config.window_background_opacity = 0.7
 config.keys = {
 	{
 		key = "F11",
 		action = wezterm.action.ToggleFullScreen,
+	},
+	{
+		key = "V",
+		mods = "CTRL",
+		action = wezterm.action.PasteFrom("Clipboard"),
+	},
+	{
+		key = "V",
+		mods = "CTRL",
+		action = wezterm.action.PasteFrom("PrimarySelection"),
 	},
 }
 
