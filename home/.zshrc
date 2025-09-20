@@ -114,3 +114,4 @@ export PATH=$PATH:~/bin
 
 export EDITOR=nvim
 
+PROMPT=$(print "$PROMPT \n $ ")
