@@ -2,8 +2,23 @@ local wezterm = require("wezterm")
 local config = {}
 
 config.color_scheme = "Tokyo Night"
-config.font = wezterm.font("Roboto Mono Nerd Font Mono", { weight = "Regular", stretch = "Normal", style = "Normal" })
-config.font_size = 16
+config.font = wezterm.font_with_fallback({
+	-- macOS
+	{
+		family = "RobotoMono Nerd Font Mono",
+		weight = "Regular",
+		stretch = "Normal",
+		style = "Normal",
+	},
+	-- linux
+	{
+		family = "Roboto Mono Nerd Font Mono",
+		weight = "Regular",
+		stretch = "Normal",
+		style = "Normal",
+	},
+})
+config.font_size = 20
 
 -- -- ~/.wezterm.lua
 -- wezterm.on("format-window-title", function(tab, pane, tabs, panes, config)
@@ -15,9 +30,15 @@ config.font_size = 16
 --
 -- 	return left_padding .. title
 -- end)
+
 config.keys = {
 	{
 		key = "F11",
+		action = wezterm.action.ToggleFullScreen,
+	},
+	{
+		key = "f",
+		mods = "CTRL|SHIFT",
 		action = wezterm.action.ToggleFullScreen,
 	},
 }
@@ -41,7 +62,10 @@ config.window_padding = {
 	top = 0,
 	bottom = 0,
 }
-
 config.window_decorations = "TITLE | RESIZE"
+
+config.default_cursor_style = "BlinkingBlock"
+config.cursor_blink_rate = 600
+config.force_reverse_video_cursor = true
 
 return config

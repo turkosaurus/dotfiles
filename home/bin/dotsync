@@ -116,7 +116,7 @@ else
     fi
 fi
 
-for entry in "$DOTFILES_DIR/home"/.**; do
+for entry in $(find "$DOTFILES_DIR/home" -mindepth 1); do
     relative_path="${entry#"$DOTFILES_DIR/home"/}"
     target_path="$HOME/$relative_path"
 
