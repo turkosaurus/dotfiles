@@ -65,7 +65,8 @@ config.window_padding = {
 config.window_decorations = "TITLE | RESIZE"
 
 config.default_cursor_style = "BlinkingBlock"
-config.cursor_blink_rate = 600
+config.cursor_blink_rate = 400
 config.force_reverse_video_cursor = true
+config.max_fps = 60
 
 return config
