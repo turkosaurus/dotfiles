@@ -11,7 +11,10 @@ vim.opt.updatetime = 250
 vim.opt.timeoutlen = 300
 vim.opt.splitright = true
 vim.opt.splitbelow = true
+
+-- cursor
 vim.opt.cursorline = true
+
 vim.opt.scrolloff = 10
 vim.opt.confirm = true
 vim.opt.tabstop = 4
