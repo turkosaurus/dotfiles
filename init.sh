@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# syncs all dotfiles
 set -euo pipefail
 
 echo "running dotsync..."
