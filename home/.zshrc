@@ -8,7 +8,9 @@ export ZSH="$HOME/.oh-my-zsh"
 # load a random theme each time Oh My Zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-ZSH_THEME="agnoster" # set by `omz`
+export ZSH_THEME="agnoster" # set by `omz`
+export AGNOSTER_CONTEXT_BG=magenta
+export AGNOSTER_CONTEXT_FG=black
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
@@ -70,9 +72,10 @@ ZSH_THEME="agnoster" # set by `omz`
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git)
+plugins=(git mise)
 
-source $ZSH/oh-my-zsh.sh
+#shellcheck disable=SC1091
+source "$ZSH/oh-my-zsh.sh"
 
 # User configuration
 
@@ -103,15 +106,35 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-export PATH=$PATH:/usr/local/go/bin
-
-# add Pulumi to the PATH
-export PATH=$PATH:/home/$USER/.pulumi/bin
-
-# custom binaries
-export PATH=$PATH:~/bin
-
+export PATH=$PATH:~/bin                    # dotfiles/home/bin
+export PATH=$PATH:/usr/local/go/bin        # go
+export PATH=$PATH:/home/$USER/.pulumi/bin  # pulumi
 
 export EDITOR=nvim
 
-PROMPT=$(print "$PROMPT \n $ ")
+# --- mise ---
+#
+if [[ -x "$(command -v mise)" ]]; then
+	eval "$(mise activate zsh)"
+fi
+
+# --- os ---
+#
+# determine if linux or macos
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+	alias foo=foo
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+	alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+fi
+
+# --- prompt ---
+#
+# set $ when user, # when root
+declare symbol
+if [[ $EUID -eq 0 ]]; then
+	symbol='#'
+else
+	symbol='$'
+fi
+PROMPT=$(print "${PROMPT} \n ${symbol} ")
+
