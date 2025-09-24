@@ -41,10 +41,10 @@ git_dbg () {
 warn () {
     if [[ $# -eq 0 ]]; then
         while IFS= read -r line; do
-            echo -e "${yellow}WRN${reset}: $line" >&2
+            echo -e "${orange}WRN${reset}: $line" >&2
         done
     else
-        echo -e "${yellow}WRN${reset}: $*" >&2
+        echo -e "${orange}WRN${reset}: $*" >&2
     fi
 }
 

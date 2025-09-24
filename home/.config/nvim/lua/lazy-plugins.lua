@@ -621,7 +621,7 @@ require("lazy").setup({
                             gofumpt = true,
                             staticcheck = true, -- Enable static analysis
                             hoverKind = "FullDocumentation",
-                            usePlaceholders = true,
+                            usePlaceholders = false,
                             completeUnimported = true,
                             symbolMatcher = "FastFuzzy",
                             hints = {
@@ -635,7 +635,7 @@ require("lazy").setup({
                         },
                     },
                 },
-                -- pyright = {},
+                pyright = {},
                 -- rust_analyzer = {},
                 -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
                 --
