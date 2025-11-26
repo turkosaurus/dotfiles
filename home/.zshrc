@@ -106,9 +106,9 @@ source "$ZSH/oh-my-zsh.sh"
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-export PATH=$PATH:~/bin                    # dotfiles/home/bin
-export PATH=$PATH:/usr/local/go/bin        # go
-export PATH=$PATH:/home/$USER/.pulumi/bin  # pulumi
+export PATH=$PATH:~/bin                                    # dotfiles/home/bin
+export PATH=$PATH:/usr/local/go/bin                        # go
+export PATH=$PATH:/home/$USER/.pulumi/bin                  # pulumi
 
 export EDITOR=nvim
 
@@ -124,7 +124,11 @@ fi
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 	alias foo=foo
 elif [[ "$OSTYPE" == "darwin"* ]]; then
+	# MacOS specific aliases
 	alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+
+	# MacOS specific PATHs
+	export PATH=$PATH:/Applications/Firefox.app/Contents/MacOS # firefox
 fi
 
 # --- prompt ---
