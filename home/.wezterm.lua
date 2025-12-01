@@ -18,7 +18,7 @@ config.font = wezterm.font_with_fallback({
 		style = "Normal",
 	},
 })
-config.font_size = 20
+config.font_size = 18
 
 -- -- ~/.wezterm.lua
 -- wezterm.on("format-window-title", function(tab, pane, tabs, panes, config)
