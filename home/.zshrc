@@ -111,7 +111,11 @@ export PATH=$PATH:/usr/local/go/bin       # go
 export PATH=$PATH:~/go/bin                # go
 export PATH=$PATH:/home/$USER/.pulumi/bin # pulumi
 export PATH=$PATH:~/flutter/bin           # flutter
+<<<<<<< HEAD
 export PATH=$PATH:~/flutter               # flutter
+=======
+
+>>>>>>> 5c1c4e8 (stuff)
 export EDITOR=nvim
 
 # --- mise ---
