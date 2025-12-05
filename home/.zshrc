@@ -106,9 +106,10 @@ source "$ZSH/oh-my-zsh.sh"
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-export PATH=$PATH:~/bin                                    # dotfiles/home/bin
-export PATH=$PATH:/usr/local/go/bin                        # go
-export PATH=$PATH:/home/$USER/.pulumi/bin                  # pulumi
+export PATH=$PATH:~/bin                   # dotfiles/home/bin
+export PATH=$PATH:/usr/local/go/bin       # go
+export PATH=$PATH:~/go/bin                # go
+export PATH=$PATH:/home/$USER/.pulumi/bin # pulumi
 
 export EDITOR=nvim
 
@@ -141,7 +142,6 @@ else
 	symbol='$'
 fi
 PROMPT=$(print "${PROMPT} \n ${symbol} ")
-
 
 # The next line updates PATH for the Google Cloud SDK.
 if [ -f '/Users/user/gcloud/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/user/gcloud/google-cloud-sdk/path.zsh.inc'; fi
