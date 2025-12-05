@@ -136,7 +136,6 @@ fi
 # --- prompt ---
 #
 # set $ when user, # when root
-declare symbol
 if [[ $EUID -eq 0 ]]; then
 	symbol='#'
 else
