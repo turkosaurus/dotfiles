@@ -148,3 +148,4 @@ if [ -f '/Users/user/gcloud/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/use
 
 # The next line enables shell command completion for gcloud.
 if [ -f '/Users/user/gcloud/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/user/gcloud/google-cloud-sdk/completion.zsh.inc'; fi
+export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
