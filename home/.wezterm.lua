@@ -31,10 +31,16 @@ config.font_size = 18
 -- 	return left_padding .. title
 -- end)
 
-config.keys = {{
+config.keys = {
+	{
 		key = "F11",
-		action = wezterm.action.ToggleFullScreen,,
-  {key="Enter", mods="SHIFT", action=wezterm.action{SendString="\x1b\r"}},},
+		action = wezterm.action.ToggleFullScreen,
+	},
+	{
+		key = "Enter",
+		mods = "SHIFT",
+		action = wezterm.action.SendString("\x1b\r"),
+	},
 	{
 		key = "Enter",
 		mods = "SHIFT",
