@@ -106,9 +106,11 @@ source "$ZSH/oh-my-zsh.sh"
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-export PATH=$PATH:~/bin                    # dotfiles/home/bin
-export PATH=$PATH:/usr/local/go/bin        # go
-export PATH=$PATH:/home/$USER/.pulumi/bin  # pulumi
+export PATH=$PATH:~/bin                   # dotfiles/home/bin
+export PATH=$PATH:/usr/local/go/bin       # go
+export PATH=$PATH:~/go/bin                # go
+export PATH=$PATH:/home/$USER/.pulumi/bin # pulumi
+export PATH=$PATH:~/flutter/bin           # flutter
 
 export EDITOR=nvim
 
@@ -124,13 +126,16 @@ fi
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 	alias foo=foo
 elif [[ "$OSTYPE" == "darwin"* ]]; then
+	# MacOS specific aliases
 	alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+
+	# MacOS specific PATHs
+	export PATH=$PATH:/Applications/Firefox.app/Contents/MacOS # firefox
 fi
 
 # --- prompt ---
 #
 # set $ when user, # when root
-declare symbol
 if [[ $EUID -eq 0 ]]; then
 	symbol='#'
 else
@@ -138,3 +143,9 @@ else
 fi
 PROMPT=$(print "${PROMPT} \n ${symbol} ")
 
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/Users/scrubjay/gcloud/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/scrubjay/gcloud/google-cloud-sdk/path.zsh.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/Users/scrubjay/gcloud/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/scrubjay/gcloud/google-cloud-sdk/completion.zsh.inc'; fi
+export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
