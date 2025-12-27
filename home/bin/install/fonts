@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 
+
+declare url
 if [[ $# -ne 1 ]]; then
+    url="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/RobotoMono.zip"
     echo "Usage: $0 <font-url.zip>"
-    exit 1
+    echo "Warn: invalid usage, falling back to default url."
+    echo "Default Url: $url"
+    echo
+else
+    url="$1"
 fi
 
 if [[ $(uname) == "Linux" ]]; then
     mkdir -p ~/.local/share/fonts
-    curl -L "$1" -o /tmp/font.zip
+    curl -L "$url" -o /tmp/font.zip
     unzip -o /tmp/font.zip -d ~/.local/share/fonts
     fc-cache -f -v
 else
