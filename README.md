@@ -6,8 +6,7 @@ Configuration and setup scripts.
 Clone the repo, then `source init.sh` to setup.
 
 ```bash
-git clone https://github.com/turkosaurus/dotfiles
-source init.sh
+wget -qO- https://raw.githubusercontent.com/turkosaurus/dotfiles/refs/heads/main/init.sh | source init.sh
 ```
 - [home/*](home) is symlinked to `$HOME`
 - [home/bin](home/bin) binaries are added to path (can be invoked directly)
