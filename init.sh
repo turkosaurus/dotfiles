@@ -18,6 +18,7 @@ if [[ ! -d "$dot_path" ]]; then
 fi
 
 echo "running dotsync..."
+cd "$dot_path" || exit 1
 ./home/bin/dotsync -v
 
 dot_bin_path="$dot_path/bin"
