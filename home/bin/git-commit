@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+usage() {
+	echo "$0 - commit with generic credential"
+	echo "usage: $0 <commit message>"
+}
+
+if [ $# -ne 1 ]; then
+	echo "error: commit message required"
+	usage
+	exit 1
+fi
+
+id=$(head -c 4 /dev/urandom | xxd -p)
+email="$id@example.com"
+echo "generated identity: $id | $email"
+
+GIT_AUTHOR_NAME="$id" GIT_AUTHOR_EMAIL="$email" \
+GIT_COMMITTER_NAME="$id" GIT_COMMITTER_EMAIL="$email" \
+git commit -m "$1"
+
