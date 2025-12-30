@@ -8,17 +8,17 @@ if [[ ! -d "$dot_path" ]]; then
     echo "dotfiles not found, cloning anew... ($dot_path)"
 	if ! command -v git &> /dev/null; then
 	    echo "git required but not found"
-	    exit 1
+	    return 1
 	fi
 	# suppress any login requirements 
 	if ! GIT_TERMINAL_PROMPT=0 git clone "$repo_path" "$dot_path"; then
 	    echo "error: git clone failed"
-	    exit 1
+	    return 1
 	fi
 fi
 
 echo "running dotsync..."
-cd "$dot_path" || exit 1
+cd "$dot_path" || return 1
 ./home/bin/dotsync -v
 
 dot_bin_path="$dot_path/bin"
