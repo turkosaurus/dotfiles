@@ -2,10 +2,25 @@
 
 set -euo pipefail
 
+dot_path="$HOME/dotfiles"
+repo_path="https://github.com/turkosaurus/dotfiles"
+if [[ ! -d "$dot_path" ]]; then
+    echo "dotfiles not found, cloning anew... ($dot_path)"
+	if ! command -v git &> /dev/null; then
+	    echo "git required but not found"
+	    exit 1
+	fi
+	# suppress any login requirements 
+	if ! GIT_TERMINAL_PROMPT=0 git clone "$repo_path" "$dot_path"; then
+	    echo "error: git clone failed"
+	    exit 1
+	fi
+fi
+
 echo "running dotsync..."
 ./home/bin/dotsync -v
 
-dot_bin_path="$HOME/dotfiles/bin"
+dot_bin_path="$dot_path/bin"
 echo "updating path: PATH=\$PATH:$dot_bin_path"
 export PATH="$PATH:$dot_bin_path"
 
