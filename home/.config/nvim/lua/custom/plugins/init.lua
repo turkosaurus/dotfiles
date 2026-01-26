@@ -24,6 +24,7 @@ if not configs.golangcilsp then
         },
     }
 end
+<<<<<<< HEAD
 
 lspconfig.golangci_lint_ls.setup {
     filetypes = { "go", "gomod" },
@@ -37,3 +38,8 @@ lspconfig.golangci_lint_ls.setup {
     ---@type render.md.UserConfig
     opts = {},
 }
+=======
+lspconfig.golangci_lint_ls.setup {
+    filetypes = { "go", "gomod" },
+}
+>>>>>>> 3378f0a (add gci lsp)
