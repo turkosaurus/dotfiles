@@ -11,4 +11,3 @@ if ! apt-get install -y podman; then
     echo "apt-get install podman failed"
     exit 1
 fi
-

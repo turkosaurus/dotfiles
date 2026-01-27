@@ -1,0 +1,25 @@
+# mise configuration for cross-platform development tools
+# https://mise.jdx.dev/configuration.html
+
+[tools]
+# language runtimes
+go = "1.24.7"          # replaces home/bin/install/go
+node = "22"            # replaces home/bin/install/node (nvm)
+"asdf:richin13/asdf-neovim" = "nightly"  # 0.12 dev, replaces home/bin/install/neovim
+
+# dev tools already in use
+golangci-lint = "2.4.0"
+terraform = "1.13.2"
+terragrunt = "0.93.13"
+
+[env]
+# go environment
+_.path = ["{{ config_root }}/home/bin", "$HOME/go/bin"]
+GOPATH = "{{ env.HOME }}/go"
+
+[settings]
+# auto-install tools when entering directory
+auto_install = true
+
+# use release versions instead of precompiled
+experimental = false
