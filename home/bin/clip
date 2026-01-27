@@ -12,7 +12,7 @@ if [ ! -f ~/.clipboard ]; then
 fi
 
 # copy command
-cat << 'EOF' > /usr/local/bin/c
+cat <<'EOF' >/usr/local/bin/c
 #!/usr/bin/env bash
 
 cat > ~/.clipboard
@@ -20,10 +20,9 @@ EOF
 chmod +x /usr/local/bin/c
 
 # paste command
-cat << 'EOF' > /usr/local/bin/v
+cat <<'EOF' >/usr/local/bin/v
 #!/usr/bin/env bash
 
 cat ~/.clipboard
 EOF
 chmod +x /usr/local/bin/v
-
