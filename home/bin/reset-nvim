@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+usage() {
+	cat >&2 <<EOF
+usage: $(basename "$0") [-dv] [APPNAME]
+
+Reset and reinstall Neovim plugins for a given config.
+
+Options:
+    -d          debug - load plugins before launch and keep logs
+    -v          verbose
+    -h          help
+
+Arguments:
+    APPNAME    Neovim config name (default: nvim)
+
+Examples:
+    $(basename "$0") nvim-wip
+    $(basename "$0") -dv nvim-wip
+    $(basename "$0") -d
+EOF
+	exit 1
+}
+
+DEBUG=false
+VERBOSE=false
+
+while getopts "dvh" opt; do
+	case "$opt" in
+	d) DEBUG=true ;;
+	v) VERBOSE=true ;;
+	h) usage ;;
+	?) usage ;;
+	esac
+done
+shift $((OPTIND - 1))
+
+APPNAME="${1:-nvim}"
+
+if [ $VERBOSE = true ]; then
+	echo "Using APPNAME=$APPNAME"
+fi
+
+# Remove cache/state/data
+for dir in ~/.local/share/$APPNAME ~/.local/state/$APPNAME ~/.cache/$APPNAME; do
+	if [ -d "$dir" ]; then
+		echo "Removing $dir"
+		rm -rf "$dir" || {
+			echo "error: cannot remove $dir"
+			exit 1
+		}
+	fi
+done
+
+if [ $VERBOSE = true ]; then
+	if ! dotsync -lv; then
+		echo "error: cannot dotsync"
+		exit 1
+	fi
+else
+	if ! dotsync -l; then
+		echo "error: cannot dotsync"
+		exit 1
+	fi
+fi
+
+if [ "$DEBUG" = true ]; then
+	if [ $VERBOSE = true ]; then
+		echo "Installing plugins for $APPNAME..."
+	fi
+	if ! NVIM_APPNAME="$APPNAME" nvim --headless -c "Lazy! sync" -c "quitall" 2>&1 | tee /tmp/$APPNAME-install.log; then
+		echo "Warning: Plugin installation had errors. Check /tmp/$APPNAME-install.log"
+		exit 1
+	fi
+fi
+
+if ! NVIM_APPNAME="$APPNAME" nvim; then
+	echo "error: cannot launch nvim"
+	exit 1
+fi
