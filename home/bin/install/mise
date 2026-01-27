@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+
+# cross-platform mise installer
+# https://mise.jdx.dev/getting-started.html
+
+usage() {
+    echo "usage: $(basename "$0") [flags]"
+    echo "flags:"
+    echo "  -v  verbose output"
+    echo "  -h  show this help message"
+}
+
+while getopts "vh" opt; do
+    case "$opt" in
+    v)
+        VERBOSE=1
+        ;;
+    h)
+        usage
+        exit 0
+        ;;
+    *)
+        usage
+        exit 1
+        ;;
+    esac
+done
+
+debug() {
+    if [[ "$VERBOSE" == "1" ]]; then
+        echo "$(basename "$0") [debug]: $1"
+    fi
+}
+
+error() {
+    echo "$(basename "$0") [error]: $1"
+    exit 1
+}
+
+case "$OSTYPE" in
+darwin*)
+    if ! command -v brew &>/dev/null; then
+        error "homebrew not installed"
+    fi
+
+    if command -v mise &>/dev/null; then
+        debug "mise already installed, upgrading..."
+        if [[ "$VERBOSE" == "1" ]]; then
+            brew upgrade mise || error "failed to upgrade mise via homebrew"
+        else
+            brew upgrade mise &>/dev/null || error "failed to upgrade mise via homebrew"
+        fi
+    else
+        debug "installing mise via homebrew..."
+        if [[ "$VERBOSE" == "1" ]]; then
+            brew install mise || error "failed to install mise via homebrew"
+        else
+            brew install mise &>/dev/null || error "failed to install mise via homebrew"
+        fi
+    fi
+    ;;
+linux-gnu*)
+    if command -v mise &>/dev/null; then
+        debug "mise already installed, upgrading..."
+        if [[ "$VERBOSE" == "1" ]]; then
+            curl https://mise.run | sh || error "failed to upgrade mise"
+        else
+            curl -fsSL https://mise.run | sh &>/dev/null || error "failed to upgrade mise"
+        fi
+    else
+        debug "installing mise via curl..."
+        if [[ "$VERBOSE" == "1" ]]; then
+            curl https://mise.run | sh || error "failed to install mise"
+        else
+            curl -fsSL https://mise.run | sh &>/dev/null || error "failed to install mise"
+        fi
+    fi
+
+    # add to PATH for immediate use
+    export PATH="$HOME/.local/bin:$PATH"
+    ;;
+*)
+    error "unsupported OS: $OSTYPE"
+    ;;
+esac
+
+# verify installation
+if ! command -v mise &>/dev/null; then
+    error "mise installation failed"
+fi
+
+debug "mise installed successfully: $(mise --version)"
