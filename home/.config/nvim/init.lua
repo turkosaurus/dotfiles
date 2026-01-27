@@ -1,84 +1,38 @@
---[[
-=====================================================================
-=====================================================================
-========                                    .-----.          ========
-========         .----------------------.   | === |          ========
-========         |.-""""""""""""""""""-.|   |-----|          ========
-========         ||                    ||   | === |          ========
-========         ||   KICKSTART.NVIM   ||   |-----|          ========
-========         ||                    ||   | === |          ========
-========         ||                    ||   |-----|          ========
-========         ||:Tutor              ||   |:::::|          ========
-========         |'-..................-'|   |____o|          ========
-========         `"")----------------(""`   ___________      ========
-========        /::::::::::|  |::::::::::\  \ no mouse \     ========
-========       /:::========|  |==hjkl==:::\  \ required \    ========
-========      '""""""""""""'  '""""""""""""'  '""""""""""'   ========
-========                                                     ========
-=====================================================================
-=====================================================================
--- ]]
+-- bootstrap lazy.nvim
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not (vim.uv or vim.loop).fs_stat(lazypath) then
+	local out = vim.fn.system({
+		"git",
+		"clone",
+		"--filter=blob:none",
+		"--branch=stable",
+		"https://github.com/folke/lazy.nvim.git",
+		lazypath,
+	})
+	if vim.v.shell_error ~= 0 then
+		vim.api.nvim_echo({
+			{ "Failed to clone lazy.nvim:\n", "ErrorMsg" },
+			{ out, "WarningMsg" },
+			{ "\nPress any key to exit..." },
+		}, true, {})
+		vim.fn.getchar()
+		os.exit(1)
+	end
+end
+vim.opt.rtp:prepend(lazypath)
 
--- Set <space> as the leader key
--- See `:help mapleader`
---  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
+-- leader keys
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
--- Set to true if you have a Nerd Font installed and selected in the terminal
--- TODO: check this dynamically for portability
+-- nerd font
 vim.g.have_nerd_font = true
 
--- [[ Setting options ]]
--- See `:help vim.opt`
---  For more options, you can see `:help option-list`
-require "options"
-
--- Sync clipboard between OS and Neovim.
---  Schedule the setting after `UiEnter` because it can increase startup-time.
---  Remove this option if you want your OS clipboard to remain independent.
---  See `:help 'clipboard'`
+-- clipboard
 vim.schedule(function()
-    vim.opt.clipboard = "unnamedplus"
+	vim.opt.clipboard = "unnamedplus"
 end)
 
--- [[ Basic Keymaps ]]
---  See `:help vim.keymap.set()`
-require "keymaps"
-
--- [[ Basic Autocommands ]]
---  See `:help lua-guide-autocommands`
-
--- [[ Install `lazy.nvim` plugin manager ]]
-require "lazy-bootstrap"
-
--- [[ Configure and install plugins ]]
---  To check the current status of your plugins, run
---    :Lazy
---
---  You can press `?` in this menu for help. Use `:q` to close the window
---
---  To update plugins you can run
---    :Lazy update
---
-require "lazy-plugins"
-
--- TODO: find a support for this?
--- vim.api.nvim_set_keymap(
---     "",
---     "<CapsLock>",
---     "<Esc>",
---     { noremap = true, silent = true }
--- )
--- vim.api.nvim_set_keymap(
---     "i",
---     "<CapsLock>",
---     "<Esc>",
---     { noremap = true, silent = true }
--- )
--- vim.api.nvim_set_keymap(
---     "v",
---     "<CapsLock>",
---     "<Esc>",
---     { noremap = true, silent = true }
--- )
+require("settings")
+require("keymap")
+require("config.lazy")
