@@ -1,4 +1,4 @@
----@diagnostic disable: undefined-global
-
-vim.opt.wrap = true
-vim.opt.linebreak = true
+vim.opt_local.spell = true
+vim.opt_local.spelllang = "en"
+vim.opt_local.wrap = true
+vim.opt_local.linebreak = true

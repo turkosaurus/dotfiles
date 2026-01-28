@@ -38,12 +38,6 @@ vim.opt.fillchars:append { vert = "┃" }
 vim.api.nvim_set_hl(0, "WinSeparator", { bold = false })
 vim.opt.winhighlight = "VertSplit:WinSeparator"
 
--- terminal insert mode
-vim.api.nvim_create_autocmd("TermOpen", {
-	pattern = "*",
-	command = "startinsert",
-})
-
 -- highlight yank
 vim.api.nvim_create_autocmd("TextYankPost", {
 	group = vim.api.nvim_create_augroup("highlight-yank", { clear = true }),
@@ -56,32 +50,5 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 vim.api.nvim_create_autocmd("CursorHold", {
 	callback = function()
 		vim.diagnostic.open_float(nil, { focusable = false })
-	end,
-})
-
--- format go
-vim.api.nvim_create_autocmd("BufWritePre", {
-	pattern = "*.go",
-	callback = function()
-		vim.bo.tabstop = 4
-		vim.bo.shiftwidth = 4
-		vim.bo.expandtab = true
-		vim.lsp.buf.format { async = false }
-		vim.lsp.buf.code_action {
-			context = {
-				only = { "source.organizeImports" },
-				diagnostics = vim.diagnostic.get(0),
-			},
-			apply = true,
-		}
-	end,
-})
-
--- spell for text files
-vim.api.nvim_create_autocmd("FileType", {
-	pattern = { "markdown", "text", "gitcommit" },
-	callback = function()
-		vim.opt_local.spell = true
-		vim.opt_local.spelllang = "en"
 	end,
 })
