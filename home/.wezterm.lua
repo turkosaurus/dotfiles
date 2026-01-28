@@ -18,7 +18,7 @@ config.font = wezterm.font_with_fallback({
 		style = "Normal",
 	},
 })
-config.font_size = 18
+config.font_size = 16
 
 -- -- ~/.wezterm.lua
 -- wezterm.on("format-window-title", function(tab, pane, tabs, panes, config)
@@ -35,11 +35,6 @@ config.keys = {
 	{
 		key = "F11",
 		action = wezterm.action.ToggleFullScreen,
-	},
-	{
-		key = "Enter",
-		mods = "SHIFT",
-		action = wezterm.action.SendString("\x1b\r"),
 	},
 	{
 		key = "Enter",
@@ -69,14 +64,18 @@ config.hide_tab_bar_if_only_one_tab = true
 config.window_padding = {
 	left = 0,
 	right = 0,
-	top = 0,
+	top = 30, -- notch
 	bottom = 0,
 }
 config.window_decorations = "TITLE | RESIZE"
 
 config.default_cursor_style = "BlinkingBlock"
-config.cursor_blink_rate = 400
+config.cursor_blink_rate = 340
 config.force_reverse_video_cursor = true
 config.max_fps = 60
+config.animation_fps = 60
+config.cursor_blink_ease_in = "Constant"
+config.cursor_blink_ease_out = "Constant"
+config.term = "wezterm"
 
 return config
