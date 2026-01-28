@@ -25,8 +25,3 @@ For a verbose (`-v`), local-only (`-l`) run:
 dotsync -vl
 ```
 
-| foo | bar |
-| --- | --- |
-| 1 | 2| 
-
-
