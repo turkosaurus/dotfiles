@@ -14,5 +14,8 @@ return {
 		-- Navigate conflicts
 		{ "]c", desc = "Next conflict" },
 		{ "[c", desc = "Previous conflict" },
+		-- is this a thinkg
+		-- Pull Request diff view
+		{ "<leader>gd", "<cmd>Gvdiffsplit<cr>", desc = "Open PR diff view" },
 	},
 }
