@@ -39,6 +39,13 @@ REMOTE_URL=$(git remote get-url "$REMOTE")
 echo "Pushing branch '$BRANCH' to '$REMOTE' ($REMOTE_URL)"
 echo ""
 
+# Configure remote to accept pushes
+# Extract host and path from user@host:path format
+REMOTE_HOST=$(echo "$REMOTE_URL" | cut -d: -f1)
+REMOTE_PATH=$(echo "$REMOTE_URL" | cut -d: -f2)
+echo "Configuring remote..."
+ssh "$REMOTE_HOST" "cd $REMOTE_PATH && git config receive.denyCurrentBranch updateInstead" 2>/dev/null || true
+
 # Push
 git push "$REMOTE" "$BRANCH"
 
