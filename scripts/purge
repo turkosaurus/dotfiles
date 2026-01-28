@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+set -e
+
+if [ $# -ne 1 ]; then
+    echo "Usage: purge <author_or_email_pattern>"
+    echo "Example: purge 'john@example.com'"
+    echo "Example: purge 'John Doe'"
+    exit 1
+fi
+
+PATTERN="$1"
+
+echo "WARNING: This will rewrite git history!"
+echo "Pattern to anonymize: $PATTERN"
+echo "Matches will be replaced with:"
+echo "  Name: anon"
+echo "  Email: anon@localhost"
+echo ""
+read -p "Continue? (y/N) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Aborted."
+    exit 1
+fi
+
+git filter-branch -f --env-filter '
+PATTERN="'"$PATTERN"'"
+
+# Check if author name or email matches pattern
+if echo "$GIT_AUTHOR_NAME" | grep -qi "$PATTERN" || echo "$GIT_AUTHOR_EMAIL" | grep -qi "$PATTERN"; then
+    export GIT_AUTHOR_NAME="anon"
+    export GIT_AUTHOR_EMAIL="anon@localhost"
+fi
+
+# Check if committer name or email matches pattern
+if echo "$GIT_COMMITTER_NAME" | grep -qi "$PATTERN" || echo "$GIT_COMMITTER_EMAIL" | grep -qi "$PATTERN"; then
+    export GIT_COMMITTER_NAME="anon"
+    export GIT_COMMITTER_EMAIL="anon@localhost"
+fi
+' --tag-name-filter cat -- --all
+
+echo ""
+echo "Done! History has been rewritten."
+echo "Run 'git push --force --all' to update remote (if needed)"
+echo "Run 'git push --force --tags' to update tags (if needed)"
