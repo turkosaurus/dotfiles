@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.mouse = "a"
@@ -20,6 +21,12 @@ vim.opt.shiftwidth = 4
 vim.opt.expandtab = false
 vim.opt.wrap = false
 vim.opt.linebreak = true
+vim.opt.guicursor = {
+	"n-v-c:block-blinkwait700-blinkoff170-blinkon170", --normal/visual/command: blinking block
+	"i-ci-ve:ver25-blinkwait700-blinkoff170-blinkon170", -- insert: blinking vertical bar
+	"r-cr-o:hor20-blinkwait700-blinkoff170-blinkon170", -- replace: blinking underline
+	"a:blinkon170",
+}
 
 -- fold
 vim.opt.foldmethod = "expr"
@@ -34,7 +41,7 @@ vim.opt.spell = true
 vim.opt.spelllang = "en"
 
 -- window separator
-vim.opt.fillchars:append { vert = "┃" }
+vim.opt.fillchars:append({ vert = "┃" })
 vim.api.nvim_set_hl(0, "WinSeparator", { bold = false })
 vim.opt.winhighlight = "VertSplit:WinSeparator"
 
