@@ -141,7 +141,8 @@ if [[ $EUID -eq 0 ]]; then
 else
 	symbol='$'
 fi
-PROMPT=$(print "${PROMPT} \n ${symbol} ")
+# embed cursor reset in prompt (use terminal default)
+PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 
 # The next line updates PATH for the Google Cloud SDK.
 if [ -f '/Users/scrubjay/gcloud/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/scrubjay/gcloud/google-cloud-sdk/path.zsh.inc'; fi
