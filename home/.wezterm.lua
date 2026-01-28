@@ -46,6 +46,10 @@ config.keys = {
 		mods = "CTRL|SHIFT",
 		action = wezterm.action.ToggleFullScreen,
 	},
+	{
+		key = "Backspace",
+		action = wezterm.action.SendString("\x7f"),
+	},
 }
 
 -- config.tab_bar_at_bottom = true
@@ -76,6 +80,5 @@ config.max_fps = 60
 config.animation_fps = 60
 config.cursor_blink_ease_in = "Constant"
 config.cursor_blink_ease_out = "Constant"
-config.term = "wezterm"
 
 return config
