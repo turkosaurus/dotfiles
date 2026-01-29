@@ -1,0 +1,38 @@
+# I'm not sure this is actually being called.
+ui:
+  sectionsShowCount: true
+table:
+  showSeparators: true
+  compact: true
+colors:
+  text:
+    primary: "#ffffff"
+    secondary: "#c6c6c6"
+    inverted: "#303030"
+    faint: "#8a8a8a"
+    warning: "#800000"
+    success: "#008000"
+    actor: "#c6c6c6"
+  background:
+    selected: "#808080"
+  border:
+    primary: "#808080"
+    secondary: "#c0c0c0"
+    faint: "#000000"
+  inline:
+    icons:
+      newcontributor: "077"
+      contributor: "075"
+      collaborator: "178"
+      member: "178"
+      owner: "178"
+      unknownrole: "178"
+icons:
+  inline:
+    newcontributor: "󰎔"
+    contributor: ""
+    collaborator: ""
+    member: ""
+    owner: ""
+    unknownrole: "󰭙"
+
