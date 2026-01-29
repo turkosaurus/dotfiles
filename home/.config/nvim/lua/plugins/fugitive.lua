@@ -1,21 +1,30 @@
 return {
 	"tpope/vim-fugitive",
+	cmd = {
+		"Git",
+		"Gwrite",
+		"Gread",
+		"Gedit",
+		"Gdiffsplit",
+		"Gvdiffsplit",
+		"GMove",
+		"GDelete",
+		"GBrowse",
+	},
 	keys = {
-		-- Git status and blame
 		{ "<leader>gs", "<cmd>Git<cr>", desc = "Git status" },
 		{ "<leader>gB", "<cmd>Git blame<cr>", desc = "Blame file" },
 
-		-- Merge conflict resolution
-		{ "<leader>gm", "<cmd>Gvdiffsplit!<cr>", desc = "Open 3-way merge" },
-		{ "<leader>gh", "<cmd>diffget //2<cr>", desc = "Get from left (target)" },
-		{ "<leader>gl", "<cmd>diffget //3<cr>", desc = "Get from right (merge)" },
-		{ "<leader>gw", "<cmd>Gwrite<cr>", desc = "Stage resolved file" },
+		-- 3-way merge
+		{ "<leader>gm", "<cmd>Gvdiffsplit!<cr>", desc = "3-way merge" },
+		{ "<leader>gh", "<cmd>diffget //2<cr>", desc = "Get hunk from left" },
+		{ "<leader>gl", "<cmd>diffget //3<cr>", desc = "Get hunk from right" },
+		{ "<leader>g2", "<cmd>Gread :2<cr>", desc = "Accept entire left" },
+		{ "<leader>g3", "<cmd>Gread :3<cr>", desc = "Accept entire right" },
+		{ "<leader>gw", "<cmd>Gwrite<cr>", desc = "Stage file" },
+		{ "<leader>gq", "<cmd>diffoff | only<cr>", desc = "Close diff" },
+		{ "<leader>dp", "dp", desc = "Put diff to other" },
 
-		-- Navigate conflicts
-		{ "]c", desc = "Next conflict" },
-		{ "[c", desc = "Previous conflict" },
-
-		-- Pull Request diff view
-		{ "<leader>gd", "<cmd>Gvdiffsplit<cr>", desc = "Open PR diff view" },
+		{ "<leader>gd", "<cmd>Gvdiffsplit<cr>", desc = "Diff split" },
 	},
 }
