@@ -9,66 +9,15 @@
   Usage: luajit main.lua
 ]]
 
-local ffi = require("ffi")
 local config = require("config")
 local Oscillator = require("lib.oscillator")
 local ADSR = require("lib.adsr")
+local portaudio = require("lib.portaudio")
 
--- PortAudio FFI bindings
-ffi.cdef[[
-  typedef int PaError;
-  typedef double PaTime;
-  typedef unsigned long PaSampleFormat;
-  typedef unsigned long PaStreamFlags;
-
-  typedef struct PaStreamParameters {
-    int device;
-    int channelCount;
-    PaSampleFormat sampleFormat;
-    double suggestedLatency;
-    void *hostApiSpecificStreamInfo;
-  } PaStreamParameters;
-
-  typedef void PaStream;
-
-  PaError Pa_Initialize(void);
-  PaError Pa_Terminate(void);
-  const char* Pa_GetErrorText(PaError errorCode);
-  int Pa_GetDefaultOutputDevice(void);
-
-  PaError Pa_OpenStream(
-    PaStream** stream,
-    const PaStreamParameters *inputParameters,
-    const PaStreamParameters *outputParameters,
-    double sampleRate,
-    unsigned long framesPerBuffer,
-    PaStreamFlags streamFlags,
-    void *streamCallback,
-    void *userData
-  );
-
-  PaError Pa_StartStream(PaStream *stream);
-  PaError Pa_StopStream(PaStream *stream);
-  PaError Pa_CloseStream(PaStream *stream);
-  PaError Pa_WriteStream(PaStream *stream, const void *buffer, unsigned long frames);
-]]
-
--- Load PortAudio library
-local pa
-if ffi.os == "OSX" then
-  pa = ffi.load("portaudio")
-elseif ffi.os == "Linux" then
-  pa = ffi.load("portaudio.so.2")
-else
-  pa = ffi.load("portaudio")
-end
-
--- Helper function to check PortAudio errors
-local function pa_check(err)
-  if err ~= 0 then
-    error("PortAudio error: " .. ffi.string(pa.Pa_GetErrorText(err)))
-  end
-end
+-- Import PortAudio bindings
+local pa = portaudio.pa
+local pa_check = portaudio.pa_check
+local ffi = portaudio.ffi
 
 -- Generate audio buffer
 local function generate_audio(oscillator, envelope, num_frames, master_volume)
