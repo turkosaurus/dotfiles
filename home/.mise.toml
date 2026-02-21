@@ -5,6 +5,7 @@
 # language runtimes
 go = "1.24.7"          # replaces home/bin/install/go
 node = "22"            # replaces home/bin/install/node (nvm)
+python = "3"           # replaces python3 in home/bin/install/net
 "asdf:richin13/asdf-neovim" = "nightly"  # 0.12 dev, replaces home/bin/install/neovim
 
 # dev tools already in use
