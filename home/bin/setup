@@ -1,21 +1,13 @@
 #!/usr/bin/env bash
 
-function install () {
-	if ! command -v "$1" &> /dev/null; then
-		if ! bin/install/"$1"; then
-			echo "error: installation: $1"
-			exit 1
-		else
-			echo "already exists: $1"
-		fi
-		if [[ -n "$DEBUG" ]]; then
-			echo "installed: $1"
-		fi
-	fi
-}
+set -e
 
-install nvim
+# ensure mise is installed
+if ! command -v mise &>/dev/null; then
+    bin/install/mise || { echo "error: mise installation failed"; exit 1; }
+fi
 
-install go
+# install all tools defined in .mise.toml
+mise install
 
 ./key swap
