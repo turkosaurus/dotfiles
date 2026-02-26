@@ -124,7 +124,7 @@ fi
 #
 # determine if linux or macos
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-	alias foo=foo
+	: # linux-specific aliases
 elif [[ "$OSTYPE" == "darwin"* ]]; then
 	# MacOS specific aliases
 	alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
@@ -144,9 +144,3 @@ fi
 # embed cursor reset in prompt (use terminal default)
 PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 
-# The next line updates PATH for the Google Cloud SDK.
-if [ -f '/Users/scrubjay/gcloud/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/scrubjay/gcloud/google-cloud-sdk/path.zsh.inc'; fi
-
-# The next line enables shell command completion for gcloud.
-if [ -f '/Users/scrubjay/gcloud/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/scrubjay/gcloud/google-cloud-sdk/completion.zsh.inc'; fi
-export PATH="/opt/homebrew/opt/ruby/bin:$PATH"

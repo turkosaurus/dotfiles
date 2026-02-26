@@ -15,7 +15,7 @@ terragrunt = "0.93.13"
 
 [env]
 # go environment
-_.path = ["{{ config_root }}/home/bin", "$HOME/go/bin"]
+_.path = ["{{ config_root }}/home/bin", "{{ env.HOME }}/go/bin"]
 GOPATH = "{{ env.HOME }}/go"
 
 [settings]
