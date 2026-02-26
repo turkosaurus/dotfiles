@@ -24,7 +24,7 @@ if ! ./home/bin/dotsync -v; then
 	return 1
 fi
 
-dot_bin_path="$dot_path/bin"
+dot_bin_path="$dot_path/home/bin"
 echo "updating path: PATH=\$PATH:$dot_bin_path"
 export PATH="$PATH:$dot_bin_path"
 
@@ -49,6 +49,13 @@ else
 	echo "cannot update shell config, not sourced."
 	echo "restart your terminal to apply changes, or run:"
 	echo "  source $0"
+fi
+
+echo "running setup..."
+cd "$dot_path" || return 1
+if ! ./home/bin/setup; then
+	echo "error: setup failed"
+	return 1
 fi
 
 echo "dotfiles init complete."

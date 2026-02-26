@@ -2,12 +2,28 @@
 
 set -e
 
+# ensure oh-my-zsh is installed
+if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
+    bin/install/ohmyzosh
+fi
+
 # ensure mise is installed
 if ! command -v mise &>/dev/null; then
     bin/install/mise || { echo "error: mise installation failed"; exit 1; }
 fi
 
 # install all tools defined in .mise.toml
-mise install
+if ! mise install; then
+    echo "error: failed to install tools defined in .mise.toml"
+    exit 1
+fi
 
-./key swap
+# on linux
+if [[ "$(uname -s)" == "Linux" ]]; then
+    # ensure key swap is installed
+    if ! command -v key-swap &>/dev/null; then
+        ./key swap
+        bin/install/keyswap || { echo "error: key swap failed"; exit 1; }
+    fi
+fi
+
