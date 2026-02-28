@@ -6,6 +6,9 @@ return {
 		"folke/lazydev.nvim",
 	},
 	opts = {
+		enabled = function()
+			return vim.b.completion ~= false
+		end,
 		keymap = { preset = "default" },
 		appearance = { nerd_font_variant = "mono" },
 		completion = {

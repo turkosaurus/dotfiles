@@ -1,22 +1,5 @@
 return {
 	{
-		"github/copilot.vim",
-		config = function()
-			vim.g.copilot_no_tab_map = true
-			vim.api.nvim_set_keymap("i", "<C-l>", 'copilot#Accept("")', { silent = true, expr = true, noremap = true })
-			vim.g.copilot_chat_accept_key = "<C-l>"
-		end,
-	},
-	{
-		"CopilotC-Nvim/CopilotChat.nvim",
-		dependencies = {
-			{ "github/copilot.vim" },
-			{ "nvim-lua/plenary.nvim", branch = "master" },
-		},
-		build = "make tiktoken",
-		opts = {},
-	},
-	{
 		"zbirenbaum/copilot.lua",
 		cmd = "Copilot",
 		event = "InsertEnter",
@@ -44,5 +27,14 @@ return {
 				},
 			})
 		end,
+	},
+	{
+		"CopilotC-Nvim/CopilotChat.nvim",
+		dependencies = {
+			{ "zbirenbaum/copilot.lua" },
+			{ "nvim-lua/plenary.nvim", branch = "master" },
+		},
+		build = "make tiktoken",
+		opts = {},
 	},
 }
