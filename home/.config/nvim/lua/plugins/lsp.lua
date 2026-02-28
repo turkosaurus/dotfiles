@@ -14,6 +14,7 @@ return {
 					"stylua",
 					"shfmt",
 					"shellcheck",
+					"yaml-language-server",
 				},
 			})
 
@@ -155,7 +156,21 @@ return {
 				},
 			})
 
-			vim.lsp.enable({ "gopls", "pyright", "bashls", "lua_ls" })
+			vim.lsp.config("yamlls", {
+				settings = {
+					yaml = {
+						schemaStore = {
+							enable = true,
+							url = "https://www.schemastore.org/api/json/catalog.json",
+						},
+						schemas = {
+							["https://json.schemastore.org/github-workflow.json"] = "/.github/workflows/*",
+						},
+					},
+				},
+			})
+
+			vim.lsp.enable({ "gopls", "pyright", "bashls", "lua_ls", "yamlls" })
 		end,
 	},
 }
