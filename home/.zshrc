@@ -107,6 +107,7 @@ source "$ZSH/oh-my-zsh.sh"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 export PATH=$PATH:~/bin                   # dotfiles/home/bin
+export PATH=$PATH:~/.local/bin            # ~/.local/bin
 export PATH=$PATH:/usr/local/go/bin       # go
 export PATH=$PATH:~/go/bin                # go
 export PATH=$PATH:/home/$USER/.pulumi/bin # pulumi
