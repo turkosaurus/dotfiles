@@ -24,6 +24,14 @@ return {
 		end,
 		formatters_by_ft = {
 			lua = { "stylua" },
+			sh = { "shfmt" },
+			bash = { "shfmt" },
+			zsh = { "shfmt" },
+		},
+		formatters = {
+			shfmt = {
+				prepend_args = { "-i", "2", "-ci" },
+			},
 		},
 	},
 }
