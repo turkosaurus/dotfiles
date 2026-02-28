@@ -12,6 +12,8 @@ return {
 					"bash-language-server",
 					"lua-language-server",
 					"stylua",
+					"shfmt",
+					"shellcheck",
 				},
 			})
 
@@ -138,14 +140,7 @@ return {
 				filetypes = { "sh", "zsh", "bash" },
 				settings = {
 					bashIde = {
-						completion = {
-							addBrackets = true,
-							addSpaces = true,
-						},
-						diagnostics = {
-							enable = true,
-							enableParameterHints = true,
-						},
+						shellcheckPath = "", -- disable shellcheck (workaround for unicode parse bug)
 					},
 				},
 			})
