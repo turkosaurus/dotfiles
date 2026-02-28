@@ -26,6 +26,10 @@ return {
 					},
 				},
 			})
+
+			vim.keymap.set("n", "<leader>tc", function()
+				require("copilot.suggestion").toggle_auto_trigger()
+			end, { desc = "toggle copilot" })
 		end,
 	},
 	{
