@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# git-branches - list branches sorted by recent commits
+# usage: git branches
+
+if [[ -n "$NO_COLOR" ]]; then
+	git branch --sort=-committerdate \
+		--format='%(HEAD) %(committerdate:relative)%09%(refname:short)%09%(contents:subject)' |
+		column -t -s $'\t'
+else
+	git branch --sort=-committerdate \
+		--format='%(HEAD) %(color:yellow)%(committerdate:relative)%(color:reset)%09%(color:green)%(refname:short)%(color:reset)%09%(contents:subject)' \
+		--color=always |
+		column -t -s $'\t'
+fi
