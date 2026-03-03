@@ -7,17 +7,14 @@
   "permissions": {
     "allow": [
       "Bash(go test *)",
+      "Bash(go build *)",
       "Read(~/.zshrc)"
     ],
     "deny": [
-      "Bash(curl *)",
       "Read(./.env)",
       "Read(./*.env)"
     ]
   },
-  "companyAnnouncements": [
-    "I lack the capacity for empathy or judgement."
-  ],
   "spinnerVerbs": {
     "mode": "replace",
     "verbs": [
