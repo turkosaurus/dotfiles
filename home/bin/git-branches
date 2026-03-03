@@ -15,7 +15,7 @@ fi
 
 # collect branch data
 branches=()
-max_date=0 max_ref=0 max_up=0 max_track=0 max_vs=0
+max_ref=0 max_up=0 max_track=0 max_vs=0 max_subject=0
 
 while IFS='|' read -r head ref date upstream track subject; do
 	# compute ahead/behind vs default branch
@@ -42,11 +42,11 @@ while IFS='|' read -r head ref date upstream track subject; do
 	[[ -z "$head" ]] && head=" "
 
 	# track max widths
-	(( ${#date} > max_date )) && max_date=${#date}
 	(( ${#ref} > max_ref )) && max_ref=${#ref}
 	(( ${#upstream} > max_up )) && max_up=${#upstream}
 	(( ${#track} > max_track )) && max_track=${#track}
 	(( ${#vs_default} > max_vs )) && max_vs=${#vs_default}
+	(( ${#subject} > max_subject )) && max_subject=${#subject}
 
 	# store row
 	branches+=("$head|$date|$ref|$upstream|$track|$vs_default|$subject")
@@ -66,15 +66,15 @@ for row in "${branches[@]}"; do
 	IFS='|' read -r head date ref upstream track vs_default subject <<< "$row"
 
 	# pad values first (plain text)
-	date_pad=$(printf "%-${max_date}s" "$date")
 	ref_pad=$(printf "%-${max_ref}s" "$ref")
 	up_pad=$(printf "%-${max_up}s" "$upstream")
 	track_pad=$(printf "%-${max_track}s" "$track")
 	vs_pad=$(printf "%-${max_vs}s" "$vs_default")
+	subject_pad=$(printf "%-${max_subject}s" "$subject")
 
 	# then apply colors to padded strings
-	date_fmt="${yellow}${date_pad}${reset}"
 	ref_fmt="${green}${ref_pad}${reset}"
+	date_fmt="${yellow}${date}${reset}"
 
 	if [[ "$upstream" == "-" ]]; then
 		up_fmt="${dim}${up_pad}${reset}"
@@ -95,5 +95,5 @@ for row in "${branches[@]}"; do
 	fi
 
 	printf "%s  %s  %s  %s  %s  %s  %s\n" \
-		"$head" "$date_fmt" "$ref_fmt" "$up_fmt" "$track_fmt" "$vs_fmt" "$subject"
+		"$head" "$ref_fmt" "$up_fmt" "$track_fmt" "$vs_fmt" "$subject_pad" "$date_fmt"
 done
