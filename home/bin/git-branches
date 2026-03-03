@@ -3,18 +3,97 @@
 # git-branches - list branches sorted by recent commits
 # usage: git branches
 
-upstream='%(if)%(upstream)%(then)%(upstream:short)%(else)-%(end)'
-track='%(if)%(upstream)%(then)%(if)%(upstream:track)%(then)%(upstream:track)%(else)(current)%(end)%(else)-%(end)'
-
-if [[ -n "$NO_COLOR" ]]; then
-	git branch --sort=-committerdate \
-		--format="%(HEAD) %(committerdate:relative)%09%(refname:short)%09${upstream}%09${track}%09%(contents:subject)" |
-		column -t -s $'\t'
-else
-	# track status: red when ahead/behind, dim when current
-	track_color='%(if)%(upstream)%(then)%(if)%(upstream:track)%(then)%(color:red)%(upstream:track)%(color:reset)%(else)%(color:dim)(current)%(color:reset)%(end)%(else)%(color:dim)-%(color:reset)%(end)'
-	git branch --sort=-committerdate \
-		--format="%(HEAD) %(color:yellow)%(committerdate:relative)%(color:reset)%09%(color:green)%(refname:short)%(color:reset)%09%(color:blue)${upstream}%(color:reset)%09${track_color}%09%(contents:subject)" \
-		--color=always |
-		column -t -s $'\t'
+# find default branch (main or master)
+default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+if [[ -z "$default_branch" ]]; then
+	if git show-ref --verify --quiet refs/heads/main; then
+		default_branch="main"
+	elif git show-ref --verify --quiet refs/heads/master; then
+		default_branch="master"
+	fi
 fi
+
+# collect branch data
+branches=()
+max_date=0 max_ref=0 max_up=0 max_track=0 max_vs=0
+
+while IFS='|' read -r head ref date upstream track subject; do
+	# compute ahead/behind vs default branch
+	if [[ -n "$default_branch" && "$ref" != "$default_branch" ]]; then
+		ahead=$(git rev-list --count "$default_branch..$ref" 2>/dev/null || echo 0)
+		behind=$(git rev-list --count "$ref..$default_branch" 2>/dev/null || echo 0)
+		if [[ "$ahead" -gt 0 && "$behind" -gt 0 ]]; then
+			vs_default="+${ahead}/-${behind}"
+		elif [[ "$ahead" -gt 0 ]]; then
+			vs_default="+${ahead}"
+		elif [[ "$behind" -gt 0 ]]; then
+			vs_default="-${behind}"
+		else
+			vs_default="0"
+		fi
+	else
+		vs_default="-"
+	fi
+
+	# normalize empty values
+	[[ -z "$upstream" ]] && upstream="-"
+	[[ -z "$track" ]] && track="(current)" || track="$track"
+	[[ "$upstream" == "-" ]] && track="-"
+	[[ -z "$head" ]] && head=" "
+
+	# track max widths
+	(( ${#date} > max_date )) && max_date=${#date}
+	(( ${#ref} > max_ref )) && max_ref=${#ref}
+	(( ${#upstream} > max_up )) && max_up=${#upstream}
+	(( ${#track} > max_track )) && max_track=${#track}
+	(( ${#vs_default} > max_vs )) && max_vs=${#vs_default}
+
+	# store row
+	branches+=("$head|$date|$ref|$upstream|$track|$vs_default|$subject")
+done < <(git branch --sort=-committerdate \
+	--format='%(HEAD)|%(refname:short)|%(committerdate:relative)|%(upstream:short)|%(upstream:track)|%(contents:subject)')
+
+# color codes
+if [[ -n "$NO_COLOR" ]]; then
+	reset="" yellow="" green="" blue="" red="" dim=""
+else
+	reset=$'\033[0m' yellow=$'\033[33m' green=$'\033[32m'
+	blue=$'\033[34m' red=$'\033[31m' dim=$'\033[2m'
+fi
+
+# output with calculated widths
+for row in "${branches[@]}"; do
+	IFS='|' read -r head date ref upstream track vs_default subject <<< "$row"
+
+	# pad values first (plain text)
+	date_pad=$(printf "%-${max_date}s" "$date")
+	ref_pad=$(printf "%-${max_ref}s" "$ref")
+	up_pad=$(printf "%-${max_up}s" "$upstream")
+	track_pad=$(printf "%-${max_track}s" "$track")
+	vs_pad=$(printf "%-${max_vs}s" "$vs_default")
+
+	# then apply colors to padded strings
+	date_fmt="${yellow}${date_pad}${reset}"
+	ref_fmt="${green}${ref_pad}${reset}"
+
+	if [[ "$upstream" == "-" ]]; then
+		up_fmt="${dim}${up_pad}${reset}"
+	else
+		up_fmt="${blue}${up_pad}${reset}"
+	fi
+
+	if [[ "$track" == "-" || "$track" == "(current)" ]]; then
+		track_fmt="${dim}${track_pad}${reset}"
+	else
+		track_fmt="${red}${track_pad}${reset}"
+	fi
+
+	if [[ "$vs_default" == "0" || "$vs_default" == "-" ]]; then
+		vs_fmt="${dim}${vs_pad}${reset}"
+	else
+		vs_fmt="${red}${vs_pad}${reset}"
+	fi
+
+	printf "%s  %s  %s  %s  %s  %s  %s\n" \
+		"$head" "$date_fmt" "$ref_fmt" "$up_fmt" "$track_fmt" "$vs_fmt" "$subject"
+done
