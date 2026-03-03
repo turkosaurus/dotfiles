@@ -15,7 +15,7 @@ fi
 
 # collect branch data
 branches=()
-max_ref=0 max_up=0 max_track=0 max_vs=0 max_subject=0
+max_ref=0 max_upstream=0 max_vs=0 max_subject=0
 
 while IFS='|' read -r head ref date upstream track subject; do
 	# compute ahead/behind vs default branch
@@ -23,77 +23,92 @@ while IFS='|' read -r head ref date upstream track subject; do
 		ahead=$(git rev-list --count "$default_branch..$ref" 2>/dev/null || echo 0)
 		behind=$(git rev-list --count "$ref..$default_branch" 2>/dev/null || echo 0)
 		if [[ "$ahead" -gt 0 && "$behind" -gt 0 ]]; then
-			vs_default="+${ahead}/-${behind}"
+			vs_default="${default_branch} (+${ahead}/-${behind})"
+			vs_status="mixed"
 		elif [[ "$ahead" -gt 0 ]]; then
-			vs_default="+${ahead}"
+			vs_default="${default_branch} (+${ahead})"
+			vs_status="ahead"
 		elif [[ "$behind" -gt 0 ]]; then
-			vs_default="-${behind}"
+			vs_default="${default_branch} (-${behind})"
+			vs_status="behind"
 		else
-			vs_default="0"
+			vs_default="${default_branch} (0)"
+			vs_status="even"
 		fi
 	else
 		vs_default="-"
+		vs_status="none"
 	fi
 
-	# normalize empty values
-	[[ -z "$upstream" ]] && upstream="-"
-	[[ -z "$track" ]] && track="(current)" || track="$track"
-	[[ "$upstream" == "-" ]] && track="-"
+	# combine upstream and track into one field
+	if [[ -z "$upstream" ]]; then
+		upstream_combined="-"
+	elif [[ -z "$track" ]]; then
+		upstream_combined="${upstream} (0)"
+	else
+		# transform [ahead N] → (+N), [behind N] → (-N), [ahead N, behind M] → (+N/-M)
+		track_short=$(echo "$track" | sed -E 's/\[ahead ([0-9]+), behind ([0-9]+)\]/(+\1\/-\2)/; s/\[ahead ([0-9]+)\]/(+\1)/; s/\[behind ([0-9]+)\]/(-\1)/')
+		upstream_combined="${upstream} ${track_short}"
+	fi
+
 	[[ -z "$head" ]] && head=" "
 
 	# track max widths
 	(( ${#ref} > max_ref )) && max_ref=${#ref}
-	(( ${#upstream} > max_up )) && max_up=${#upstream}
-	(( ${#track} > max_track )) && max_track=${#track}
+	(( ${#upstream_combined} > max_upstream )) && max_upstream=${#upstream_combined}
 	(( ${#vs_default} > max_vs )) && max_vs=${#vs_default}
 	(( ${#subject} > max_subject )) && max_subject=${#subject}
 
 	# store row
-	branches+=("$head|$date|$ref|$upstream|$track|$vs_default|$subject")
+	branches+=("$head|$date|$ref|$upstream_combined|$vs_default|$vs_status|$subject")
 done < <(git branch --sort=-committerdate \
 	--format='%(HEAD)|%(refname:short)|%(committerdate:relative)|%(upstream:short)|%(upstream:track)|%(contents:subject)')
 
 # color codes
 if [[ -n "$NO_COLOR" ]]; then
-	reset="" yellow="" green="" blue="" red="" dim=""
+	reset="" yellow="" green="" blue="" red="" dim="" grey=""
 else
 	reset=$'\033[0m' yellow=$'\033[33m' green=$'\033[32m'
-	blue=$'\033[34m' red=$'\033[31m' dim=$'\033[2m'
+	blue=$'\033[34m' red=$'\033[31m' dim=$'\033[2m' grey=$'\033[90m'
 fi
 
 # output with calculated widths
 for row in "${branches[@]}"; do
-	IFS='|' read -r head date ref upstream track vs_default subject <<< "$row"
+	IFS='|' read -r head date ref upstream_combined vs_default vs_status subject <<< "$row"
 
 	# pad values first (plain text)
 	ref_pad=$(printf "%-${max_ref}s" "$ref")
-	up_pad=$(printf "%-${max_up}s" "$upstream")
-	track_pad=$(printf "%-${max_track}s" "$track")
+	upstream_pad=$(printf "%-${max_upstream}s" "$upstream_combined")
 	vs_pad=$(printf "%-${max_vs}s" "$vs_default")
 	subject_pad=$(printf "%-${max_subject}s" "$subject")
 
 	# then apply colors to padded strings
-	ref_fmt="${green}${ref_pad}${reset}"
-	date_fmt="${yellow}${date}${reset}"
+	ref_fmt="${blue}${ref_pad}${reset}"
+	date_fmt="${dim}${date}${reset}"
 
-	if [[ "$upstream" == "-" ]]; then
-		up_fmt="${dim}${up_pad}${reset}"
+	# upstream colors: green=ahead, red=behind, yellow=mixed, dim=even/none
+	if [[ "$upstream_combined" == "-" ]]; then
+		upstream_fmt="${dim}${upstream_pad}${reset}"
+	elif [[ "$upstream_combined" == *"(0)"* ]]; then
+		upstream_fmt="${dim}${upstream_pad}${reset}"
+	elif [[ "$upstream_combined" == *"(+"*"/-"* ]]; then
+		upstream_fmt="${yellow}${upstream_pad}${reset}"
+	elif [[ "$upstream_combined" == *"(+"* ]]; then
+		upstream_fmt="${green}${upstream_pad}${reset}"
+	elif [[ "$upstream_combined" == *"(-"* ]]; then
+		upstream_fmt="${red}${upstream_pad}${reset}"
 	else
-		up_fmt="${blue}${up_pad}${reset}"
+		upstream_fmt="${blue}${upstream_pad}${reset}"
 	fi
 
-	if [[ "$track" == "-" || "$track" == "(current)" ]]; then
-		track_fmt="${dim}${track_pad}${reset}"
-	else
-		track_fmt="${red}${track_pad}${reset}"
-	fi
+	# vs_default colors: green=ahead, red=behind, yellow=mixed, dim=even/none
+	case "$vs_status" in
+		ahead) vs_fmt="${green}${vs_pad}${reset}" ;;
+		behind) vs_fmt="${red}${vs_pad}${reset}" ;;
+		mixed) vs_fmt="${yellow}${vs_pad}${reset}" ;;
+		*) vs_fmt="${dim}${vs_pad}${reset}" ;;
+	esac
 
-	if [[ "$vs_default" == "0" || "$vs_default" == "-" ]]; then
-		vs_fmt="${dim}${vs_pad}${reset}"
-	else
-		vs_fmt="${red}${vs_pad}${reset}"
-	fi
-
-	printf "%s  %s  %s  %s  %s  %s  %s\n" \
-		"$head" "$ref_fmt" "$up_fmt" "$track_fmt" "$vs_fmt" "$subject_pad" "$date_fmt"
+	printf "%s  %s  %s  %s  %s  %s\n" \
+		"$head" "$ref_fmt" "$upstream_fmt" "$vs_fmt" "$subject_pad" "$date_fmt"
 done
