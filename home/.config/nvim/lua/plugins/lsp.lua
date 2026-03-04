@@ -105,7 +105,7 @@ return {
 						usePlaceholders = false,
 						completeUnimported = true,
 						symbolMatcher = "FastFuzzy",
-						semanticTokens = true,
+						semanticTokens = false,
 						experimentalPostfixCompletions = true,
 						codelenses = {
 							gc_details = true,
