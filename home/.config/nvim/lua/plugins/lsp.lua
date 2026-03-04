@@ -24,23 +24,14 @@ return {
 				callback = function(event)
 					local map = function(keys, func, desc, mode)
 						mode = mode or "n"
-						vim.keymap.set(
-							mode,
-							keys,
-							func,
-							{ buffer = event.buf, desc = "lsp: " .. desc }
-						)
+						vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = "lsp: " .. desc })
 					end
 
 					map("grr", require("telescope.builtin").lsp_references, "references")
 					map("gri", require("telescope.builtin").lsp_implementations, "implementations")
 					map("grd", require("telescope.builtin").lsp_definitions, "definitions")
 					map("gO", require("telescope.builtin").lsp_document_symbols, "document symbols")
-					map(
-						"gW",
-						require("telescope.builtin").lsp_dynamic_workspace_symbols,
-						"workspace symbols"
-					)
+					map("gW", require("telescope.builtin").lsp_dynamic_workspace_symbols, "workspace symbols")
 					map("grt", require("telescope.builtin").lsp_type_definitions, "type definitions")
 
 					local client = vim.lsp.get_client_by_id(event.data.client_id)
@@ -48,13 +39,9 @@ return {
 					-- highlight references
 					if
 						client
-						and client:supports_method(
-							vim.lsp.protocol.Methods.textDocument_documentHighlight,
-							event.buf
-						)
+						and client:supports_method(vim.lsp.protocol.Methods.textDocument_documentHighlight, event.buf)
 					then
-						local highlight_augroup =
-							vim.api.nvim_create_augroup("lsp-highlight", { clear = false })
+						local highlight_augroup = vim.api.nvim_create_augroup("lsp-highlight", { clear = false })
 						vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
 							buffer = event.buf,
 							group = highlight_augroup,
@@ -80,15 +67,10 @@ return {
 					-- inlay hints toggle
 					if
 						client
-						and client:supports_method(
-							vim.lsp.protocol.Methods.textDocument_inlayHint,
-							event.buf
-						)
+						and client:supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint, event.buf)
 					then
 						map("<leader>th", function()
-							vim.lsp.inlay_hint.enable(
-								not vim.lsp.inlay_hint.is_enabled({ bufnr = event.buf })
-							)
+							vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled({ bufnr = event.buf }))
 						end, "toggle inlay hints")
 					end
 				end,
@@ -116,12 +98,25 @@ return {
 				filetypes = { "go", "gomod" },
 				settings = {
 					gopls = {
+						buildFlags = { "-tags=integration" },
 						gofumpt = true,
 						staticcheck = true,
 						hoverKind = "FullDocumentation",
 						usePlaceholders = false,
 						completeUnimported = true,
 						symbolMatcher = "FastFuzzy",
+						semanticTokens = true,
+						experimentalPostfixCompletions = true,
+						codelenses = {
+							gc_details = true,
+						},
+						analyses = {
+							nilness = true,
+							unusedparams = true,
+							unusedwrite = true,
+							shadow = true,
+							fieldalignment = true,
+						},
 						hints = {
 							parameterNames = true,
 							rangeVariableTypes = true,
