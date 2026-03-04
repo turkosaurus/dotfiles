@@ -105,8 +105,9 @@ return {
 						usePlaceholders = false,
 						completeUnimported = true,
 						symbolMatcher = "FastFuzzy",
-						semanticTokens = false,
+						semanticTokens = true,
 						experimentalPostfixCompletions = true,
+						directoryFilters = { "-vendor", "-.git" },
 						codelenses = {
 							gc_details = true,
 						},
@@ -115,7 +116,6 @@ return {
 							unusedparams = true,
 							unusedwrite = true,
 							shadow = true,
-							fieldalignment = true,
 						},
 						hints = {
 							parameterNames = true,
