@@ -94,7 +94,7 @@ return {
 
 			-- server configs (blink.cmp auto-applies capabilities via vim.lsp.config('*'))
 			vim.lsp.config("gopls", {
-				cmd = { "gopls", "serve" },
+				cmd = { "gopls", "-remote=auto" },
 				filetypes = { "go", "gomod" },
 				settings = {
 					gopls = {
