@@ -6,13 +6,22 @@
   },
   "permissions": {
     "allow": [
-      "Bash(go test *)",
-      "Bash(go build *)",
+      "Bash(go test:*)",
+      "Bash(go build:*)",
+      "Bash(go run:*)",
+      "Bash(go mod:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
       "Read(~/.zshrc)"
     ],
     "deny": [
       "Read(./.env)",
-      "Read(./*.env)"
+      "Read(./*.env)",
+      "Read(**/.git/config)",
+      "Read(**/*secret*)",
+      "Read(**/id_rsa*)",
+      "Read(**/*.pem)"
     ]
   },
   "spinnerVerbs": {
