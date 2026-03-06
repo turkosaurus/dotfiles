@@ -118,30 +118,35 @@ export EDITOR=nvim
 # --- mise ---
 #
 if [[ -x "$(command -v mise)" ]]; then
-	eval "$(mise activate zsh)"
+  eval "$(mise activate zsh)"
 fi
 
 # --- os ---
 #
 # determine if linux or macos
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-	: # linux-specific aliases
+  : # linux-specific aliases
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-	# MacOS specific aliases
-	alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+  # MacOS specific aliases
+  alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
 
-	# MacOS specific PATHs
-	export PATH=$PATH:/Applications/Firefox.app/Contents/MacOS # firefox
+  # MacOS specific PATHs
+  export PATH=$PATH:/Applications/Firefox.app/Contents/MacOS # firefox
 fi
 
 # --- prompt ---
 #
 # set $ when user, # when root
 if [[ $EUID -eq 0 ]]; then
-	symbol='#'
+  symbol='#'
 else
-	symbol='$'
+  symbol='$'
 fi
 # embed cursor reset in prompt (use terminal default)
 PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/Users/scrubjay/p/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/scrubjay/p/google-cloud-sdk/path.zsh.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/Users/scrubjay/p/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/scrubjay/p/google-cloud-sdk/completion.zsh.inc'; fi
