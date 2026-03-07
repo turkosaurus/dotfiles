@@ -24,6 +24,20 @@
       "Read(**/*.pem)"
     ]
   },
+  "model": "haiku",
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/bin/claude-notify"
+          }
+        ]
+      }
+    ]
+  },
   "spinnerVerbs": {
     "mode": "replace",
     "verbs": [
@@ -31,4 +45,3 @@
     ]
   }
 }
-
