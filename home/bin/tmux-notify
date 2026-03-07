@@ -1,16 +1,64 @@
 #!/usr/bin/env bash
 
-# tokyonight colors
-yellow='\033[38;2;224;175;104m'
-blue='\033[38;2;122;162;247m'
+if [[ "$1" == -h || "$1" == --help ]]; then
+  cat >&2 <<'EOF'
+tmux-notify:
+  tmux aural and popup notifications from background panes
+  pairs nicely with window-status-bell-style
+
+usage:
+  tmux-notify [message]
+
+env:
+  TMUX_NOTIFY_DELAY    seconds before accepting input
+  TMUX_NOTIFY_VISUAL   never, other, always            (0|1|2, default: 1)
+  TMUX_NOTIFY_AURAL    ring terminal bell              (0|1, default: 1)
+  TMUX_NOTIFY_WIDTH    popup width                     (default: 80)
+  TMUX_NOTIFY_HEIGHT   popup height                    (default: 32)
+  TMUX_NOTIFY_COL0     primary color, ANSI escape      (default: tokyonight blue)
+  TMUX_NOTIFY_COL1     secondary color, ANSI escape    (default: tokyonight yellow)
+
+popup actions:
+  <any>   dismiss
+  <g>     go to source pane
+EOF
+  exit 0
+fi
+
 reset='\033[0m'
 
+# defaults
+delay=${TMUX_NOTIFY_DELAY:-.340}
+visual=${TMUX_NOTIFY_VISUAL:-1}
+aural=${TMUX_NOTIFY_AURAL:-1}
+c0=${TMUX_NOTIFY_COL0:-'\033[38;2;122;162;247m'}
+c1=${TMUX_NOTIFY_COL1:-'\033[38;2;224;175;104m'}
+width=${TMUX_NOTIFY_WIDTH:-80}
+height=${TMUX_NOTIFY_HEIGHT:-32}
+
+# tmux info
+if [[ -z "$TMUX_PANE" ]]; then
+  echo "Error: not running inside tmux" >&2
+  exit 1
+fi
 pane="$TMUX_PANE"
-printf '\a'
+window_index=$(tmux display-message -t "$pane" -p '#{window_index}')
+pane_index=$(tmux display-message -t "$pane" -p '#{pane_index}')
+window_active=$(tmux display-message -t "$pane" -p '#{window_active}')
+
+# if aural, ring
+[[ "$aural" == 1 ]] && printf '\a'
+
+# if no visuals, done
+[[ "$visual" == 0 ]] && exit 0
+
+# if alert from active window and not TMUX_NOTIFY_VISUAL=2), done
+if [[ "$window_active" == 1 ]]; then
+  [[ "$visual" == 2 ]] || exit 0
+fi
 
 # match tmux window naming: #I dirname:branch
 pane_path=$(tmux display-message -t "$pane" -p '#{pane_current_path}')
-window_index=$(tmux display-message -t "$pane" -p '#I')
 dirname=$(basename "$pane_path")
 branch=$(git -C "$pane_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
 if [[ -n "$branch" ]]; then
@@ -18,22 +66,33 @@ if [[ -n "$branch" ]]; then
 else
   location="$window_index $dirname"
 fi
-line=$(printf '─%.0s' {1..78})
+line=$(printf '─%.0s' $(seq 1 $((width - 2))))
 
-name=$(basename "$0")
+msg=$(basename "$0")
+if [[ -n "$1" ]]; then
+  msg="$*"
+fi
 
-tmux display-popup -w 80 -h 32 -E "
-  printf '${blue}${line}${reset}\n'
-  printf '  ${yellow}$name${reset}\n'
-  printf '${blue}${line}${reset}\n'
-  tmux capture-pane -e -p -t '$pane' | tail -20
+tmux display-popup -w "$width" -h "$height" -E "
+  printf '${c0}${line}${reset}\n'
+  printf '  ${c1}$msg${reset}\n'
+  printf '${c0}${line}${reset}\n'
+  tmux capture-pane -e -p -t '$pane' | tail -$((height - 10))
   echo
-  printf '${blue}${line}${reset}\n'
-  printf '  <${blue}any${reset}>  dismiss\n'
-  printf '  <${blue}g${reset}>    go to:  ${yellow}$location${reset}\n'
+  printf '${c0}${line}${reset}\n'
+
+  stty -echo
+  sleep $delay
+  stty -icanon min 0 time 0
+  dd bs=1024 count=1 >/dev/null 2>&1 || true
+  stty icanon
+
+  printf '  <${c0}any${reset}>  dismiss\n'
+  printf '  <${c0}g${reset}>    go to:  ${c1}$location${reset}\n'
   read -n 1 -s key
+
   if [[ \$key == 'g' ]]; then
-    tmux select-window -t '$pane'
-    tmux select-pane -t '$pane'
+    tmux select-window -t '$window_index'
+    tmux select-pane -t '$window_index:$pane_index'
   fi
 "
