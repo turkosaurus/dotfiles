@@ -24,7 +24,7 @@
       "Read(**/*.pem)"
     ]
   },
-  "model": "haiku",
+  "model": "opus",
   "hooks": {
     "Notification": [
       {
@@ -36,12 +36,27 @@
           }
         ]
       }
+    ],
+    "TaskCompleted": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/bin/tmux-notify"
+          }
+        ]
+      }
     ]
+  },
+  "enabledPlugins": {
+    "gopls-lsp@claude-plugins-official": true
   },
   "spinnerVerbs": {
     "mode": "replace",
     "verbs": [
       "Computing"
     ]
-  }
+  },
+  "effortLevel": "high"
 }
