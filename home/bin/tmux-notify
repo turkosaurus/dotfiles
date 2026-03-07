@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+# tokyonight colors
+yellow='\033[38;2;224;175;104m'
+blue='\033[38;2;122;162;247m'
+reset='\033[0m'
+
+pane="$TMUX_PANE"
+printf '\a'
+
+# match tmux window naming: #I dirname:branch
+pane_path=$(tmux display-message -t "$pane" -p '#{pane_current_path}')
+window_index=$(tmux display-message -t "$pane" -p '#I')
+dirname=$(basename "$pane_path")
+branch=$(git -C "$pane_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+if [[ -n "$branch" ]]; then
+  location="$window_index $dirname:$branch"
+else
+  location="$window_index $dirname"
+fi
+line=$(printf '─%.0s' {1..78})
+
+name=$(basename "$0")
+
+tmux display-popup -w 80 -h 32 -E "
+  printf '${blue}${line}${reset}\n'
+  printf '  ${yellow}$name${reset}\n'
+  printf '${blue}${line}${reset}\n'
+  tmux capture-pane -e -p -t '$pane' | tail -20
+  echo
+  printf '${blue}${line}${reset}\n'
+  printf '  <${blue}any${reset}>  dismiss\n'
+  printf '  <${blue}g${reset}>    go to:  ${yellow}$location${reset}\n'
+  read -n 1 -s key
+  if [[ \$key == 'g' ]]; then
+    tmux select-window -t '$pane'
+    tmux select-pane -t '$pane'
+  fi
+"

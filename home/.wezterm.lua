@@ -72,6 +72,8 @@ config.window_padding = {
 	bottom = 0,
 }
 config.window_decorations = "TITLE | RESIZE"
+config.adjust_window_size_when_changing_font_size = false
+config.native_macos_fullscreen_mode = false
 
 config.default_cursor_style = "BlinkingBlock"
 config.cursor_blink_rate = 340
@@ -80,5 +82,17 @@ config.max_fps = 60
 config.animation_fps = 60
 config.cursor_blink_ease_in = "Constant"
 config.cursor_blink_ease_out = "Constant"
+
+config.audible_bell = "SystemBeep"
+config.visual_bell = {
+	fade_in_duration_ms = 0,
+	fade_out_duration_ms = 75,
+	fade_in_function = "Constant",
+	fade_out_function = "EaseOut",
+	target = "CursorColor",
+}
+config.colors = {
+	visual_bell = "#e0af68", -- tokyo night yellow
+}
 
 return config
