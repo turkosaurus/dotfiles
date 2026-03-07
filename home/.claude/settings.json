@@ -32,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/bin/claude-notify"
+            "command": "~/bin/tmux-notify"
           }
         ]
       }
