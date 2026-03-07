@@ -15,7 +15,7 @@ fi
 
 # collect branch data
 branches=()
-max_ref=0 max_upstream=0 max_vs=0 max_subject=0
+max_ref=0 max_upstream=0 max_vs=0 max_subject=0 max_date=0
 
 while IFS='|' read -r head ref date upstream track subject; do
 	# compute ahead/behind vs default branch
@@ -58,11 +58,20 @@ while IFS='|' read -r head ref date upstream track subject; do
 	(( ${#upstream_combined} > max_upstream )) && max_upstream=${#upstream_combined}
 	(( ${#vs_default} > max_vs )) && max_vs=${#vs_default}
 	(( ${#subject} > max_subject )) && max_subject=${#subject}
+	(( ${#date} > max_date )) && max_date=${#date}
 
 	# store row
 	branches+=("$head|$date|$ref|$upstream_combined|$vs_default|$vs_status|$subject")
 done < <(git branch --sort=-committerdate \
 	--format='%(HEAD)|%(refname:short)|%(committerdate:relative)|%(upstream:short)|%(upstream:track)|%(contents:subject)')
+
+# cap subject to terminal width
+# format: head(1) + 5 separators(10) + ref + upstream + vs + date
+term_width=$(tput cols 2>/dev/null || echo 80)
+fixed_width=$(( 1 + 10 + max_ref + max_upstream + max_vs + max_date ))
+avail_subject=$(( term_width - fixed_width ))
+(( avail_subject < 8 )) && avail_subject=8
+(( max_subject > avail_subject )) && max_subject=$avail_subject
 
 # color codes
 if [[ -n "$NO_COLOR" ]]; then
@@ -80,6 +89,7 @@ for row in "${branches[@]}"; do
 	ref_pad=$(printf "%-${max_ref}s" "$ref")
 	upstream_pad=$(printf "%-${max_upstream}s" "$upstream_combined")
 	vs_pad=$(printf "%-${max_vs}s" "$vs_default")
+	(( ${#subject} > max_subject )) && subject="${subject:0:$max_subject}"
 	subject_pad=$(printf "%-${max_subject}s" "$subject")
 
 	# then apply colors to padded strings
