@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+
+# work - manage git worktrees in ~/w with fuzzy finding
+# usage: work [command] [args]
+#
+# commands:
+#   work              pick a worktree and cd to it
+#   work <branch>     create worktree for branch (or cd if exists)
+#   work .            move current branch to a worktree, switch repo to main
+#   work ls           list all worktrees
+#   work rm [name]    remove a worktree (pick if no name)
+#   work mv [old] <new>  rename a worktree (pick if no old)
+#   work main         cd to the main (non-worktree) repo
+#
+# worktrees are stored in ~/w/{repo}/{branch} with slashes as dashes
+# e.g. "work a/feat" from ~/p/foo creates ~/w/foo/a-feat
+
+set -euo pipefail
+
+WORK_DIR="$HOME/w"
+mkdir -p "$WORK_DIR"
+
+error() {
+	echo "error: $*" >&2
+	exit 1
+}
+
+usage() {
+	sed -n '3,14s/^# //p' "$0"
+	exit "${1:-0}"
+}
+
+# list worktree entries as repo/branch paths
+worktrees() {
+	for dir in "$WORK_DIR"/*/*; do
+		[[ -d "$dir" ]] || continue
+		echo "${dir#"$WORK_DIR"/}"
+	done
+}
+
+# pick a worktree from numbered list
+pick() {
+	local entries
+	entries=$(worktrees)
+	[[ -z "$entries" ]] && error "no worktrees in $WORK_DIR"
+
+	local i=1
+	while IFS= read -r entry; do
+		echo "  $i) $entry" >&2
+		((i++))
+	done <<< "$entries"
+
+	local choice
+	read -rp "select: " choice </dev/tty
+	echo "$entries" | sed -n "${choice}p"
+}
+
+repo() {
+	basename "$(git rev-parse --show-toplevel 2>/dev/null)" \
+		|| error "not in a git repo"
+}
+
+case "${1:-}" in
+	-h|--help|help)
+		usage
+		;;
+	ls)
+		tree -L 2 "$WORK_DIR" 2>/dev/null \
+			|| worktrees
+		;;
+	rm)
+		target="${2:-$(pick)}"
+		[[ -z "$target" ]] && error "no worktree selected"
+		target_dir="$WORK_DIR/$target"
+		# run git worktree remove from within the worktree's repo
+		git -C "$target_dir" worktree remove "$target_dir"
+		# clean up empty repo dir
+		repo_dir=$(dirname "$target_dir")
+		rmdir "$repo_dir" 2>/dev/null || true
+		;;
+	mv)
+		old="${2:-$(pick)}"
+		new="${3:-}"
+		[[ -z "$old" ]] && error "no worktree selected"
+		[[ -z "$new" ]] && error "new name required"
+		old_dir="$WORK_DIR/$old"
+		git -C "$old_dir" worktree move "$old_dir" "$WORK_DIR/$new"
+		;;
+	"")
+		target=$(pick)
+		[[ -z "$target" ]] && error "no worktree selected"
+		echo "$WORK_DIR/$target"
+		;;
+	main)
+		dir=$(git worktree list | head -1 | awk '{print $1}')
+		[[ -d "$dir" ]] || error "main worktree not found"
+		echo "$dir"
+		;;
+	.)
+		branch=$(git symbolic-ref --short HEAD 2>/dev/null) \
+			|| error "not on a branch (detached HEAD)"
+		[[ "$branch" == "main" || "$branch" == "master" ]] \
+			&& error "already on $branch, nothing to move"
+		root=$(repo)
+		dir="$WORK_DIR/${root}/${branch//\//-}"
+		[[ -d "$dir" ]] && error "worktree already exists: $dir"
+		mkdir -p "$WORK_DIR/$root"
+		# switch main repo back to main, then create worktree
+		git switch main >&2 2>/dev/null \
+			|| git switch master >&2 \
+			|| error "could not switch back to main/master"
+		git worktree add "$dir" "$branch" >&2 && echo "$dir"
+		;;
+	*)
+		root=$(repo)
+		dir="$WORK_DIR/${root}/${1//\//-}"
+		if [[ -d "$dir" ]]; then
+			echo "$dir"
+		elif git show-ref --verify --quiet "refs/heads/$1" 2>/dev/null; then
+			mkdir -p "$WORK_DIR/$root"
+			git worktree add "$dir" "$1" >&2 && echo "$dir"
+		elif git show-ref --verify --quiet "refs/remotes/origin/$1" 2>/dev/null; then
+			mkdir -p "$WORK_DIR/$root"
+			git worktree add "$dir" "$1" >&2 && echo "$dir"
+		else
+			mkdir -p "$WORK_DIR/$root"
+			git worktree add -b "$1" "$dir" main >&2 && echo "$dir"
+		fi
+		;;
+esac
