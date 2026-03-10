@@ -71,7 +71,7 @@ config.window_padding = {
 	top = 30, -- notch
 	bottom = 0,
 }
-config.window_decorations = "TITLE | RESIZE"
+config.window_decorations = "RESIZE"
 config.adjust_window_size_when_changing_font_size = false
 config.native_macos_fullscreen_mode = false
 
