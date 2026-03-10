@@ -25,6 +25,7 @@
       "Read(* terraform *)"
     ]
   },
+  "model": "opus",
   "hooks": {
     "Notification": [
       {
@@ -57,6 +58,5 @@
     "verbs": [
       "Computing"
     ]
-  },
-  "effortLevel": "high"
+  }
 }
