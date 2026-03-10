@@ -145,6 +145,17 @@ fi
 # embed cursor reset in prompt (use terminal default)
 PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 
+# work - git worktree wrapper with cd support
+work() {
+  local out
+  out=$(command work "$@")
+  if [[ -d "$out" ]]; then
+    cd "$out"
+  elif [[ -n "$out" ]]; then
+    echo "$out"
+  fi
+}
+
 # The next line updates PATH for the Google Cloud SDK.
 if [ -f '/Users/user/p/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/user/p/google-cloud-sdk/path.zsh.inc'; fi
 
