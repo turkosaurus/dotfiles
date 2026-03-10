@@ -21,7 +21,8 @@
       "Read(**/.git/config)",
       "Read(**/*secret*)",
       "Read(**/id_rsa*)",
-      "Read(**/*.pem)"
+      "Read(**/*.pem)",
+      "Read(* terraform *)"
     ]
   },
   "hooks": {
