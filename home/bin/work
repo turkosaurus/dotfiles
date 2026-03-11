@@ -57,8 +57,9 @@ pick() {
   [[ -z "$entries" ]] && error "no worktrees in $WORK_DIR"
 
   local i=1
-  while IFS=$'\t' read -r branch _rel; do
-    echo "  $i) $branch" >&2
+  while IFS=$'\t' read -r branch rel; do
+    local r="${rel%%/*}"
+    echo "  $i) $r:$branch" >&2
     ((i++))
   done <<<"$entries"
 
@@ -79,8 +80,8 @@ case "${1:-}" in
     usage
     ;;
   ls)
-    worktrees | while IFS=$'\t' read -r branch _rel; do
-      echo "$branch"
+    worktrees | while IFS=$'\t' read -r branch rel; do
+      echo "${rel%%/*}:$branch"
     done
     ;;
   rm)
@@ -135,8 +136,15 @@ case "${1:-}" in
     git worktree add "$dir" "$branch" >&2 && goto "$dir"
     ;;
   *)
+    slug="${1//\//-}"
+    # check current repo first, then all repos
     root=$(repo)
-    dir="$WORK_DIR/${root}/${1//\//-}"
+    dir="$WORK_DIR/${root}/${slug}"
+    if [[ ! -d "$dir" ]]; then
+      for d in "$WORK_DIR"/*/"$slug"; do
+        [[ -d "$d" ]] && dir="$d" && break
+      done
+    fi
     if [[ -d "$dir" ]]; then
       goto "$dir"
       exit
