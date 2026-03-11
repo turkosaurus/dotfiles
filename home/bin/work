@@ -4,13 +4,14 @@
 # usage: work [command] [args]
 #
 # commands:
-#   work              pick a worktree and cd to it
-#   work <branch>     create worktree for branch (or cd if exists)
-#   work .            move current branch to a worktree, switch repo to main
+#   work              create or switch
+#   work <branch>     create worktree for branch (or switch if exists)
+#   work .            move current branch to a new worktree
+#   work main         switch to main worktree
+#   work -            switch to previous worktree
 #   work ls           list all worktrees
 #   work rm [name]    remove a worktree (pick if no name)
 #   work mv [old] <new>  rename a worktree (pick if no old)
-#   work main         cd to the main (non-worktree) repo
 #
 # worktrees are stored in ~/w/{repo}/{branch} with slashes as dashes
 # e.g. "work a/feat" from ~/p/foo creates ~/w/foo/a-feat
@@ -18,123 +19,135 @@
 set -euo pipefail
 
 WORK_DIR="$HOME/w"
+PREV_FILE="$WORK_DIR/.previous"
 mkdir -p "$WORK_DIR"
 
 error() {
-	echo "error: $*" >&2
-	exit 1
+  echo "error: $*" >&2
+  exit 1
 }
 
 usage() {
-	sed -n '3,14s/^# //p' "$0"
-	exit "${1:-0}"
+  sed -n '3,15s/^# //p' "$0"
+  exit "${1:-0}"
+}
+
+# save current dir as previous, then emit target path
+goto() {
+  pwd >"$PREV_FILE"
+  echo "$1"
 }
 
 # list worktree entries as "branch\trelpath"
 worktrees() {
-	for dir in "$WORK_DIR"/*/*; do
-		[[ -d "$dir" ]] || continue
-		local rel="${dir#"$WORK_DIR"/}"
-		local branch
-		branch=$(git -C "$dir" symbolic-ref --short HEAD 2>/dev/null) \
-			|| branch="$rel"
-		printf '%s\t%s\n' "$branch" "$rel"
-	done
+  for dir in "$WORK_DIR"/*/*; do
+    [[ -d "$dir" ]] || continue
+    local rel="${dir#"$WORK_DIR"/}"
+    local branch
+    branch=$(git -C "$dir" symbolic-ref --short HEAD 2>/dev/null) ||
+      branch="$rel"
+    printf '%s\t%s\n' "$branch" "$rel"
+  done
 }
 
 # pick a worktree from numbered list, returns relpath
 pick() {
-	local entries
-	entries=$(worktrees)
-	[[ -z "$entries" ]] && error "no worktrees in $WORK_DIR"
+  local entries
+  entries=$(worktrees)
+  [[ -z "$entries" ]] && error "no worktrees in $WORK_DIR"
 
-	local i=1
-	while IFS=$'\t' read -r branch _rel; do
-		echo "  $i) $branch" >&2
-		((i++))
-	done <<< "$entries"
+  local i=1
+  while IFS=$'\t' read -r branch _rel; do
+    echo "  $i) $branch" >&2
+    ((i++))
+  done <<<"$entries"
 
-	local choice
-	read -rp "select: " choice </dev/tty
-	echo "$entries" | sed -n "${choice}p" | cut -f2
+  local choice
+  read -rp "select: " choice </dev/tty
+  echo "$entries" | sed -n "${choice}p" | cut -f2
 }
 
 repo() {
-	local root
-	root=$(git rev-parse --show-toplevel 2>/dev/null) \
-		|| error "not in a git repo"
-	basename "$root"
+  local root
+  root=$(git rev-parse --show-toplevel 2>/dev/null) ||
+    error "not in a git repo"
+  basename "$root"
 }
 
 case "${1:-}" in
-	-h|--help|help)
-		usage
-		;;
-	ls)
-		worktrees | while IFS=$'\t' read -r branch _rel; do
-			echo "$branch"
-		done
-		;;
-	rm)
-		target="${2:-$(pick)}"
-		[[ -z "$target" ]] && error "no worktree selected"
-		target_dir="$WORK_DIR/$target"
-		# run git worktree remove from within the worktree's repo
-		git -C "$target_dir" worktree remove "$target_dir"
-		# clean up empty repo dir
-		repo_dir=$(dirname "$target_dir")
-		rmdir "$repo_dir" 2>/dev/null || true
-		;;
-	mv)
-		old="${2:-$(pick)}"
-		new="${3:-}"
-		[[ -z "$old" ]] && error "no worktree selected"
-		[[ -z "$new" ]] && error "new name required"
-		old_dir="$WORK_DIR/$old"
-		repo_dir=$(dirname "$old_dir")
-		git -C "$old_dir" worktree move \
-			"$old_dir" "$repo_dir/${new//\//-}"
-		;;
-	"")
-		target=$(pick)
-		[[ -z "$target" ]] && error "no worktree selected"
-		echo "$WORK_DIR/$target"
-		;;
-	main)
-		dir=$(git worktree list | head -1 | awk '{print $1}')
-		[[ -d "$dir" ]] || error "main worktree not found"
-		echo "$dir"
-		;;
-	.)
-		branch=$(git symbolic-ref --short HEAD 2>/dev/null) \
-			|| error "not on a branch (detached HEAD)"
-		[[ "$branch" == "main" || "$branch" == "master" ]] \
-			&& error "already on $branch, nothing to move"
-		root=$(repo)
-		dir="$WORK_DIR/${root}/${branch//\//-}"
-		[[ -d "$dir" ]] && error "worktree already exists: $dir"
-		mkdir -p "$WORK_DIR/$root"
-		# switch main repo back to main, then create worktree
-		git switch main 2>/dev/null \
-			|| git switch master \
-			|| error "could not switch back to main/master"
-		git worktree add "$dir" "$branch" >&2 && echo "$dir"
-		;;
-	*)
-		root=$(repo)
-		dir="$WORK_DIR/${root}/${1//\//-}"
-		if [[ -d "$dir" ]]; then
-			echo "$dir"
-			exit
-		fi
-		mkdir -p "$WORK_DIR/$root"
-		if git show-ref --verify --quiet \
-			"refs/heads/$1" "refs/remotes/origin/$1" 2>/dev/null
-		then
-			git worktree add "$dir" "$1" >&2
-		else
-			git worktree add -b "$1" "$dir" main >&2
-		fi
-		echo "$dir"
-		;;
+  -h | --help | help)
+    usage
+    ;;
+  ls)
+    worktrees | while IFS=$'\t' read -r branch _rel; do
+      echo "$branch"
+    done
+    ;;
+  rm)
+    target="${2:-$(pick)}"
+    [[ -z "$target" ]] && error "no worktree selected"
+    target_dir="$WORK_DIR/$target"
+    # run git worktree remove from within the worktree's repo
+    git -C "$target_dir" worktree remove "$target_dir"
+    # clean up empty repo dir
+    repo_dir=$(dirname "$target_dir")
+    rmdir "$repo_dir" 2>/dev/null || true
+    ;;
+  mv)
+    old="${2:-$(pick)}"
+    new="${3:-}"
+    [[ -z "$old" ]] && error "no worktree selected"
+    [[ -z "$new" ]] && error "new name required"
+    old_dir="$WORK_DIR/$old"
+    repo_dir=$(dirname "$old_dir")
+    git -C "$old_dir" worktree move \
+      "$old_dir" "$repo_dir/${new//\//-}"
+    ;;
+  -)
+    [[ -f "$PREV_FILE" ]] || error "no previous worktree"
+    prev=$(<"$PREV_FILE")
+    [[ -d "$prev" ]] || error "previous dir no longer exists: $prev"
+    goto "$prev"
+    ;;
+  "")
+    target=$(pick)
+    [[ -z "$target" ]] && error "no worktree selected"
+    goto "$WORK_DIR/$target"
+    ;;
+  main)
+    dir=$(git worktree list | head -1 | awk '{print $1}')
+    [[ -d "$dir" ]] || error "main worktree not found"
+    goto "$dir"
+    ;;
+  .)
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null) ||
+      error "not on a branch (detached HEAD)"
+    [[ "$branch" == "main" || "$branch" == "master" ]] &&
+      error "already on $branch, nothing to move"
+    root=$(repo)
+    dir="$WORK_DIR/${root}/${branch//\//-}"
+    [[ -d "$dir" ]] && error "worktree already exists: $dir"
+    mkdir -p "$WORK_DIR/$root"
+    # switch main repo back to main, then create worktree
+    git switch main 2>/dev/null ||
+      git switch master ||
+      error "could not switch back to main/master"
+    git worktree add "$dir" "$branch" >&2 && goto "$dir"
+    ;;
+  *)
+    root=$(repo)
+    dir="$WORK_DIR/${root}/${1//\//-}"
+    if [[ -d "$dir" ]]; then
+      goto "$dir"
+      exit
+    fi
+    mkdir -p "$WORK_DIR/$root"
+    if git show-ref --verify --quiet \
+      "refs/heads/$1" "refs/remotes/origin/$1" 2>/dev/null; then
+      git worktree add "$dir" "$1" >&2
+    else
+      git worktree add -b "$1" "$dir" main >&2
+    fi
+    goto "$dir"
+    ;;
 esac
