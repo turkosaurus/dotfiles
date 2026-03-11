@@ -130,8 +130,8 @@ case "${1:-}" in
     [[ -d "$dir" ]] && error "worktree already exists: $dir"
     mkdir -p "$WORK_DIR/$root"
     # switch main repo back to main, then create worktree
-    git switch main 2>/dev/null ||
-      git switch master ||
+    git switch main >/dev/null 2>&1 ||
+      git switch master >/dev/null 2>&1 ||
       error "could not switch back to main/master"
     git worktree add "$dir" "$branch" >&2 && goto "$dir"
     ;;
