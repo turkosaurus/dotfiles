@@ -148,7 +148,7 @@ PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 # work - git worktree wrapper with cd support
 work() {
   local out
-  out=$(command work "$@")
+  out=$(command work "$@" | tail -1)
   if [[ -d "$out" ]]; then
     cd "$out"
   elif [[ -n "$out" ]]; then
