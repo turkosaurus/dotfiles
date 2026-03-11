@@ -30,29 +30,33 @@ usage() {
 	exit "${1:-0}"
 }
 
-# list worktree entries as repo/branch paths
+# list worktree entries as "branch\trelpath"
 worktrees() {
 	for dir in "$WORK_DIR"/*/*; do
 		[[ -d "$dir" ]] || continue
-		echo "${dir#"$WORK_DIR"/}"
+		local rel="${dir#"$WORK_DIR"/}"
+		local branch
+		branch=$(git -C "$dir" symbolic-ref --short HEAD 2>/dev/null) \
+			|| branch="$rel"
+		printf '%s\t%s\n' "$branch" "$rel"
 	done
 }
 
-# pick a worktree from numbered list
+# pick a worktree from numbered list, returns relpath
 pick() {
 	local entries
 	entries=$(worktrees)
 	[[ -z "$entries" ]] && error "no worktrees in $WORK_DIR"
 
 	local i=1
-	while IFS= read -r entry; do
-		echo "  $i) $entry" >&2
+	while IFS=$'\t' read -r branch _rel; do
+		echo "  $i) $branch" >&2
 		((i++))
 	done <<< "$entries"
 
 	local choice
 	read -rp "select: " choice </dev/tty
-	echo "$entries" | sed -n "${choice}p"
+	echo "$entries" | sed -n "${choice}p" | cut -f2
 }
 
 repo() {
@@ -65,8 +69,9 @@ case "${1:-}" in
 		usage
 		;;
 	ls)
-		tree -L 2 "$WORK_DIR" 2>/dev/null \
-			|| worktrees
+		worktrees | while IFS=$'\t' read -r branch _rel; do
+			echo "$branch"
+		done
 		;;
 	rm)
 		target="${2:-$(pick)}"
