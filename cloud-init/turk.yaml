@@ -1,3 +1,4 @@
+#cloud-config
 hostname: ubuntu
 manage_etc_hosts: true
 
