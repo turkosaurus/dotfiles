@@ -53,8 +53,7 @@ config.keys = {
 }
 
 -- config.tab_bar_at_bottom = true
-config.use_fancy_tab_bar = false
-config.hide_tab_bar_if_only_one_tab = true
+config.enable_tab_bar = false
 -- config.window_frame = {
 -- 	border_left_width = "0.5cell",
 -- 	border_right_width = "0.5cell",
