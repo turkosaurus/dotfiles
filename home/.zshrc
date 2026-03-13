@@ -147,6 +147,12 @@ PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 
 # work - git worktree wrapper with cd support
 work() {
+  case "${1:-}" in
+    -h|--help|help|ls)
+      command work "$@"
+      return
+      ;;
+  esac
   local out
   out=$(command work "$@" | tail -1)
   if [[ -d "$out" ]]; then
