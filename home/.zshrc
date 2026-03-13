@@ -115,6 +115,17 @@ export PATH=$PATH:~/flutter/bin           # flutter
 export PATH=$PATH:~/flutter               # flutter
 export EDITOR=nvim
 
+# --- shared aliases ---
+#
+[[ -f ~/.aliases ]] && source ~/.aliases
+
+# --- fzf ---
+#
+# fuzzy finder: Ctrl+R (history), Ctrl+T (files), Alt+C (directories)
+if [[ -x "$(command -v fzf)" ]]; then
+  eval "$(fzf --zsh)"
+fi
+
 # --- mise ---
 #
 if [[ -x "$(command -v mise)" ]]; then
