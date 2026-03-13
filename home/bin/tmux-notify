@@ -36,18 +36,18 @@ c1=${TMUX_NOTIFY_COL1:-'\033[38;2;224;175;104m'}
 width=${TMUX_NOTIFY_WIDTH:-80}
 height=${TMUX_NOTIFY_HEIGHT:-32}
 
-# tmux info
-if [[ -z "$TMUX_PANE" ]]; then
+# tmux info — hooks may not have TMUX_PANE, fall back to active pane
+if [[ -z "$TMUX" ]]; then
   echo "Error: not running inside tmux" >&2
   exit 1
 fi
-pane="$TMUX_PANE"
+pane="${TMUX_PANE:-$(tmux display-message -p '#{pane_id}')}"
 window_index=$(tmux display-message -t "$pane" -p '#{window_index}')
 pane_index=$(tmux display-message -t "$pane" -p '#{pane_index}')
 window_active=$(tmux display-message -t "$pane" -p '#{window_active}')
 
-# if aural, ring
-[[ "$aural" == 1 ]] && printf '\a'
+# if aural, ring bell on the source pane's TTY
+[[ "$aural" == 1 ]] && printf '\a' >>"$(tmux display-message -t "$pane" -p '#{pane_tty}')"
 
 # if no visuals, done
 [[ "$visual" == 0 ]] && exit 0
