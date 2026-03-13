@@ -28,7 +28,7 @@ error() {
 }
 
 usage() {
-  sed -n '3,15s/^# //p' "$0"
+  sed -n '3,17s/^# //p' "$0"
   exit "${1:-0}"
 }
 
@@ -88,11 +88,18 @@ case "${1:-}" in
     target="${2:-$(pick)}"
     [[ -z "$target" ]] && error "no worktree selected"
     target_dir="$WORK_DIR/$target"
+    # find main worktree before removing, in case cwd is deleted
+    main_dir=$(git -C "$target_dir" worktree list |
+      head -1 | awk '{print $1}')
     # run git worktree remove from within the worktree's repo
     git -C "$target_dir" worktree remove "$target_dir"
     # clean up empty repo dir
     repo_dir=$(dirname "$target_dir")
     rmdir "$repo_dir" 2>/dev/null || true
+    # if we're inside the removed dir, go to main worktree
+    if [[ ! -d "${PWD}" ]]; then
+      goto "$main_dir"
+    fi
     ;;
   mv)
     old="${2:-$(pick)}"
@@ -116,7 +123,16 @@ case "${1:-}" in
     goto "$WORK_DIR/$target"
     ;;
   main)
-    dir=$(git worktree list | head -1 | awk '{print $1}')
+    # try git directly; fall back to scanning WORK_DIR if cwd is gone
+    dir=$(git worktree list 2>/dev/null | head -1 | awk '{print $1}')
+    if [[ -z "$dir" ]]; then
+      for d in "$WORK_DIR"/*/; do
+        [[ -d "$d" ]] || continue
+        dir=$(git -C "$d" worktree list 2>/dev/null |
+          head -1 | awk '{print $1}')
+        [[ -n "$dir" ]] && break
+      done
+    fi
     [[ -d "$dir" ]] || error "main worktree not found"
     goto "$dir"
     ;;
