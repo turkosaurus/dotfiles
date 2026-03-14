@@ -59,3 +59,14 @@ vim.api.nvim_create_autocmd("CursorHold", {
 		vim.diagnostic.open_float(nil, { focusable = false })
 	end,
 })
+
+-- netrw tree view on startup
+vim.g.netrw_liststyle = 3
+vim.api.nvim_create_autocmd("VimEnter", {
+	callback = function(data)
+		local no_name = data.file == "" and vim.bo[data.buf].buftype == ""
+		if no_name then
+			vim.cmd("Explore")
+		end
+	end,
+})
