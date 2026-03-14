@@ -42,12 +42,12 @@ if [[ -z "$TMUX" ]]; then
   exit 1
 fi
 pane="${TMUX_PANE:-$(tmux display-message -p '#{pane_id}')}"
-window_index=$(tmux display-message -t "$pane" -p '#{window_index}')
-pane_index=$(tmux display-message -t "$pane" -p '#{pane_index}')
-window_active=$(tmux display-message -t "$pane" -p '#{window_active}')
+read -r window_index pane_index window_active pane_tty < <(
+  tmux display-message -t "$pane" -p '#{window_index} #{pane_index} #{window_active} #{pane_tty}'
+)
 
 # if aural, ring bell on the source pane's TTY
-[[ "$aural" == 1 ]] && printf '\a' >>"$(tmux display-message -t "$pane" -p '#{pane_tty}')"
+[[ "$aural" == 1 ]] && printf '\a' >>"$pane_tty"
 
 # if no visuals, done
 [[ "$visual" == 0 ]] && exit 0
@@ -73,6 +73,7 @@ if [[ -n "$1" ]]; then
   msg="$*"
 fi
 
+(
 tmux display-popup -w "$width" -h "$height" -E "
   printf '${c0}${line}${reset}\n'
   printf '  ${c1}$msg${reset}\n'
@@ -96,3 +97,4 @@ tmux display-popup -w "$width" -h "$height" -E "
     tmux select-pane -t '$window_index:$pane_index'
   fi
 "
+) &
