@@ -25,7 +25,7 @@
       "Read(* terraform *)"
     ]
   },
-  "model": "opus",
+  "model": "haiku",
   "hooks": {
     "Notification": [
       {
@@ -50,6 +50,10 @@
       }
     ]
   },
+  "statusLine": {
+    "type": "command",
+    "command": "~/bin/claude-status"
+  },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true
   },
@@ -59,8 +63,5 @@
       "Computing"
     ]
   },
-  "statusLine": {
-    "type": "command",
-    "command": "~/bin/claude-status"
-  }
+  "effortLevel": "medium"
 }

@@ -90,11 +90,20 @@ tmux display-popup -w "$width" -h "$height" -E "
 
   printf '  <${c0}any${reset}>  dismiss\n'
   printf '  <${c0}g${reset}>    go to:  ${c1}$location${reset}\n'
+  printf '  <${c0}c${reset}>    cmd to: ${c1}$location${reset}\n'
   read -n 1 -s key
 
   if [[ \$key == 'g' ]]; then
     tmux select-window -t '$window_index'
     tmux select-pane -t '$window_index:$pane_index'
+  elif [[ \$key == 'c' ]]; then
+    stty echo icanon
+    printf '  ${c0}\$ ${reset}'
+    read cmd
+    tmux send-keys -t '$pane' -l \"\$cmd\"
+    tmux send-keys -t '$pane' Enter
+    tmux select-window -t '$window_index'
+    tmux last-window
   fi
 "
 ) &
