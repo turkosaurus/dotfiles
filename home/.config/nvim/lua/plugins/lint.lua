@@ -10,6 +10,8 @@ return {
 		}
 		vim.api.nvim_create_autocmd({ "BufEnter", "BufWritePost", "InsertLeave" }, {
 			callback = function()
+				-- skip special/non-file buffers
+				if vim.bo.buftype ~= "" then return end
 				if vim.bo.filetype == "go" then
 					local mod = vim.fs.find("go.mod", {
 						upward = true,
