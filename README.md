@@ -10,7 +10,7 @@ source <(wget -qO- https://raw.githubusercontent.com/turkosaurus/dotfiles/refs/h
 ```
 - [home/*](home) is symlinked to `$HOME`
 - [home/bin](home/bin) binaries are added to path (can be invoked directly)
-- [setup](home/bin/setup) installs oh-my-zsh, mise, and all tools
+- [init.sh](init.sh) installs oh-my-zsh, mise, and all tools
 
 ## updating
 

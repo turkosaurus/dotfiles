@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+project="${1:-.}"
+project="$(cd "$project" && pwd)"
+
+image="sandbox"
+dockerfile="$HOME/.config/dockerfile.sandbox"
+dotfiles="$HOME/dotfiles"
+
+if ! podman image exists "$image"; then
+	echo "building $image..."
+	if ! podman build -t "$image" --build-arg "USERNAME=$USER" -f "$dockerfile" "$dotfiles"; then
+		echo "error: failed to build $image"
+		exit 1
+	fi
+fi
+
+podman run -it --rm \
+	--name "$image" \
+	--hostname "$image" \
+	--mount "type=bind,src=$project,dst=/workspace" \
+	--mount "type=volume,src=sandbox-auth,dst=/home/$USER/.claude" \
+	--cap-drop=ALL \
+	"$image"
