@@ -25,7 +25,7 @@
       "Read(* terraform *)"
     ]
   },
-  "model": "haiku",
+  "model": "opus",
   "hooks": {
     "Notification": [
       {
@@ -63,5 +63,5 @@
       "Computing"
     ]
   },
-  "effortLevel": "medium"
+  "voiceEnabled": false
 }

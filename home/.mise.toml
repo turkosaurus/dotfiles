@@ -3,24 +3,32 @@
 
 [tools]
 # language runtimes
-go = "1.24.7"          # replaces home/bin/install/go
-node = "22"            # replaces home/bin/install/node (nvm)
-python = "3"           # replaces python3 in home/bin/install/net
-"asdf:richin13/asdf-neovim" = "nightly"  # 0.12 dev, replaces home/bin/install/neovim
+go = "1.24.7"
+node = "22"
+python = "3.13"
+"asdf:richin13/asdf-neovim" = "nightly"
 
-# dev tools already in use
+# dev tools
 golangci-lint = "2.4.0"
 terraform = "1.13.2"
 terragrunt = "0.93.13"
 
+# cli tools
+fzf = "0.70"
+jq = "1.8"
+yq = "4"
+ripgrep = "15"
+fd = "10"
+
+# formatters & linters
+shfmt = "3"
+shellcheck = "0.11"
+stylua = "2"
+
 [env]
-# go environment
 _.path = ["{{ config_root }}/home/bin", "{{ env.HOME }}/go/bin"]
 GOPATH = "{{ env.HOME }}/go"
 
 [settings]
-# auto-install tools when entering directory
 auto_install = true
-
-# use release versions instead of precompiled
 experimental = false
