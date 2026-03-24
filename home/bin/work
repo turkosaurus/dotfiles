@@ -38,7 +38,19 @@ goto() {
   echo "$1"
 }
 
-# list worktree entries as "branch\trelpath"
+# human-readable time ago from epoch seconds
+timeago() {
+  local diff=$(( $(date +%s) - $1 ))
+  if (( diff < 60 )); then echo "now"
+  elif (( diff < 3600 )); then echo "$(( diff / 60 ))m"
+  elif (( diff < 86400 )); then echo "$(( diff / 3600 ))h"
+  elif (( diff < 604800 )); then echo "$(( diff / 86400 ))d"
+  elif (( diff < 2592000 )); then echo "$(( diff / 604800 ))w"
+  else echo "$(( diff / 2592000 ))mo"
+  fi
+}
+
+# list worktree entries as "branch\trelpath\tage"
 worktrees() {
   for dir in "$WORK_DIR"/*/*; do
     [[ -d "$dir" ]] || continue
@@ -46,7 +58,11 @@ worktrees() {
     local branch
     branch=$(git -C "$dir" symbolic-ref --short HEAD 2>/dev/null) ||
       branch="$rel"
-    printf '%s\t%s\n' "$branch" "$rel"
+    local mtime
+    mtime=$(git -C "$dir" log -1 --format=%ct 2>/dev/null) ||
+      mtime=$(stat -f %m "$dir" 2>/dev/null ||
+              stat -c %Y "$dir" 2>/dev/null)
+    printf '%s\t%s\t%s\n' "$branch" "$rel" "${mtime:-0}"
   done
 }
 
@@ -56,10 +72,19 @@ pick() {
   entries=$(worktrees)
   [[ -z "$entries" ]] && error "no worktrees in $WORK_DIR"
 
+  local maxw=0
+  while IFS=$'\t' read -r branch rel _; do
+    local name="${rel%%/*}:$branch"
+    (( ${#name} > maxw )) && maxw=${#name}
+  done <<<"$entries"
+  (( maxw += 2 ))
+
   local i=1
-  while IFS=$'\t' read -r branch rel; do
+  while IFS=$'\t' read -r branch rel mtime; do
     local r="${rel%%/*}"
-    echo "  $i) $r:$branch" >&2
+    local ago
+    ago=$(timeago "$mtime")
+    printf "  %d) %-${maxw}s %6s\n" "$i" "$r:$branch" "($ago)" >&2
     ((i++))
   done <<<"$entries"
 
@@ -80,12 +105,25 @@ case "${1:-}" in
     usage
     ;;
   ls)
-    worktrees | while IFS=$'\t' read -r branch rel; do
-      echo "${rel%%/*}:$branch"
-    done
+    entries=$(worktrees)
+    maxw=0
+    while IFS=$'\t' read -r branch rel _; do
+      name="${rel%%/*}:$branch"
+      (( ${#name} > maxw )) && maxw=${#name}
+    done <<<"$entries"
+    (( maxw += 2 ))
+    while IFS=$'\t' read -r branch rel mtime; do
+      printf "%-${maxw}s %6s\n" "${rel%%/*}:$branch" "($(timeago "$mtime"))"
+    done <<<"$entries"
     ;;
   rm)
-    target="${2:-$(pick)}"
+    if [[ "${2:-}" == "." ]]; then
+      [[ "$PWD" == "$WORK_DIR"/* ]] ||
+        error "not inside a worktree"
+      target="${PWD#"$WORK_DIR"/}"
+    else
+      target="${2:-$(pick)}"
+    fi
     [[ -z "$target" ]] && error "no worktree selected"
     target_dir="$WORK_DIR/$target"
     # find main worktree before removing, in case cwd is deleted
