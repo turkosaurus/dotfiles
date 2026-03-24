@@ -63,5 +63,6 @@
       "Computing"
     ]
   },
-  "voiceEnabled": false
+  "voiceEnabled": false,
+  "effortLevel": "high"
 }
