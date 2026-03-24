@@ -1,5 +1,18 @@
 # Style Guilde
 
+
+## tools
+
+Expect and prefer simple tools of the unix philosohpy, old or new, like:
+- git
+- diff
+- rg (fallback: grep)
+- jq
+- yq
+- sq
+- sed
+- awk
+
 ## go
 
 ### errors & formatting

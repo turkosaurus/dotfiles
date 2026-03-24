@@ -1,0 +1,29 @@
+FROM ubuntu:24.04
+
+ARG USERNAME=agent
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=en_US.UTF-8
+
+# System deps + node/claude-code
+RUN apt-get update && apt-get install -y \
+    git curl zsh sudo build-essential locales tmux \
+    && locale-gen en_US.UTF-8 \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g @anthropic-ai/claude-code \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# User
+RUN useradd -m -s /bin/zsh ${USERNAME}
+
+# Dotfiles + tools
+COPY --chown=${USERNAME}:${USERNAME} . /home/${USERNAME}/dotfiles
+USER ${USERNAME}
+RUN /home/${USERNAME}/dotfiles/init.sh
+
+# Claude onboarding
+RUN echo '{"hasCompletedOnboarding":true}' > /home/${USERNAME}/.claude.json
+
+WORKDIR /workspace
+CMD ["zsh"]
