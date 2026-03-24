@@ -1,61 +1,85 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+# Universal dotfiles bootstrap — works on bare metal, containers, and VMs.
+# Can be sourced (sources shell config after) or executed (prints restart message).
 
-dot_path="$HOME/dotfiles"
-repo_path="https://github.com/turkosaurus/dotfiles"
-if [[ ! -d "$dot_path" ]]; then
-	echo "dotfiles not found, cloning anew... ($dot_path)"
-	if ! command -v git &>/dev/null; then
-		echo "git required but not found"
-		return 1
-	fi
-	# suppress any login requirements
-	if ! GIT_TERMINAL_PROMPT=0 git clone "$repo_path" "$dot_path"; then
-		echo "error: git clone failed"
-		return 1
+set -eo pipefail
+
+dot_dir="$HOME/dotfiles"
+repo="https://github.com/turkosaurus/dotfiles"
+
+# 1. Install system deps (Linux only)
+if [[ "$(uname -s)" == "Linux" ]]; then
+	pkgs=(git curl zsh sudo build-essential)
+	missing=()
+	for p in "${pkgs[@]}"; do
+		dpkg -s "$p" &>/dev/null || missing+=("$p")
+	done
+	if (( ${#missing[@]} )); then
+		echo "installing: ${missing[*]}"
+		if (( $(id -u) == 0 )); then
+			apt-get update -qq && apt-get install -y -qq "${missing[@]}"
+		elif command -v sudo &>/dev/null; then
+			sudo apt-get update -qq && sudo apt-get install -y -qq "${missing[@]}"
+		else
+			echo "warning: need root or sudo to install packages" >&2
+		fi
 	fi
 fi
 
+# 2. Clone dotfiles
+if [[ ! -d "$dot_dir/.git" ]]; then
+	echo "cloning dotfiles..."
+	GIT_TERMINAL_PROMPT=0 git clone "$repo" "$dot_dir"
+fi
+
+# 3. Oh-my-zsh (before dotsync so our .zshrc wins)
+if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
+	echo "installing oh-my-zsh..."
+	RUNZSH=no CHSH=no sh -c \
+		"$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
+		"" --unattended
+fi
+
+# 4. Dotsync (local only — init.sh handles cloning/pulling)
 echo "running dotsync..."
-cd "$dot_path" || return 1
-if ! ./home/bin/dotsync -v; then
-	echo "error: dotsync failed"
-	return 1
+"$dot_dir/home/bin/dotsync" -l
+
+# 5. Mise
+export PATH="$HOME/.local/bin:$PATH"
+if ! command -v mise &>/dev/null; then
+	echo "installing mise..."
+	"$dot_dir/home/bin/install/mise"
 fi
 
-dot_bin_path="$dot_path/home/bin"
-echo "updating path: PATH=\$PATH:$dot_bin_path"
-export PATH="$PATH:$dot_bin_path"
+# 6. Install tools
+echo "installing tools via mise..."
+cd "$HOME"
+mise trust
+MISE_PYTHON_PRECOMPILED_FLAVOR=install_only_stripped mise install
 
-# shellcheck disable=SC1090
+# 7. Change shell to zsh
+if [[ "$(basename "${SHELL:-}")" != "zsh" ]]; then
+	zsh="$(command -v zsh || true)"
+	if [[ -n "$zsh" ]]; then
+		echo "changing shell to zsh..."
+		if (( $(id -u) == 0 )); then
+			chsh -s "$zsh" 2>/dev/null || true
+		else
+			sudo chsh -s "$zsh" "$(whoami)" 2>/dev/null || \
+				chsh -s "$zsh" 2>/dev/null || \
+				echo "warning: could not change shell to zsh" >&2
+		fi
+	fi
+fi
+
+echo "init complete."
+
+# shellcheck disable=SC1090,SC1091
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
 	echo "sourcing shell config..."
-	# Source the shell config we may have just created, modified, or linked.
-	case "$SHELL" in
-	*bash)
-		echo "Sourcing bashrc..."
-		source ~/.bashrc
-		;;
-	*zsh)
-		echo "Sourcing zshrc..."
-		source ~/.zshrc
-		;;
-	*)
-		echo "No config file to source for shell: $SHELL"
-		;;
-	esac
+	source "$HOME/.zshrc" 2>/dev/null || \
+		source "$HOME/.bashrc" 2>/dev/null || true
 else
-	echo "cannot update shell config, not sourced."
-	echo "restart your terminal to apply changes, or run:"
-	echo "  source $0"
+	echo "restart your shell or run: source ${BASH_SOURCE[0]}"
 fi
-
-echo "running setup..."
-cd "$dot_path" || return 1
-if ! ./home/bin/setup; then
-	echo "error: setup failed"
-	return 1
-fi
-
-echo "dotfiles init complete."

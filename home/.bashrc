@@ -122,25 +122,16 @@ fi
 
 export EDITOR=nvim
 
-# custom binaries
-export PATH=$PATH:~/bin
-export PATH=$PATH:/Applications/Tailscale.app/Contents/MacOS/Tailscale
+export PATH=$PATH:~/.local/bin
 
-# go
-export PATH=$PATH:/usr/local/go/bin
-
-# nvim
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
-
-# node
-# TODO: throw away if not needed, this overrides previous path and seems sus
-# export PATH=/home/$USER/.nvm/versions/node/v22.15.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/usr/local/go/bin:/usr/local/go/bin:/home/$USER/.nvm/versions/node/v22.15.0/bin/node
+# mise
+if command -v mise &>/dev/null; then
+	eval "$(mise activate bash)"
+fi
 
 # determine if linux or macos
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-	alias foo=foo
+	: # linux-specific
 elif [[ "$OSTYPE" == "darwin"* ]]; then
 	# MacOS specific aliases
 	alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'

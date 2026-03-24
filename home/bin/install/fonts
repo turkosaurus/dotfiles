@@ -1,22 +1,30 @@
 #!/usr/bin/env bash
 
+set -eo pipefail
 
-declare url
-if [[ $# -ne 1 ]]; then
-    url="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/RobotoMono.zip"
-    echo "Usage: $0 <font-url.zip>"
-    echo "Warn: invalid usage, falling back to default url."
-    echo "Default Url: $url"
-    echo
-else
-    url="$1"
-fi
+font="${1:-RobotoMono}"
+version="v3.4.0"
+url="https://github.com/ryanoasis/nerd-fonts/releases/download/$version/$font.zip"
 
-if [[ $(uname) == "Linux" ]]; then
-    mkdir -p ~/.local/share/fonts
-    curl -L "$url" -o /tmp/font.zip
-    unzip -o /tmp/font.zip -d ~/.local/share/fonts
-    fc-cache -f -v
-else
-    echo "$0: unsupported OS"
-fi
+case "$(uname -s)" in
+Linux)
+	dir="$HOME/.local/share/fonts"
+	mkdir -p "$dir"
+	curl -fsSL "$url" -o /tmp/font.zip
+	unzip -o /tmp/font.zip -d "$dir"
+	rm /tmp/font.zip
+	fc-cache -f
+	;;
+Darwin)
+	if ! command -v brew &>/dev/null; then
+		echo "error: homebrew required" >&2
+		exit 1
+	fi
+	name="font-$(echo "$font" | sed 's/\([A-Z]\)/-\L\1/g; s/^-//')-nerd-font"
+	brew install --cask "$name"
+	;;
+*)
+	echo "error: unsupported OS: $(uname -s)" >&2
+	exit 1
+	;;
+esac
