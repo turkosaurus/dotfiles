@@ -10,7 +10,7 @@ red='\033[0;31m'
 orange='\033[0;33m'
 reset='\033[0m'
 
-err() {
+error() {
 	echo -e "${red}ERR${reset}: $*" >&2
 	return 1 2>/dev/null || exit 1
 }
@@ -30,17 +30,17 @@ if [[ "$(uname -s)" == "Linux" ]]; then
 		echo "installing: ${missing[*]}"
 		if (( $(id -u) == 0 )); then
 			if ! apt-get update -qq; then
-				err "apt-get update failed"
+				error "apt-get update failed"
 			fi
 			if ! apt-get install -y -qq "${missing[@]}"; then
-				err "apt-get install failed"
+				error "apt-get install failed"
 			fi
 		elif command -v sudo &>/dev/null; then
 			if ! sudo apt-get update -qq; then
-				err "apt-get update failed"
+				error "apt-get update failed"
 			fi
 			if ! sudo apt-get install -y -qq "${missing[@]}"; then
-				err "apt-get install failed"
+				error "apt-get install failed"
 			fi
 		else
 			warn "need root or sudo to install packages"
@@ -52,7 +52,7 @@ fi
 if [[ ! -d "$dot_dir/.git" ]]; then
 	echo "cloning dotfiles..."
 	if ! GIT_TERMINAL_PROMPT=0 git clone "$repo" "$dot_dir"; then
-		err "failed to clone dotfiles"
+		error "failed to clone dotfiles"
 	fi
 fi
 
@@ -61,17 +61,17 @@ if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
 	echo "installing oh-my-zsh..."
 	install_script="$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 	if [[ -z "$install_script" ]]; then
-		err "failed to download oh-my-zsh installer"
+		error "failed to download oh-my-zsh installer"
 	fi
 	if ! RUNZSH=no CHSH=no sh -c "$install_script" "" --unattended; then
-		err "failed to install oh-my-zsh"
+		error "failed to install oh-my-zsh"
 	fi
 fi
 
 # 4. Dotsync (local only — init.sh handles cloning/pulling)
 echo "running dotsync..."
 if ! "$dot_dir/home/bin/dotsync" -l; then
-	err "dotsync failed"
+	error "dotsync failed"
 fi
 
 # 5. Mise
@@ -79,20 +79,20 @@ export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 if ! command -v mise &>/dev/null; then
 	echo "installing mise..."
 	if ! "$dot_dir/home/bin/install/mise"; then
-		err "failed to install mise"
+		error "failed to install mise"
 	fi
 fi
 
 # 6. Install tools
 echo "installing tools via mise..."
 if ! cd "$HOME"; then
-	err "cd $HOME failed"
+	error "cd $HOME failed"
 fi
 if ! mise trust; then
-	err "mise trust failed"
+	error "mise trust failed"
 fi
 if ! MISE_PYTHON_PRECOMPILED_FLAVOR=install_only_stripped mise install; then
-	err "mise install failed"
+	error "mise install failed"
 fi
 
 # 7. Change shell to zsh
