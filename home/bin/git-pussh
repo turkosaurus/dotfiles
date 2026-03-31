@@ -2,8 +2,8 @@
 
 set -e
 
-# Git push to SSH remote script
-# Usage: ./git-push-ssh.sh [remote-name] [branch]
+# Git push to SSH remote
+# Usage: git pussh <remote-name> [branch]
 
 if [ -z "$1" ]; then
 	echo "Usage: $0 [remote-name] [branch]"
