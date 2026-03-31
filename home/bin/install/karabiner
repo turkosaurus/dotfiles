@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+case "$(uname -s)" in
+Darwin)
+	if ! command -v brew &>/dev/null; then
+		echo "error: homebrew required" >&2
+		exit 1
+	fi
+	brew install --cask karabiner-elements
+	echo "note: grant accessibility permissions in System Settings > Privacy & Security"
+	;;
+*)
+	echo "skipping karabiner: macOS only"
+	;;
+esac

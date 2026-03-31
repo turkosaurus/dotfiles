@@ -7,10 +7,7 @@
 # - tmux window heading (if tmux is active)
 # - terminal (if tmux is not active)
 # 
-# Warnings (set per POMO_WARN) are sent to:
-# - terminal (audible bell)
-# - notify-send (if Linux)
-# - tmux message bar (if active)
+# Warnings (set per POMO_WARN) are sent via notify().
 # 
 # Terminated and completed timers are logged to $POMO_LOG.
 
