@@ -69,24 +69,21 @@ warn() {
 }
 
 # notify() sends notifications to
-# - OS system
-# - tmux message bar
+# - tmux-notify popup (if available)
+# - tmux message bar (fallback)
+# - terminal bell + stdout (no tmux)
 notify() {
-  if [[ -n "$TMUX" ]]; then
-    tmux display-message "$1"
-  else
+  if [[ -z "$TMUX" ]]; then
     echo "$1"
+    echo -ne "\a"
+    return
   fi
-  echo -ne "\a" # audible bell
 
-  # OS-specific notifications
-  if [[ $(uname) == "Linux" ]]; then
-    notify-send "$1" 2> /dev/null # don't care if the popup fails
-    # spd-say "$1" # kinda frightening tbh
-    return 0
+  if command -v tmux-notify &>/dev/null; then
+    tmux-notify "$1"
   else
-    echo "error: notifications not supported on OS: $(uname)"
-    return 1
+    tmux display-message "$1"
+    echo -ne "\a"
   fi
 }
 
