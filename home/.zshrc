@@ -7,7 +7,7 @@ plugins=(git mise)
 #shellcheck disable=SC1091
 source "$ZSH/oh-my-zsh.sh"
 
-export PATH=$PATH:~/.local/bin
+export PATH=$PATH:~/.local/bin:~/bin
 export EDITOR=nvim
 
 # --- shared aliases ---
