@@ -6,7 +6,10 @@ Darwin)
 		echo "error: homebrew required" >&2
 		exit 1
 	fi
-	brew install --cask karabiner-elements
+	if ! brew install --cask karabiner-elements; then
+		echo "error: failed to install karabiner-elements" >&2
+		exit 1
+	fi
 	echo "note: grant accessibility permissions in System Settings > Privacy & Security"
 	;;
 *)
