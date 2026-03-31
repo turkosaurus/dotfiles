@@ -68,7 +68,17 @@ if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
 	fi
 fi
 
-# 4. Dotsync (local only — init.sh handles cloning/pulling)
+# 4. TPM (tmux plugin manager)
+tpm_dir="$HOME/.tmux/plugins/tpm"
+if [[ ! -d "$tpm_dir" ]]; then
+	echo "installing tpm..."
+	if ! git clone https://github.com/tmux-plugins/tpm "$tpm_dir"; then
+		error "failed to clone tpm"
+	fi
+	"$tpm_dir/bin/install_plugins"
+fi
+
+# 5. Dotsync (local only — init.sh handles cloning/pulling)
 echo "running dotsync..."
 if ! "$dot_dir/home/bin/dotsync" -l; then
 	error "dotsync failed"

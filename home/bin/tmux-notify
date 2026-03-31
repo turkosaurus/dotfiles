@@ -105,8 +105,9 @@ tmux display-popup -w "$width" -h "$height" -E "
     read cmd
     tmux send-keys -t '$pane' -l \"\$cmd\"
     tmux send-keys -t '$pane' Enter
-    tmux set-option -t '$window_index' monitor-bell off
-    tmux set-option -t '$window_index' monitor-bell on
+    cur=\$(tmux display-message -p '#{window_index}')
+    tmux select-window -t '$window_index'
+    tmux select-window -t \"\$cur\"
   fi
 "
 ) &
