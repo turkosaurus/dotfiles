@@ -13,6 +13,10 @@
       "Bash(git status)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
       "Read(~/.zshrc)"
     ],
     "deny": [
@@ -22,10 +26,9 @@
       "Read(**/*secret*)",
       "Read(**/id_rsa*)",
       "Read(**/*.pem)",
-      "Read(* terraform *)"
+      "Read(* terraform*)"
     ]
   },
-  "model": "opus",
   "hooks": {
     "Notification": [
       {
@@ -50,10 +53,6 @@
       }
     ]
   },
-  "statusLine": {
-    "type": "command",
-    "command": "~/bin/claude-status"
-  },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true
   },
@@ -63,5 +62,5 @@
       "Computing"
     ]
   },
-  "voiceEnabled": false
+  "effortLevel": "high"
 }
