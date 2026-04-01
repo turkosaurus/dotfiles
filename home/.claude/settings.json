@@ -53,6 +53,10 @@
       }
     ]
   },
+  "statusLine": {
+    "type": "command",
+    "command": "~/bin/claude-status"
+  },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true
   },
@@ -62,5 +66,6 @@
       "Computing"
     ]
   },
-  "effortLevel": "high"
+  "effortLevel": "high",
+  "model": "opus"
 }
