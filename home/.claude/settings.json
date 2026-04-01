@@ -6,17 +6,17 @@
   },
   "permissions": {
     "allow": [
-      "Bash(go mod:*)",
-      "Bash(go vet:*)",
-      "Bash(go test:*)",
-      "Bash(go build:*)",
+      "Bash(go mod *)",
+      "Bash(go vet *)",
+      "Bash(go test *)",
+      "Bash(go build *)",
       "Bash(git status)",
-      "Bash(git diff:*)",
-      "Bash(git log:*)",
-      "Bash(gh pr list:*)",
-      "Bash(gh pr view:*)",
-      "Bash(gh issue list:*)",
-      "Bash(gh issue view:*)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr view *)",
+      "Bash(gh issue list *)",
+      "Bash(gh issue view *)",
       "Read(~/.zshrc)"
     ],
     "deny": [
