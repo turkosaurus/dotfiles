@@ -70,19 +70,30 @@ Create a plan for addressing PR review comments.
    worktree: ~/w/<repo>/pr-<number>
    ---
 
-   ## <thread-id>
-   - file: <path>:<line>
-   - author: <login>
-   - comment: |
-       <comment body, indented>
-   - action: <your drafted suggestion for what to do>
-   - status: pending
-   - commit:
+   ## Handle nil error
+
+   | key      | value                |
+   | -------- | -------------------- |
+   | thread   | <thread-id>          |
+   | file     | src/handler.go:42    |
+   | author   | reviewer-name        |
+   | status   | pending              |
+   | commit   |                      |
+
+   ### Comment
+
+   > Original review comment body, blockquoted.
+   > Can be multiple lines.
+
+   ### Reply
+
+   Add a nil check on the return value of `Fetch()` and wrap
+   the error with context before returning.
    ```
 
-   Repeat the `## <thread-id>` section for each unresolved thread.
+   The `##` title should be 2-3 words summarizing what needs to change (not the thread ID). The metadata table should have nicely aligned columns. The `### Reply` section is your drafted proposed fix — read the relevant code in the worktree to be specific about functions, variables, and the exact change.
 
-5. **Draft the `action:` field** for each comment. Read the relevant code in the worktree to understand context. Be specific — name the function, the variable, the exact change. Keep it to one or two lines.
+   Repeat for each unresolved thread.
 
 6. **Done.** Tell the user:
    - Where the PLAN.md is
