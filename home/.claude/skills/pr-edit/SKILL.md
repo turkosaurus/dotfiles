@@ -18,14 +18,14 @@ You must be in a worktree directory that contains a `PLAN.md` created by `/pr-pl
 
 1. **Read `PLAN.md`** from the current directory.
 
-2. **For each section with `status: pending`**, in order:
-   a. Read the relevant file(s) in the worktree to understand the code.
-   b. Implement the fix described in `action:`.
+2. **For each `##` section with `status` of `pending` in the metadata table**, in order:
+   a. Read the `file` from the metadata table and understand the code.
+   b. Implement the fix described in the `### Reply` section.
    c. Stage only the changed files.
-   d. Commit with a message like: `fix: <short description of the change>`
-   e. Update that section in PLAN.md:
-      - Set `status: done`
-      - Set `commit: <short hash>` (7-char abbreviated hash)
+   d. Commit with a message like: `fix: <the ## section title>`
+   e. Update that section's metadata table in PLAN.md:
+      - Set `status` to `done`
+      - Set `commit` to the 7-char abbreviated hash
    f. Write the updated PLAN.md after each commit so progress is saved.
 
 3. **Skip sections** with `status: skip` or `status: done`. Do not touch them.

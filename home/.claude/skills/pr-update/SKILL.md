@@ -21,13 +21,13 @@ Resolve addressed PR comment threads and clean up.
 
 2. **Read `PLAN.md`** from the worktree.
 
-3. **Fail fast: verify pushed.** For each section with `status: done`, check that the commit hash exists on the remote:
+3. **Fail fast: verify pushed.** For each `##` section where the metadata table has `status` of `done`, check that the `commit` hash exists on the remote:
    ```
    git -C <worktree> branch -r --contains <commit>
    ```
    If ANY done commit is not pushed, stop immediately and tell the user to push first. Do not proceed with anything else.
 
-4. **Resolve threads on GitHub.** For each section with `status: done`:
+4. **Resolve threads on GitHub.** For each `##` section where the metadata table has `status` of `done`, read the `thread` and `commit` values from the table:
    a. Post a comment on the thread:
       ```
       gh api graphql -f query='
