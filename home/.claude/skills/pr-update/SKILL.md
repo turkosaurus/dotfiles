@@ -1,54 +1,50 @@
 ---
 name: pr-update
-description: Verify push, resolve PR comment threads on GitHub, and clean up the worktree
+description: Implement PR plan fixes one at a time, prompt for acceptance, resolve threads on GitHub, then clean up
 user-invocable: true
 disable-model-invocation: true
-allowed-tools: Bash(gh *), Bash(git *), Bash(rmdir *), Read
+allowed-tools: Bash(gh *), Bash(git *), Read, Grep, Glob, Edit, Write, AskUserQuestion
 argument-hint: <pr-number>
 ---
 
 # PR Update
 
-Resolve addressed PR comment threads and clean up.
+Implement fixes from a PR plan, get user approval, then resolve threads on GitHub.
 
 ## Input
 
 `$ARGUMENTS` is a PR number.
 
+## Prerequisites
+
+Look for `PR$ARGUMENTS.md` at the git toplevel. If it doesn't exist, tell the user to run `/pr-plan $ARGUMENTS` first and stop.
+
 ## Steps
 
-1. **Find the worktree.** Derive the repo name from `git rev-parse --show-toplevel` (use the basename of any existing worktree or the main repo). The worktree path is `~/w/{repo}/pr-$ARGUMENTS`. If it doesn't exist, tell the user and stop.
+1. **Read `PR$ARGUMENTS.md`.**
 
-2. **Read `PLAN.md`** from the worktree.
+2. **For each `##` section in order**, check `status` in the metadata table:
+   - `skip` or `done` — skip it silently.
+   - `pending` — implement it:
+     a. Read the `file` from the metadata table and understand the surrounding code.
+     b. Implement the fix described in the `### Reply` section. **Only edit files — never commit or push.**
+     c. Show the user what changed (mention the file and the change).
+     d. Ask the user to accept or reject. If rejected, revert the change and move on.
+     e. If accepted, update `status` to `done` in `PR$ARGUMENTS.md`.
 
-3. **Merge worktree changes to the PR branch.** Check if the worktree has uncommitted changes (`git -C <worktree> diff`). If it does:
-   a. Create a patch:
-      ```
-      git -C <worktree> diff > /tmp/pr-<number>.patch
-      ```
-   b. Find the main repo checkout (the worktree's parent via `git -C <worktree> worktree list`, pick the entry that is not the worktree itself).
-   c. Apply the patch to the PR branch in the main repo:
-      ```
-      git -C <main-repo> checkout <branch>
-      git -C <main-repo> apply /tmp/pr-<number>.patch
-      ```
-   d. Tell the user the patch has been applied and they should review (`git diff`), commit, and push. **Stop here** — do not proceed to thread resolution until the user runs `/pr-update` again after pushing.
+3. **After all sections are processed**, if any items were accepted:
+   a. Tell the user to review (`git diff`), commit, and push.
+   b. **Stop here and wait.** Do not proceed until the user confirms they have pushed.
 
-4. **Fail fast: verify pushed.** For each `##` section where the metadata table has `status` of `done`, check that the `commit` hash exists on the remote:
-   ```
-   git -C <worktree> branch -r --contains <commit>
-   ```
-   If ANY done commit is not pushed, stop immediately and tell the user to push first. Do not proceed with anything else.
-
-5. **Resolve threads on GitHub.** For each `##` section where the metadata table has `status` of `done`, read the `thread` and `commit` values from the table:
-   a. Post a comment on the thread:
+4. **Resolve threads on GitHub.** For each `done` section, read the `thread` value:
+   a. Post a reply on the thread:
       ```
       gh api graphql -f query='
         mutation($threadId: ID!, $body: String!) {
           addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $threadId, body: $body}) {
             comment { id }
           }
-        }' -f threadId=<thread-id> -f body='resolved by `<commit-hash>`'
+        }' -f threadId=<thread-id> -f body='Addressed.'
       ```
    b. Resolve the thread:
       ```
@@ -60,13 +56,9 @@ Resolve addressed PR comment threads and clean up.
         }' -f threadId=<thread-id>
       ```
 
-6. **Clean up the worktree:**
+5. **Clean up.** Delete `PR$ARGUMENTS.md`:
    ```
-   git -C <worktree> worktree remove <worktree-path>
-   ```
-   Then remove the empty repo directory if it's now empty:
-   ```
-   rmdir ~/w/{repo} 2>/dev/null || true
+   git rm PR$ARGUMENTS.md 2>/dev/null || rm PR$ARGUMENTS.md
    ```
 
-7. **Done.** Tell the user how many threads were resolved and that the worktree is cleaned up.
+6. **Done.** Tell the user how many threads were resolved vs skipped.
