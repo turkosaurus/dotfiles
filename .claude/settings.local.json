@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(podman run:*)",
+      "Bash(grep:*)",
+      "mcp__signoz__signoz_get_field_keys",
+      "mcp__signoz__signoz_aggregate_traces",
+      "mcp__signoz__signoz_search_traces",
+      "mcp__signoz__signoz_execute_builder_query",
+      "mcp__signoz__signoz_list_services",
+      "mcp__signoz__signoz_search_logs",
+      "mcp__signoz__signoz_query_metrics",
+      "mcp__signoz__signoz_get_field_values",
+      "mcp__signoz__signoz_list_metrics",
+      "Bash(git -C /Users/scrubjay/dotfiles log --all --oneline -- home/.tmux.conf)",
+      "Bash(xargs -I{} git -C /Users/scrubjay/dotfiles show {}:home/.tmux.conf)"
+    ]
+  }
+}
