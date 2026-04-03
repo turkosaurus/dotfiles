@@ -6,17 +6,18 @@
   },
   "permissions": {
     "allow": [
-      "Bash(go mod *)",
-      "Bash(go vet *)",
-      "Bash(go test *)",
-      "Bash(go build *)",
+      "Bash(go mod:*)",
+      "Bash(go vet:*)",
+      "Bash(go test:*)",
+      "Bash(go build:*)",
       "Bash(git status)",
-      "Bash(git diff *)",
-      "Bash(git log *)",
-      "Bash(gh pr list *)",
-      "Bash(gh pr view *)",
-      "Bash(gh issue list *)",
-      "Bash(gh issue view *)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr get:*)",
+      "Bash(gh project item-list:*)",
       "Read(~/.zshrc)"
     ],
     "deny": [
@@ -53,10 +54,6 @@
       }
     ]
   },
-  "statusLine": {
-    "type": "command",
-    "command": "~/bin/claude-status"
-  },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true
   },
@@ -66,16 +63,5 @@
       "Computing"
     ]
   },
-  "effortLevel": "high",
-  "model": "opus",
-  "mcpServers": {
-    "slack": {
-      "type": "http",
-      "url": "https://mcp.slack.com/mcp",
-      "oauth": {
-        "clientId": "1601185624273.8899143856786",
-        "callbackPort": 3118
-      }
-    }
-  }
+  "effortLevel": "high"
 }
