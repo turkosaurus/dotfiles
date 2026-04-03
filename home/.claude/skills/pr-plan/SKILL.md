@@ -1,9 +1,9 @@
 ---
 name: pr-plan
-description: Read PR review comments and create a PLAN.md in a worktree with drafted fixes
+description: Read unresolved PR review comments and create PR<number>.md in the repo root with drafted fixes
 user-invocable: true
 disable-model-invocation: true
-allowed-tools: Bash(gh *), Bash(git *), Bash(mkdir *), Bash(ls *), Read, Grep, Write
+allowed-tools: Bash(gh *), Bash(git *), Read, Grep, Glob, Write
 argument-hint: <pr-number>
 ---
 
@@ -19,7 +19,7 @@ Create a plan for addressing PR review comments.
 
 1. **Resolve repo info:**
    ```
-   gh pr view $ARGUMENTS --json number,headRefName,baseRefName,url,repository
+   gh pr view $ARGUMENTS --json number,headRefName,baseRefName,url,headRepository,headRepositoryOwner
    ```
    Extract the PR number, head branch, and `owner/repo`.
 
@@ -50,35 +50,23 @@ Create a plan for addressing PR review comments.
    ```
    Skip threads that are already resolved.
 
-3. **Create the worktree** using the same convention as `~/dotfiles/home/bin/work`:
-   - Repo name = basename of the git toplevel
-   - Path: `~/w/{repo}/pr-$ARGUMENTS`
-   - Branch off the PR's head branch:
-     ```
-     git fetch origin <head-branch>
-     git worktree add ~/w/{repo}/pr-$ARGUMENTS origin/<head-branch>
-     ```
-   - If the worktree already exists, skip creation and reuse it. Warn the user that PLAN.md will be overwritten.
-
-4. **Write `PLAN.md`** at the worktree root with this exact format:
+3. **Write `PR$ARGUMENTS.md`** at the git toplevel with this exact format:
 
    ```markdown
    ---
    pr: <number>
    repo: <owner/repo>
    branch: <head-branch>
-   worktree: ~/w/<repo>/pr-<number>
    ---
 
    ## Handle nil error
 
-   | key      | value                |
-   | -------- | -------------------- |
-   | thread   | <thread-id>          |
-   | file     | src/handler.go:42    |
-   | author   | reviewer-name        |
-   | status   | pending              |
-   | commit   |                      |
+   | key    | value             |
+   | ------ | ----------------- |
+   | thread | <thread-id>       |
+   | file   | src/handler.go:42 |
+   | author | reviewer-name     |
+   | status | pending           |
 
    ### Comment
 
@@ -91,11 +79,11 @@ Create a plan for addressing PR review comments.
    the error with context before returning.
    ```
 
-   The `##` title should be 2-3 words summarizing what needs to change (not the thread ID). The metadata table should have nicely aligned columns. The `### Reply` section is your drafted proposed fix — read the relevant code in the worktree to be specific about functions, variables, and the exact change.
+   The `##` title should be 2-3 words summarizing what needs to change (not the thread ID). The metadata table should have nicely aligned columns. The `### Reply` section is your drafted proposed fix — read the relevant code to be specific about functions, variables, and the exact change.
 
    Repeat for each unresolved thread.
 
-6. **Done.** Tell the user:
-   - Where the PLAN.md is
+4. **Done.** Tell the user:
+   - Where the file is
    - How many comments were planned
-   - Remind them to review/edit the plan, mark any items `status: skip`, then run `/pr-edit` from the worktree directory
+   - Remind them to review/edit the plan, mark any items `status: skip`, then run `/pr-update $ARGUMENTS`
