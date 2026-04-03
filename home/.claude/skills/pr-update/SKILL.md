@@ -21,13 +21,26 @@ Resolve addressed PR comment threads and clean up.
 
 2. **Read `PLAN.md`** from the worktree.
 
-3. **Fail fast: verify pushed.** For each `##` section where the metadata table has `status` of `done`, check that the `commit` hash exists on the remote:
+3. **Merge worktree changes to the PR branch.** Check if the worktree has uncommitted changes (`git -C <worktree> diff`). If it does:
+   a. Create a patch:
+      ```
+      git -C <worktree> diff > /tmp/pr-<number>.patch
+      ```
+   b. Find the main repo checkout (the worktree's parent via `git -C <worktree> worktree list`, pick the entry that is not the worktree itself).
+   c. Apply the patch to the PR branch in the main repo:
+      ```
+      git -C <main-repo> checkout <branch>
+      git -C <main-repo> apply /tmp/pr-<number>.patch
+      ```
+   d. Tell the user the patch has been applied and they should review (`git diff`), commit, and push. **Stop here** — do not proceed to thread resolution until the user runs `/pr-update` again after pushing.
+
+4. **Fail fast: verify pushed.** For each `##` section where the metadata table has `status` of `done`, check that the `commit` hash exists on the remote:
    ```
    git -C <worktree> branch -r --contains <commit>
    ```
    If ANY done commit is not pushed, stop immediately and tell the user to push first. Do not proceed with anything else.
 
-4. **Resolve threads on GitHub.** For each `##` section where the metadata table has `status` of `done`, read the `thread` and `commit` values from the table:
+5. **Resolve threads on GitHub.** For each `##` section where the metadata table has `status` of `done`, read the `thread` and `commit` values from the table:
    a. Post a comment on the thread:
       ```
       gh api graphql -f query='
@@ -47,7 +60,7 @@ Resolve addressed PR comment threads and clean up.
         }' -f threadId=<thread-id>
       ```
 
-5. **Clean up the worktree:**
+6. **Clean up the worktree:**
    ```
    git -C <worktree> worktree remove <worktree-path>
    ```
@@ -56,4 +69,4 @@ Resolve addressed PR comment threads and clean up.
    rmdir ~/w/{repo} 2>/dev/null || true
    ```
 
-6. **Done.** Tell the user how many threads were resolved and that the worktree is cleaned up.
+7. **Done.** Tell the user how many threads were resolved and that the worktree is cleaned up.

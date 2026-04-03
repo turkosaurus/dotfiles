@@ -45,12 +45,23 @@ Help the user plan their day by gathering context from GitHub and Slack, then re
 
    e. **Pomo log** — read `~/.pomo.log` (last 10 lines) to see what was worked on recently. This gives context on momentum and what was left unfinished.
 
-2. **Analyze and prioritize.** Think about what matters most:
-   - **Unblock others first**: review requests and PRs waiting on the user
-   - **In-progress work**: things already started (especially recent pomo sessions that didn't finish)
-   - **Sprint commitments**: items in the current sprint that aren't started yet
-   - **Slack**: messages that need responses, especially time-sensitive ones
-   - **Backlog**: only if the above are light
+2. **Analyze and prioritize.** This is a plan for ONE day, not a mirror of the project board. Be opinionated.
+
+   **Priority order:**
+   1. **Merge-ready PRs** — approved, CI green → ship immediately
+   2. **Unblock others** — review requests, especially fresh ones
+   3. **In-progress sprint work** — items already started, especially recent pomo sessions
+   4. **Not-started sprint commitments** — be aware of where the sprint is in its iteration. If the sprint ends soon, these become urgent.
+   5. **Drive-by backlog opportunities only** — a backlog item is relevant ONLY if it overlaps with sprint/PR work already planned (e.g. same package, same service, two problems one PR). Never list backlog items on their own.
+
+   **Backlog rules:**
+   - Do NOT list the user's full backlog. That's what the project board is for.
+   - Backlog items only surface when they can piggyback on other work, or when all sprint items are complete.
+
+   **Sprint awareness:**
+   - Note where the sprint is in its cycle (beginning, mid, end of week).
+   - If the sprint ends this week, flag uncommitted sprint items as urgent.
+   - If the sprint just started, there's more room to be strategic.
 
 3. **Cluster into social and focus blocks.**
 
@@ -63,6 +74,8 @@ Help the user plan their day by gathering context from GitHub and Slack, then re
 
    ```markdown
    # <today's date>
+
+   Sprint ends: <date or "this week" etc.>
 
    ## Recommended focus
 
@@ -85,6 +98,7 @@ Help the user plan their day by gathering context from GitHub and Slack, then re
    ```
 
    Each recommended focus item should include a ready-to-paste `pomo` command.
+   Keep the total list to what fits in a realistic day (3-5 focus items).
 
 5. **Present the plan.** Show the user the recommended focus section directly in the conversation. Keep it brief — 3-5 items max. Don't overwhelm.
 
@@ -93,3 +107,4 @@ Help the user plan their day by gathering context from GitHub and Slack, then re
 - If `~/today.md` already exists for today's date, update it rather than overwriting — the user may have added notes.
 - The recommended focus should be opinionated. Don't just list everything. Make a call on what matters most and why.
 - Keep Slack summaries vague enough to avoid leaking sensitive content into the file — just enough to remind the user what needs attention.
+- The output is a daily plan, NOT a project board dump. If it looks like a list of everything assigned to the user, it's wrong.
