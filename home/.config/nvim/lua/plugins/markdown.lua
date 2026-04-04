@@ -9,30 +9,27 @@ return {
 		-- Heading styling
 		heading = {
 			enabled = true,
-
-			-- Background colors (one per level)
 			backgrounds = {
-				"RenderMarkdownH1Bg", -- # Level 1
-				"RenderMarkdownH2Bg", -- ## Level 2
-				"RenderMarkdownH3Bg", -- ### Level 3
-				"RenderMarkdownH4Bg", -- #### Level 4
-				"RenderMarkdownH5Bg", -- ##### Level 5
-				"RenderMarkdownH6Bg", -- ###### Level 6
+				"RenderMarkdownH1Bg",
+				"RenderMarkdownH2Bg",
+				"RenderMarkdownH3Bg",
+				"RenderMarkdownH4Bg",
+				"RenderMarkdownH5Bg",
+				"RenderMarkdownH6Bg",
 			},
-
-			-- Foreground colors (one per level)
 			foregrounds = {
-				"RenderMarkdownH1", -- # Level 1
-				"RenderMarkdownH2", -- ## Level 2
-				"RenderMarkdownH3", -- ### Level 3
-				"RenderMarkdownH4", -- #### Level 4
-				"RenderMarkdownH5", -- ##### Level 5
-				"RenderMarkdownH6", -- ###### Level 6
+				"RenderMarkdownH1",
+				"RenderMarkdownH2",
+				"RenderMarkdownH3",
+				"RenderMarkdownH4",
+				"RenderMarkdownH5",
+				"RenderMarkdownH6",
 			},
-			icons = { "󰲡 ", "󰲣 ", "󰲥 ", "󰲧 ", "󰲩 ", "󰲫 " }, -- Or use '#', '##', etc.
-			position = "overlay", -- 'overlay', 'inline', or 'right'
-			width = "block", -- 'full' or 'block'
-			border = false, -- Remove border lines above/below headings
+			icons = { "# ", "## ", "### ", "#### ", "##### ", "###### " },
+			sign = { enabled = false },
+			position = "overlay",
+			width = "full",
+			border = false,
 		},
 
 		-- Code block styling
@@ -53,8 +50,8 @@ return {
 		-- Checkbox styling
 		checkbox = {
 			enabled = true,
-			unchecked = { icon = "󰄱 " },
-			checked = { icon = "󰱒 " },
+			unchecked = { icon = "-  󰄱 " },
+			checked   = { icon = "-  󰱒 " },
 		},
 
 		-- Disable specific features
