@@ -51,7 +51,7 @@ fi
 # 2. Clone dotfiles
 if [[ ! -d "$dot_dir/.git" ]]; then
 	echo "cloning dotfiles..."
-	if ! GIT_TERMINAL_PROMPT=0 git clone "$repo" "$dot_dir"; then
+	if ! GIT_TERMINAL_PROMPT=0 git clone --depth=1 "$repo" "$dot_dir"; then
 		error "failed to clone dotfiles"
 	fi
 fi
