@@ -6,7 +6,7 @@
 go = "1.24.7"
 node = "22"
 python = "3.13"
-"asdf:richin13/asdf-neovim" = "nightly"
+"asdf:richin13/asdf-neovim" = "0.12.0"
 
 # dev tools
 golangci-lint = "2.4.0"
@@ -14,7 +14,7 @@ terraform = "1.13.2"
 terragrunt = "0.93.13"
 
 # cli tools
-fzf = "0.70"
+fzf = "latest"
 jq = "1.8"
 yq = "4"
 ripgrep = "15"
@@ -32,3 +32,5 @@ GOPATH = "{{ env.HOME }}/go"
 [settings]
 auto_install = true
 experimental = false
+trusted_config_paths = ["~/p", "~/w"]
+python_precompiled_flavor = "install_only_stripped"
