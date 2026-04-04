@@ -44,8 +44,8 @@ fi
 pane="${TMUX_PANE:-$(tmux display-message -p '#{pane_id}')}"
 
 if [[ "$aural" == 1 ]]; then
-  printf '\a' >> /dev/tty 2>/dev/null || \
-    printf '\a' >> "$(tmux display-message -t "$pane" -p '#{pane_tty}')"
+  printf '\a' >>/dev/tty 2>/dev/null ||
+    printf '\a' >>"$(tmux display-message -t "$pane" -p '#{pane_tty}')"
 fi
 
 read -r window_index pane_index window_active pane_tty < <(
@@ -77,7 +77,7 @@ if [[ -n "$1" ]]; then
 fi
 
 (
-tmux display-popup -w "$width" -h "$height" -E "
+  tmux display-popup -w "$width" -h "$height" -E "
   printf '${c0}${line}${reset}\n'
   printf '  ${c1}$msg${reset}\n'
   printf '${c0}${line}${reset}\n'
