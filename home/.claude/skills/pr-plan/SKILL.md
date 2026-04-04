@@ -1,6 +1,6 @@
 ---
 name: pr-plan
-description: Read unresolved PR review comments and create PR<number>.md in the repo root with drafted fixes
+description: Read unresolved PR review comments and write plan.md into the branch's worktree
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Bash(gh *), Bash(git *), Read, Grep, Glob, Write
@@ -22,6 +22,12 @@ Create a plan for addressing PR review comments.
    gh pr view $ARGUMENTS --json number,headRefName,baseRefName,url,headRepository,headRepositoryOwner
    ```
    Extract the PR number, head branch, and `owner/repo`.
+
+   Then compute the worktree path:
+   - `slug` = headRefName with `/` replaced by `-`
+   - `worktree` = `~/w/{headRepository.name}/{slug}`
+
+   If the worktree directory doesn't exist, fall back to the current git toplevel.
 
 2. **Fetch review comments:**
    ```
@@ -50,7 +56,7 @@ Create a plan for addressing PR review comments.
    ```
    Skip threads that are already resolved.
 
-3. **Write `PR$ARGUMENTS.md`** at the git toplevel with this exact format:
+3. **Write `plan.md`** at `{worktree}/plan.md` with this exact format:
 
    ```markdown
    ---
@@ -84,6 +90,5 @@ Create a plan for addressing PR review comments.
    Repeat for each unresolved thread.
 
 4. **Done.** Tell the user:
-   - Where the file is
    - How many comments were planned
    - Remind them to review/edit the plan, mark any items `status: skip`, then run `/pr-update $ARGUMENTS`
