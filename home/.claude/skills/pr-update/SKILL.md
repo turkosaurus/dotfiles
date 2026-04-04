@@ -17,11 +17,20 @@ Implement fixes from a PR plan, get user approval, then resolve threads on GitHu
 
 ## Prerequisites
 
-Look for `PR$ARGUMENTS.md` at the git toplevel. If it doesn't exist, tell the user to run `/pr-plan $ARGUMENTS` first and stop.
+Resolve the worktree path for this PR:
+```
+gh pr view $ARGUMENTS --json headRefName,headRepository
+```
+- `slug` = headRefName with `/` replaced by `-`
+- `worktree` = `~/w/{headRepository.name}/{slug}`
+
+If the worktree doesn't exist, fall back to the current git toplevel.
+
+Look for `plan.md` in the resolved worktree. If it doesn't exist, tell the user to run `/pr-plan $ARGUMENTS` first and stop.
 
 ## Steps
 
-1. **Read `PR$ARGUMENTS.md`.**
+1. **Read `{worktree}/plan.md`.**
 
 2. **For each `##` section in order**, check `status` in the metadata table:
    - `skip` or `done` — skip it silently.
@@ -30,7 +39,7 @@ Look for `PR$ARGUMENTS.md` at the git toplevel. If it doesn't exist, tell the us
      b. Implement the fix described in the `### Reply` section. **Only edit files — never commit or push.**
      c. Show the user what changed (mention the file and the change).
      d. Ask the user to accept or reject. If rejected, revert the change and move on.
-     e. If accepted, update `status` to `done` in `PR$ARGUMENTS.md`.
+     e. If accepted, update `status` to `done` in `plan.md`.
 
 3. **After all sections are processed**, if any items were accepted:
    a. Tell the user to review (`git diff`), commit, and push.
@@ -56,9 +65,9 @@ Look for `PR$ARGUMENTS.md` at the git toplevel. If it doesn't exist, tell the us
         }' -f threadId=<thread-id>
       ```
 
-5. **Clean up.** Delete `PR$ARGUMENTS.md`:
+5. **Clean up.** Delete `{worktree}/plan.md`:
    ```
-   git rm PR$ARGUMENTS.md 2>/dev/null || rm PR$ARGUMENTS.md
+   rm {worktree}/plan.md
    ```
 
 6. **Done.** Tell the user how many threads were resolved vs skipped.

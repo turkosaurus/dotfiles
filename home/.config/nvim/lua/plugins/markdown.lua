@@ -31,8 +31,8 @@ return {
 			},
 			icons = { "󰲡 ", "󰲣 ", "󰲥 ", "󰲧 ", "󰲩 ", "󰲫 " }, -- Or use '#', '##', etc.
 			position = "overlay", -- 'overlay', 'inline', or 'right'
-			width = "full", -- 'full' or 'block'
-			border = true, -- Remove border lines above/below headings
+			width = "block", -- 'full' or 'block'
+			border = false, -- Remove border lines above/below headings
 		},
 
 		-- Code block styling
