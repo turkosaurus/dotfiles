@@ -105,7 +105,7 @@ case "${1:-}" in
     usage
     ;;
   ls)
-    entries=$(worktrees)
+    entries=$(worktrees | sort -t$'\t' -k3 -rn)
     maxw=0
     while IFS=$'\t' read -r branch rel _; do
       name="${rel%%/*}:$branch"

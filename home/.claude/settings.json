@@ -3,5 +3,8 @@
   "statusLine": {
     "type": "command",
     "command": "~/bin/claude-status"
+  },
+  "enabledPlugins": {
+    "gopls-lsp@claude-plugins-official": true
   }
 }
