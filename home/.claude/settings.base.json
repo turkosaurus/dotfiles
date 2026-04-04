@@ -19,6 +19,7 @@
       "Bash(gh pr view:*)",
       "Bash(gh pr get:*)",
       "Bash(gh project item-list:*)",
+      "Bash(ls:*)",
       "Read(~/.zshrc)",
       "Bash(log show:*)"
     ],
