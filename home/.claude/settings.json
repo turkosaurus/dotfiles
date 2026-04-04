@@ -19,8 +19,9 @@
       "Bash(gh pr view:*)",
       "Bash(gh pr get:*)",
       "Bash(gh project item-list:*)",
-      "Read(~/.zshrc)",
-      "Bash(log show:*)"
+      "Bash(ls:*)",
+      "Bash(fzf:*)",
+      "Read(~/.zshrc)"
     ],
     "deny": [
       "Read(./.env)",
