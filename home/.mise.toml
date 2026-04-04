@@ -33,4 +33,6 @@ GOPATH = "{{ env.HOME }}/go"
 auto_install = true
 experimental = false
 trusted_config_paths = ["~/p", "~/w"]
-python_precompiled_flavor = "install_only_stripped"
+
+[settings.python]
+precompiled_flavor = "install_only_stripped"
