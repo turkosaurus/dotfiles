@@ -1,8 +1,14 @@
 # Style Guilde
 
+## plans
+The most important file is a special `plan.md` which will be gitignored, but will contain anything useful about the plan or progress. The top of this document is for humans, the bottom of the document is for LLMs planning.
+
+## usage rules
+- Never commit or push.
+- Permissions should allow extensive read, very limited write.
+- If the same permission needs to be requested repeatedly, write a script with narrow permissions that I can review and approve for the session.
 
 ## tools
-
 Expect and prefer simple tools of the unix philosohpy, old or new, like:
 - git
 - diff

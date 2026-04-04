@@ -1,5 +1,4 @@
 {
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "env": {
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
     "OTEL_METRICS_EXPORTER": "otlp"
@@ -16,6 +15,7 @@
       "Bash(gh issue list:*)",
       "Bash(gh issue view:*)",
       "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
       "Bash(gh pr get:*)",
       "Bash(gh project item-list:*)",
       "Read(~/.zshrc)",
