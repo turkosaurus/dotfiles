@@ -101,7 +101,7 @@ fi
 if ! mise trust; then
 	error "mise trust failed"
 fi
-if ! MISE_PYTHON_PRECOMPILED_FLAVOR=install_only_stripped mise install; then
+if ! mise install; then
 	error "mise install failed"
 fi
 
