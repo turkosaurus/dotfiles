@@ -1,5 +1,71 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
+    "OTEL_METRICS_EXPORTER": "otlp"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(go mod:*)",
+      "Bash(go vet:*)",
+      "Bash(go test:*)",
+      "Bash(go build:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr get:*)",
+      "Bash(gh project item-list:*)",
+      "Read(~/.zshrc)",
+      "Bash(log show:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./*.env)",
+      "Read(**/.git/config)",
+      "Read(**/*secret*)",
+      "Read(**/id_rsa*)",
+      "Read(**/*.pem)",
+      "Read(* terraform*)"
+    ]
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/bin/tmux-notify"
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/bin/tmux-notify"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "gopls-lsp@claude-plugins-official": true
+  },
+  "spinnerVerbs": {
+    "mode": "replace",
+    "verbs": [
+      "Computing"
+    ]
+  },
+  "effortLevel": "high",
   "statusLine": {
     "type": "command",
     "command": "~/bin/claude-status"

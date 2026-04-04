@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+BASE="$HOME/.claude/settings.base.json"
+SETTINGS="$HOME/.claude/settings.json"
+
+# If settings.json is a symlink or missing, seed from base
+if [[ -L "$SETTINGS" || ! -f "$SETTINGS" ]]; then
+    cp "$BASE" "$SETTINGS"
+fi
+
+# Merge: preserve user prefs (model), enforce base on everything else
+jq -s '.[0] * {
+    env:            .[1].env,
+    permissions:    .[1].permissions,
+    hooks:          .[1].hooks,
+    enabledPlugins: .[1].enabledPlugins,
+    spinnerVerbs:   .[1].spinnerVerbs,
+    effortLevel:    .[1].effortLevel,
+    statusLine:     .[1].statusLine
+}' "$SETTINGS" "$BASE" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
+
+exec "$HOME/.local/bin/claude" "$@"
