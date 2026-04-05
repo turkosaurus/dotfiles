@@ -1,16 +1,27 @@
 #!/usr/bin/env bash
 
-# Resolve a PR review thread.
-# Usage: gh-pr-thread-resolve <thread-id>
+# Reply to and resolve a PR review thread.
+# Usage: gh-pr-thread-resolve <thread-id> <body>
 
 set -euo pipefail
 
 command -v gh >/dev/null || { echo "error: gh required" >&2; exit 1; }
 
-[[ $# -eq 1 ]] || {
-  echo "usage: gh-pr-thread-resolve <thread-id>" >&2
+[[ $# -eq 2 ]] || {
+  echo "usage: gh-pr-thread-resolve <thread-id> <body>" >&2
   exit 1
 }
+
+gh api graphql -f query='
+  mutation($id: ID!, $body: String!) {
+    addPullRequestReviewThreadReply(
+      input: {
+        pullRequestReviewThreadId: $id
+        body: $body
+      }
+    ) { comment { id } }
+  }' -f id="$1" -f body="$2" > /dev/null ||
+  { echo "error: reply failed for $1" >&2; exit 1; }
 
 gh api graphql -f query='
   mutation($id: ID!) {
