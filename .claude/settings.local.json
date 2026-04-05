@@ -11,9 +11,7 @@
       "mcp__signoz__signoz_search_logs",
       "mcp__signoz__signoz_query_metrics",
       "mcp__signoz__signoz_get_field_values",
-      "mcp__signoz__signoz_list_metrics",
-      "Bash(git -C /Users/scrubjay/dotfiles log --all --oneline -- home/.tmux.conf)",
-      "Bash(xargs -I{} git -C /Users/scrubjay/dotfiles show {}:home/.tmux.conf)"
+      "mcp__signoz__signoz_list_metrics"
     ]
   }
 }
