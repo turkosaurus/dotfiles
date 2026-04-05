@@ -4,7 +4,7 @@ description: Fetch unresolved PR comments, plan fixes, implement them, and resol
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Bash(gh pr view:*), Bash(gh-pr-threads:*), Bash(gh-pr-thread-resolve:*), Read, Grep, Glob, Edit, Write, AskUserQuestion
-argument-hint: <pr-number>
+argument-hint: [pr-number]
 ---
 
 # PR Review
@@ -13,9 +13,14 @@ Address unresolved PR review comments in one conversation with three stops.
 
 ## Input
 
-`$ARGUMENTS` is a PR number.
+`$ARGUMENTS` is an optional PR number. If omitted, detect the PR for the
+current branch:
 
-## Resolve worktree
+```
+gh pr view --json number,headRefName,baseRefName,url,headRepository,headRepositoryOwner
+```
+
+If a number is given, pass it explicitly:
 
 ```
 gh pr view $ARGUMENTS --json number,headRefName,baseRefName,url,headRepository,headRepositoryOwner
@@ -100,9 +105,9 @@ All file reads and edits happen inside the worktree.
 
 ## Phase 3 — Resolve
 
-1. Get the latest commit hash:
+1. Get the latest commit hash (use the PR number resolved in Phase 1):
    ```
-   gh pr view $ARGUMENTS --json commits --jq '.commits[-1].oid[0:7]'
+   gh pr view <number> --json commits --jq '.commits[-1].oid[0:7]'
    ```
 
 2. For each `done` section, read the `thread` value and:
