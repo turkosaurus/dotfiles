@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+# Resolve a PR review thread.
+# Usage: gh-pr-thread-resolve <thread-id>
+
+set -euo pipefail
+
+command -v gh >/dev/null || { echo "error: gh required" >&2; exit 1; }
+
+[[ $# -eq 1 ]] || {
+  echo "usage: gh-pr-thread-resolve <thread-id>" >&2
+  exit 1
+}
+
+gh api graphql -f query='
+  mutation($id: ID!) {
+    resolveReviewThread(input: {threadId: $id}) {
+      thread { isResolved }
+    }
+  }' -f id="$1" > /dev/null ||
+  { echo "error: resolve failed for $1" >&2; exit 1; }
