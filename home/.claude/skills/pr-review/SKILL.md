@@ -3,7 +3,7 @@ name: pr-review
 description: Fetch unresolved PR comments, plan fixes, implement them, and resolve threads
 user-invocable: true
 disable-model-invocation: true
-allowed-tools: Bash(gh pr view:*), Bash(gh-pr-threads:*), Bash(gh-pr-thread-reply:*), Bash(gh-pr-thread-resolve:*), Read, Grep, Glob, Edit, Write, AskUserQuestion
+allowed-tools: Bash(gh pr view:*), Bash(gh-pr-threads:*), Bash(gh-pr-thread-resolve:*), Read, Grep, Glob, Edit, Write, AskUserQuestion
 argument-hint: <pr-number>
 ---
 
@@ -107,8 +107,7 @@ All file reads and edits happen inside the worktree.
 
 2. For each `done` section, read the `thread` value and:
    ```
-   gh-pr-thread-reply <thread-id> "addressed with <hash>"
-   gh-pr-thread-resolve <thread-id>
+   gh-pr-thread-resolve <thread-id> "addressed with <hash>"
    ```
 
 3. Delete `{worktree}/plan.md`.
