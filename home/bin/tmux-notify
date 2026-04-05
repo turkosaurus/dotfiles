@@ -21,6 +21,7 @@ env:
 popup actions:
   <any>   dismiss
   <g>     go to source pane
+  <c>     send command to source pane
 EOF
   exit 0
 fi
@@ -36,14 +37,16 @@ c1=${TMUX_NOTIFY_COL1:-'\033[38;2;224;175;104m'}
 width=${TMUX_NOTIFY_WIDTH:-80}
 height=${TMUX_NOTIFY_HEIGHT:-32}
 
-# tmux info — hooks may not have TMUX_PANE, fall back to active pane
 if [[ -z "$TMUX" ]]; then
   echo "Error: not running inside tmux" >&2
   exit 1
 fi
+
+# hooks may not have TMUX_PANE set — fall back to active pane
 pane="${TMUX_PANE:-$(tmux display-message -p '#{pane_id}')}"
 
 if [[ "$aural" == 1 ]]; then
+  # Linux: XBell is silent on most hardware; use paplay if available
   if [[ "$(uname -s)" == "Linux" ]] && [[ -x "$(command -v paplay)" ]] && [[ -f /usr/share/sounds/freedesktop/stereo/bell.oga ]]; then
     paplay /usr/share/sounds/freedesktop/stereo/bell.oga 2>/dev/null || true
   else
@@ -52,34 +55,29 @@ if [[ "$aural" == 1 ]]; then
   fi
 fi
 
-read -r window_index pane_index window_active pane_tty < <(
-  tmux display-message -t "$pane" -p '#{window_index} #{pane_index} #{window_active} #{pane_tty}'
+read -r window_index pane_index window_active < <(
+  tmux display-message -t "$pane" -p '#{window_index} #{pane_index} #{window_active}'
 )
 
-# if no visuals, done
 [[ "$visual" == 0 ]] && exit 0
 
-# if alert from active window and not TMUX_NOTIFY_VISUAL=2), done
+# suppress popup when already in the source window (unless visual=2)
 if [[ "$window_active" == 1 ]]; then
   [[ "$visual" == 2 ]] || exit 0
 fi
 
 # match tmux window naming: #I dirname:branch
 pane_path=$(tmux display-message -t "$pane" -p '#{pane_current_path}')
-dirname=$(basename "$pane_path")
 branch=$(git -C "$pane_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
-if [[ -n "$branch" ]]; then
-  location="$window_index $dirname:$branch"
-else
-  location="$window_index $dirname"
-fi
+location="$window_index $(basename "$pane_path")${branch:+:$branch}"
+
 line=$(printf '─%.0s' $(seq 1 $((width - 2))))
+msg="${*:-$(basename "$0")}"
 
-msg=$(basename "$0")
-if [[ -n "$1" ]]; then
-  msg="$*"
-fi
-
+# The popup runs in a temp file executed with explicit bash.
+# Reason: tmux display-popup uses the user's default shell (zsh on Linux),
+# but read -r -n 1 -s requires bash. Variables are expanded into the file
+# now (outer shell); \$key etc. are evaluated at runtime (popup shell).
 _popup=$(mktemp /tmp/tmux-notify.XXXXXX)
 cat > "$_popup" <<HEREDOC
 #!/usr/bin/env bash

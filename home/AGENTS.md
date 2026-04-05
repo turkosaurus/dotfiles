@@ -10,17 +10,8 @@ The most important file is a special `plan.md` which will be gitignored, but wil
 - All config or learned behavior should be exclusively in ~/dotfiles
 
 ## tool use
-Prefer the following tools and classic unix workflows like piping and writing to files.
-- git
-- diff
-- rg (fallback: grep)
-- fzf
-- jq
-- yq
-- sq
-- sed
-- awk
-- nvim
+Prefer classic unix workflows like piping and writing to files.
+Preferred tools in `~/.mise.toml`.
 
 ## go
 
