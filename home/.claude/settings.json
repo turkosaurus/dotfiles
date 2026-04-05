@@ -21,6 +21,7 @@
       "Bash(gh project item-list:*)",
       "Bash(ls:*)",
       "Bash(fzf:*)",
+      "Read(*/plan.md)",
       "Read(~/.zshrc)"
     ],
     "deny": [
