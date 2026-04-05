@@ -110,9 +110,21 @@ All file reads and edits happen inside the worktree.
    gh pr view <number> --json commits --jq '.commits[-1].oid[0:7]'
    ```
 
-2. For each `done` section, read the `thread` value and:
-   ```
-   gh-pr-thread-resolve <thread-id> "addressed with <hash>"
+2. Collect every `thread` value from `done` sections, then resolve them
+   all in **one** Bash call:
+
+   ```bash
+   failed=0
+   for tid in <thread-id-1> <thread-id-2> …; do
+     if ! gh-pr-thread-resolve "$tid" "addressed with <hash>"; then
+       echo "FAIL: $tid"
+       failed=$((failed + 1))
+     fi
+   done
+   if [ "$failed" -gt 0 ]; then
+     echo "$failed thread(s) failed to resolve"
+     exit 1
+   fi
    ```
 
 3. Delete `{worktree}/plan.md`.
