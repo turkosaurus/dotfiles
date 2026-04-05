@@ -17,6 +17,7 @@ terragrunt = "0.93.13"
 fzf = "latest"
 jq = "1.8"
 yq = "4"
+"aqua:neilotoole/sq" = "latest"
 ripgrep = "15"
 fd = "10"
 
