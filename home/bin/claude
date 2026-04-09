@@ -32,4 +32,15 @@ if [[ -z "$CLAUDE_SETTINGS_MERGED" ]]; then
     fi
 fi
 
-exec "$HOME/.local/bin/claude" "$@"
+# Find the real claude binary, excluding this wrapper's directory.
+# Do NOT use realpath here — it resolves the symlink (~/bin/claude →
+# ~/dotfiles/home/bin/claude) and we'd exclude the wrong PATH entry.
+_self_dir="$(cd "$(dirname "$0")" && pwd)"
+_claude="$(PATH="$(echo "$PATH" | tr ':' '\n' | grep -vxF "$_self_dir" | paste -sd ':' -)" command -v claude)"
+
+if [[ -z "$_claude" ]]; then
+    echo "claude: could not find claude binary in PATH" >&2
+    exit 1
+fi
+
+exec "$_claude" "$@"
