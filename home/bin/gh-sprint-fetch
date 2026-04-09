@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# sprint-fetch: find active sprint end dates in projects where you have open issues
+# Outputs NDJSON: {"type":"sprint","data":{...}} per active sprint
+
+set -euo pipefail
+
+TODAY=$(date +%Y-%m-%d)
+
+add_days() {
+    date -j -v+"${2}d" -f "%Y-%m-%d" "$1" "+%Y-%m-%d"
+}
+
+days_remaining() {
+    local t1 t2
+    t1=$(date -j -f "%Y-%m-%d" "$TODAY" "+%s")
+    t2=$(date -j -f "%Y-%m-%d" "$1" "+%s")
+    echo $(( (t2 - t1) / 86400 ))
+}
+
+# Unique orgs/users from open assigned issues
+OWNERS=$(gh search issues --assignee=@me --state=open --json repository \
+    | jq -r '.[].repository.nameWithOwner | split("/")[0]' | sort -u)
+
+for owner in $OWNERS; do
+    account_type=$(gh api "users/$owner" --jq '.type' 2>/dev/null) || continue
+
+    if [[ "$account_type" == "Organization" ]]; then
+        entity="organization"
+    else
+        entity="user"
+    fi
+
+    # Paginate through all projects looking for iteration fields
+    cursor=""
+    while true; do
+        after_arg=""
+        if [[ -n "$cursor" ]]; then
+            after_arg=", after: \"$cursor\""
+        fi
+
+        result=$(gh api graphql -f query="
+        {
+          ${entity}(login: \"$owner\") {
+            projectsV2(first: 50${after_arg}) {
+              pageInfo { hasNextPage endCursor }
+              nodes {
+                number
+                title
+                fields(first: 20) {
+                  nodes {
+                    ... on ProjectV2IterationField {
+                      name
+                      configuration {
+                        iterations { title startDate duration }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }" 2>/dev/null) || break
+
+        # Extract active iterations (started <= today, not yet completed)
+        while IFS=$'\t' read -r proj_num proj_title field_name sprint_title start_date duration; do
+            end_date=$(add_days "$start_date" $((duration - 1)))
+            remaining=$(days_remaining "$end_date")
+            jq -cn \
+                --arg owner "$owner" \
+                --arg proj_num "$proj_num" \
+                --arg proj_title "$proj_title" \
+                --arg field_name "$field_name" \
+                --arg sprint "$sprint_title" \
+                --arg start "$start_date" \
+                --arg end "$end_date" \
+                --argjson remaining "$remaining" \
+                '{type:"sprint",data:{owner:$owner,project_number:($proj_num|tonumber),project:$proj_title,field:$field_name,sprint:$sprint,start:$start,end:$end,days_remaining:$remaining}}'
+        done < <(echo "$result" | jq -r --arg today "$TODAY" '
+            .data[].projectsV2.nodes[] |
+            . as $proj |
+            .fields.nodes[] |
+            select(type == "object" and has("configuration")) |
+            . as $field |
+            .configuration.iterations[] |
+            select(.startDate <= $today) |
+            [($proj.number | tostring), $proj.title, $field.name, .title, .startDate, (.duration | tostring)] |
+            @tsv
+        ')
+
+        has_next=$(echo "$result" | jq -r '.data[].projectsV2.pageInfo.hasNextPage')
+        if [[ "$has_next" != "true" ]]; then break; fi
+        cursor=$(echo "$result" | jq -r '.data[].projectsV2.pageInfo.endCursor')
+    done
+done

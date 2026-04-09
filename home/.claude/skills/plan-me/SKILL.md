@@ -3,7 +3,7 @@ name: plan-me
 description: Morning planning assistant — reviews GitHub project board, PRs, and Slack to recommend what to focus on today
 user-invocable: true
 disable-model-invocation: true
-allowed-tools: Bash(todo-fetch), Bash(gh project item-list *), Read, Write, mcp__slack__*
+allowed-tools: Bash(todo-fetch), Bash(gh-sprint-fetch), Bash(gh project item-list *), Bash(gh api graphql *), Read, Write, mcp__slack__*
 argument-hint: <github-project-url>
 ---
 
@@ -17,17 +17,25 @@ Help the user plan their day by gathering context from GitHub and Slack, then re
 
 ## Steps
 
-1. **Fetch data.** Run `todo-fetch` and capture its stdout as NDJSON — one
-   `{"type":"<name>","data":<json>}` line per source:
+1. **Fetch data.** Run `todo-fetch` and `gh-sprint-fetch` and capture their
+   stdout as NDJSON — one `{"type":"<name>","data":<json>}` line per source:
 
+   From `todo-fetch`:
    - `review-requests` — PRs where your review is requested
    - `my-prs` — your open PRs (with isDraft)
    - `pr-statuses` — reviewDecision + CI status per PR
    - `issues` — issues assigned to you
    - `pomo` — last 10 pomo sessions (string)
 
+   From `gh-sprint-fetch`:
+   - `sprint` — one line per active sprint: `project`, `sprint`, `start`,
+     `end`, `days_remaining`
+
    Parse line by line. Skip any line that is not valid JSON (interrupted
    write); note which types are missing and proceed with what you have.
+
+   Use the `sprint` data for the "Sprint ends:" line and urgency framing.
+   Do not guess sprint dates.
 
    If `$ARGUMENTS` is a GitHub project URL, also run:
    ```
