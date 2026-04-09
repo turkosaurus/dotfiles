@@ -20,6 +20,7 @@
       "Bash(gh pr get:*)",
       "Bash(gh pr diff:*)",
       "Bash(gh project item-list:*)",
+      "Bash(gh project list:*)",
       "Bash(ls:*)",
       "Bash(fzf:*)",
       "Read(**)"
