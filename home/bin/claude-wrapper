@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+exec "$@"
+# # Only merge settings once per top-level invocation.
+# # Sub-agents inherit this env var and skip the merge.
+# if [[ -z "$CLAUDE_SETTINGS_MERGED" ]]; then
+#     export CLAUDE_SETTINGS_MERGED=1
+#
+#     BASE="$HOME/.claude/settings.base.json"
+#     SETTINGS="$HOME/.claude/settings.json"
+#
+#     # Seed settings.json from base if missing
+#     if [[ ! -f "$SETTINGS" ]]; then
+#         cp "$BASE" "$SETTINGS"
+#     fi
+#
+#     # Merge: preserve user prefs (model), enforce base on everything else.
+#     # Use cp to write through any symlink rather than replacing it.
+#     if ! jq -s '.[0] * {
+#         env:            .[1].env,
+#         permissions:    .[1].permissions,
+#         hooks:          .[1].hooks,
+#         enabledPlugins: .[1].enabledPlugins,
+#         spinnerVerbs:   .[1].spinnerVerbs,
+#         effortLevel:    .[1].effortLevel,
+#         statusLine:     .[1].statusLine
+#     }' "$SETTINGS" "$BASE" > "$SETTINGS.tmp"; then
+#         rm -f "$SETTINGS.tmp"
+#         echo "claude: failed to merge settings, continuing with existing" >&2
+#     else
+#         cp "$SETTINGS.tmp" "$SETTINGS"
+#         rm -f "$SETTINGS.tmp"
+#     fi
+# fi
+#
+# exec "$HOME/.local/bin/claude" "$@"
