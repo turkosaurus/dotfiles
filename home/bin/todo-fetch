@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Fetch daily planning data, emitting NDJSON to stdout.
+# Each line: {"type":"<name>","data":<json>}
+# Partial output on interrupt is safe — callers parse line by line.
+
+OUT=/tmp/todo
+mkdir -p "$OUT" "$OUT/pr-status"
+rm -f "$OUT"/pr-status/*.json  # clear stale
+
+errors=0
+pids=()
+
+bg() {
+    local out="$1"; shift
+    "$@" > "$OUT/$out" 2>/dev/null &
+    pids+=($!)
+}
+
+bg review-requests.json \
+    gh search prs --review-requested=@me --state=open \
+    --json number,title,repository,updatedAt,url
+
+bg my-prs.json \
+    gh search prs --author=@me --state=open \
+    --json number,title,repository,labels,url,isDraft
+
+bg issues.json \
+    gh search issues --assignee=@me --state=open \
+    --json number,title,repository,labels,url
+
+tail -10 ~/.pomo.log > "$OUT/pomo.txt" 2>/dev/null || true
+
+for pid in "${pids[@]}"; do
+    if ! wait "$pid"; then
+        errors=$((errors + 1))
+    fi
+done
+
+# Fetch PR review statuses in parallel (depends on my-prs.json)
+pids=()
+if [[ -s "$OUT/my-prs.json" ]]; then
+    while IFS=$'\t' read -r number repo; do
+        slug="${repo//\//-}"
+        (
+            gh pr view "$number" --repo "$repo" \
+                --json number,title,url,isDraft,reviewDecision,statusCheckRollup \
+                > "$OUT/pr-status/${slug}-${number}.json" 2>/dev/null
+        ) &
+        pids+=($!)
+    done < <(jq -r '.[] | [.number, .repository.nameWithOwner] | @tsv' "$OUT/my-prs.json")
+
+    for pid in "${pids[@]}"; do
+        if ! wait "$pid"; then
+            errors=$((errors + 1))
+        fi
+    done
+
+    cat "$OUT"/pr-status/*.json 2>/dev/null | jq -s '.' > "$OUT/pr-statuses.json"
+fi
+
+# Emit NDJSON to stdout — one compact line per data source
+for type in review-requests my-prs issues pr-statuses; do
+    if [[ -s "$OUT/$type.json" ]]; then
+        jq -c --arg t "$type" '{type: $t, data: .}' "$OUT/$type.json"
+    fi
+done
+
+if [[ -f "$OUT/pomo.txt" ]]; then
+    jq -Rn --arg data "$(cat "$OUT/pomo.txt")" '{type: "pomo", data: $data}'
+fi
+
+if [[ $errors -gt 0 ]]; then
+    echo "todo-fetch: $errors request(s) failed" >&2
+    exit 1
+fi

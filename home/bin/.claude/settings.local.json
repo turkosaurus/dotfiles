@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(jq '[.[] | select\\(.repository.nameWithOwner == \"\"getlantern/engineering\"\"\\) | {number, title, labels: [.labels[].name]}]')"
+    ]
+  }
+}
