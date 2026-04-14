@@ -21,6 +21,7 @@
       "Bash(gh pr diff:*)",
       "Bash(gh project item-list:*)",
       "Bash(gh project list:*)",
+      "Bash(dotsync -lv)",
       "Bash(ls:*)",
       "Bash(fzf:*)",
       "Read(**)"
