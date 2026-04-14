@@ -114,12 +114,17 @@ case "${1:-}" in
     (( maxw += 2 ))
     while IFS=$'\t' read -r branch rel mtime; do
       dir="$WORK_DIR/$rel"
-      pr_info=$(cd "$dir" && gh pr view \
+      pr_exit=0
+      pr_info=$(cd "$dir" && timeout 3 gh pr view \
         --json number,state \
         --jq '[("#" + (.number|tostring)), (.state|ascii_downcase)] | @tsv' \
-        2>/dev/null || true)
-      pr_num=$(printf '%s' "$pr_info" | cut -f1)
-      pr_state=$(printf '%s' "$pr_info" | cut -f2)
+        2>/dev/null) || pr_exit=$?
+      if [[ $pr_exit -eq 124 ]]; then
+        pr_num="???" pr_state="???"
+      else
+        pr_num=$(printf '%s' "$pr_info" | cut -f1)
+        pr_state=$(printf '%s' "$pr_info" | cut -f2)
+      fi
       printf "%-${maxw}s  %-5s  %-6s  %s\n" \
         "${rel%%/*}:$branch" \
         "${pr_num:--}" \
