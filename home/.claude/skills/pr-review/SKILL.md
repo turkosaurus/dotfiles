@@ -45,7 +45,9 @@ All file reads and edits happen inside the worktree.
 
 2. For each unresolved thread, read the referenced file in the worktree and understand the surrounding code.
 
-3. Write `{worktree}/plan.md` with this format:
+3. If `{worktree}/plan.md` already exists, **append** the PR review section
+   below a `---` separator (preserving any existing content above it).
+   Otherwise create the file. Write the PR review section with this format:
 
    ```markdown
    ---
@@ -127,6 +129,7 @@ All file reads and edits happen inside the worktree.
    fi
    ```
 
-3. Delete `{worktree}/plan.md`.
+3. Remove only the `## PR review (#<number>)` section (and its `---` separator)
+   from `{worktree}/plan.md`. If this was the only content, delete the file.
 
 4. **Done.** Report how many threads were resolved vs skipped.

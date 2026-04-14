@@ -10,7 +10,7 @@
       "Bash(go vet:*)",
       "Bash(go test:*)",
       "Bash(go build:*)",
-      "Bash(git status)",
+      "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(gh issue list:*)",
@@ -20,6 +20,8 @@
       "Bash(gh pr get:*)",
       "Bash(gh pr diff:*)",
       "Bash(gh project item-list:*)",
+      "Bash(gh project list:*)",
+      "Bash(dotsync -lv)",
       "Bash(ls:*)",
       "Bash(fzf:*)",
       "Read(**)"
