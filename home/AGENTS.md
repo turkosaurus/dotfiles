@@ -6,6 +6,7 @@ The most important file is a special `plan.md` which will be gitignored, but wil
 ## usage rules
 - Never commit or push.
 - Permissions should allow extensive read, very limited write.
+- Add tool permissions to `~/dotfiles/home/.claude/settings.base.json` and run `dotsync -lv` to sync.
 - If the same permission needs to be requested repeatedly, write a script with narrow permissions that I can review and approve for the session.
 - All config or learned behavior should be exclusively in ~/dotfiles
 
