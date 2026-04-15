@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+# Global pre-push hook: sync plan.md with PR description.
+# Chains to repo-local .git/hooks/pre-push if it exists.
+
+# repo-local hook first
+local_hook="$(git rev-parse --git-dir)/hooks/pre-push"
+if [[ -x "$local_hook" ]]; then
+  if ! "$local_hook" "$@"; then
+    exit $?
+  fi
+fi
+
+if ! gh-pr-description-sync; then
+  printf "description sync failed, push anyways? [y/N] "
+  read -r -t 10 answer
+  if [[ "$answer" != [yY] ]]; then
+    exit 1
+  fi
+fi
