@@ -24,6 +24,7 @@
       "Bash(dotsync -lv)",
       "Bash(ls:*)",
       "Bash(fzf:*)",
+      "Bash(find:*)",
       "Read(**)"
     ],
     "deny": [
@@ -36,7 +37,7 @@
       "Read(* terraform*)"
     ]
   },
-  "model": "haiku",
+  "model": "opus",
   "hooks": {
     "Notification": [
       {
@@ -82,5 +83,6 @@
         "mcp-server-slack"
       ]
     }
-  }
+  },
+  "effortLevel": "high"
 }
