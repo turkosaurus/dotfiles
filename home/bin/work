@@ -12,6 +12,7 @@
 #   work ls           list all worktrees
 #   work rm [name]    remove a worktree (pick if no name)
 #   work mv [old] <new>  rename a worktree (pick if no old)
+#   work clean [-d]   remove worktrees with merged+clean branches
 #
 # worktrees are stored in ~/w/{repo}/{branch} with slashes as dashes
 # e.g. "work a/feat" from ~/p/foo creates ~/w/foo/a-feat
@@ -93,6 +94,21 @@ pick() {
   echo "$entries" | sed -n "${choice}p" | cut -f2
 }
 
+# remove a worktree directory, clean up empty repo dir
+# prints main worktree path to stdout; returns 1 on failure
+remove_worktree() {
+  local dir="$1"
+  local main_dir
+  main_dir=$(git -C "$dir" worktree list | head -1 | awk '{print $1}')
+  if ! git -C "$dir" worktree remove "$dir"; then
+    return 1
+  fi
+  local repo_dir
+  repo_dir=$(dirname "$dir")
+  rmdir "$repo_dir" 2>/dev/null || true
+  echo "$main_dir"
+}
+
 repo() {
   local root
   root=$(git rev-parse --show-toplevel 2>/dev/null) ||
@@ -142,18 +158,56 @@ case "${1:-}" in
     fi
     [[ -z "$target" ]] && error "no worktree selected"
     target_dir="$WORK_DIR/$target"
-    # find main worktree before removing, in case cwd is deleted
-    main_dir=$(git -C "$target_dir" worktree list |
-      head -1 | awk '{print $1}')
-    # run git worktree remove from within the worktree's repo
-    git -C "$target_dir" worktree remove "$target_dir"
-    # clean up empty repo dir
-    repo_dir=$(dirname "$target_dir")
-    rmdir "$repo_dir" 2>/dev/null || true
-    # if we're inside the removed dir, go to main worktree
+    main_dir=$(remove_worktree "$target_dir") ||
+      error "could not remove $target"
     if [[ ! -d "${PWD}" ]]; then
       goto "$main_dir"
     fi
+    ;;
+  clean)
+    dry=false
+    case "${2:-}" in -d|--dry-run) dry=true ;; esac
+    for dir in "$WORK_DIR"/*/*; do
+      [[ -d "$dir" ]] || continue
+      rel="${dir#"$WORK_DIR"/}"
+
+      if ! branch=$(git -C "$dir" symbolic-ref --short HEAD 2>&1); then
+        echo "skip $rel: not on a branch" >&2
+        continue
+      fi
+      if [[ "$branch" == "main" || "$branch" == "master" ]]; then
+        echo "skip $rel: is $branch" >&2
+        continue
+      fi
+
+      pr_info=$(cd "$dir" && timeout 3 gh pr view \
+        --json state,mergedAt \
+        --jq '[.state, .mergedAt] | @tsv' 2>/dev/null) || pr_info=""
+      pr_state=$(printf '%s' "$pr_info" | cut -f1)
+      if [[ "$pr_state" != "MERGED" ]]; then
+        echo "skip $rel: $branch not merged (${pr_state:-no pr})" >&2
+        continue
+      fi
+      merged_at=$(printf '%s' "$pr_info" | cut -f2)
+      merged_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "$merged_at" +%s 2>/dev/null ||
+        date -d "$merged_at" +%s 2>/dev/null)
+      merged_ago=$(timeago "$merged_epoch")
+      if ! git -C "$dir" diff --quiet 2>/dev/null ||
+         ! git -C "$dir" diff --cached --quiet 2>/dev/null; then
+        echo "skip $rel: dirty working tree" >&2
+        continue
+      fi
+
+      if $dry; then
+        echo "would rm $rel ($branch, merged $merged_ago ago)" >&2
+        continue
+      fi
+      echo "rm   $rel ($branch, merged $merged_ago ago)" >&2
+      if ! remove_worktree "$dir" >/dev/null; then
+        echo "FAIL $rel: could not remove" >&2
+        continue
+      fi
+    done
     ;;
   mv)
     old="${2:-$(pick)}"

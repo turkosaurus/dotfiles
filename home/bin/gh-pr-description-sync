@@ -4,8 +4,6 @@
 # Pulls PR body, diffs against plan.md, prompts to push local version.
 # Usage: gh-pr-description-sync [path/to/plan.md]
 
-set -euo pipefail
-
 red='\033[0;31m'
 green='\033[0;32m'
 dim='\033[2m'
@@ -22,34 +20,28 @@ if [[ ! -f "$plan" ]]; then
   exit 1
 fi
 
-# fetch PR number for current branch (3s timeout)
+# fetch PR number for current branch
 gh_err=$(mktemp)
-pr=$(timeout 3 gh pr view --json number -q .number 2>"$gh_err")
-rc=$?
-if [[ $rc -eq 124 ]]; then
-  rm -f "$gh_err"
-  echo -e "${red}error${reset}: timed out reaching GitHub" >&2
-  exit 1
-elif [[ $rc -ne 0 ]]; then
+if ! pr=$(timeout 3 gh pr view --json number -q .number 2>"$gh_err"); then
+  rc=$?
   msg=$(cat "$gh_err")
   rm -f "$gh_err"
-  echo "$msg" >&2
+  if [[ $rc -eq 124 ]]; then
+    echo -e "${red}error${reset}: timed out reaching GitHub" >&2
+    exit 1
+  fi
   if [[ "$msg" == *"no pull requests"* ]]; then
     exit 0
   fi
+  echo "$msg" >&2
   exit 1
 fi
 rm -f "$gh_err"
 
 echo -e "${dim}PR #${pr}${reset}"
 
-# fetch PR body (3s timeout)
-remote=$(timeout 3 gh pr view --json body -q .body)
-rc=$?
-if [[ $rc -eq 124 ]]; then
-  echo -e "${red}error${reset}: timed out fetching PR body" >&2
-  exit 1
-elif [[ $rc -ne 0 ]]; then
+# fetch PR body
+if ! remote=$(timeout 3 gh pr view --json body -q .body); then
   echo -e "${red}error${reset}: failed to fetch PR body" >&2
   exit 1
 fi
@@ -61,8 +53,8 @@ if [[ "$remote" == "$local" ]]; then
   exit 0
 fi
 
-stat=$(diff --color=never <(echo "$remote") <(echo "$local") | \
-  awk '/^</{d++} /^>/{a++} END{printf "%d added, %d removed", a+0, d+0}')
+diff_out=$(diff --color=never <(echo "$remote") <(echo "$local")) || true
+stat=$(awk '/^</{d++} /^>/{a++} END{printf "%d added, %d removed", a+0, d+0}' <<< "$diff_out")
 
 printf "%s (%s) [y/d/N] " "$plan" "$stat"
 if ! read -r -t 10 answer; then
@@ -71,33 +63,22 @@ if ! read -r -t 10 answer; then
   exit 0
 fi
 
-case "$answer" in
-  [dD])
-    diff --color=always <(echo "$remote") <(echo "$local") | less -R
-    printf "update PR description? [y/N] "
-    if ! read -r -t 30 answer2; then
-      echo ""
-      echo -e "${dim}timed out, skipping${reset}"
-      exit 0
-    fi
-    if [[ "$answer2" != [yY] ]]; then
-      echo -e "${dim}skipped${reset}"
-      exit 0
-    fi
-    ;;&
-  [yY])
-    timeout 3 gh pr edit "$pr" --body "$(cat "$plan")"
-    rc=$?
-    if [[ $rc -eq 124 ]]; then
-      echo -e "${red}error${reset}: timed out updating PR description" >&2
-      exit 1
-    elif [[ $rc -ne 0 ]]; then
-      echo -e "${red}error${reset}: gh pr edit failed" >&2
-      exit 1
-    fi
-    echo -e "${green}updated${reset}"
-    ;;
-  *)
-    echo -e "${dim}skipped${reset}"
-    ;;
-esac
+if [[ "$answer" == [dD] ]]; then
+  diff --color=always <(echo "$remote") <(echo "$local") | less -R || true
+  printf "update PR description? [y/N] "
+  if ! read -r -t 30 answer; then
+    echo ""
+    echo -e "${dim}timed out, skipping${reset}"
+    exit 0
+  fi
+fi
+
+if [[ "$answer" == [yY] ]]; then
+  if ! timeout 3 gh pr edit "$pr" --body "$(cat "$plan")"; then
+    echo -e "${red}error${reset}: failed to update PR" >&2
+    exit 1
+  fi
+  echo -e "${green}updated${reset}"
+else
+  echo -e "${dim}skipped${reset}"
+fi
