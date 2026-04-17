@@ -1,5 +1,6 @@
 [core]
 	excludesFile = ~/.gitignore_global
+	hooksPath = ~/.githooks
 
 [include]
 	path = ~/.gitconfig.local
