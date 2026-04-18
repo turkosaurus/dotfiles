@@ -51,14 +51,15 @@ Help the user plan their day by gathering context from GitHub and Slack, then re
 
    Fall back gracefully if Slack MCP is unavailable.
 
-3. **Analyze the fetched data** and prioritize. This is a plan for ONE day, not a mirror of the project board. Be opinionated.
+3. **Analyze and categorize.** List everything from the fetched data.
+   Categorize each item as either today's plan or deprioritized.
 
-   **Priority order:**
+   **Priority order** (for deciding what's today vs deprioritized):
    1. **Merge-ready PRs** — approved, CI green → ship immediately
    2. **Unblock others** — review requests, especially stale ones
-   3. **In-progress sprint work** — items already started, especially recent pomo sessions
+   3. **In-progress sprint work** — items already started
    4. **Not-started sprint commitments** — urgent if sprint ends soon
-   5. **Drive-by backlog only** — surface a backlog item ONLY if it overlaps with sprint/PR work already on the list (same package, same service). Never list backlog items alone.
+   5. **Backlog** — deprioritize unless it overlaps with work already on today's list
 
    **Sprint awareness:**
    - Note where the sprint is in its cycle (beginning, mid, end).
@@ -67,44 +68,48 @@ Help the user plan their day by gathering context from GitHub and Slack, then re
 4. **Cluster into social and focus blocks.**
 
    - **Social**: Slack replies, reviews — reactive, batch together.
-   - **Focus**: coding, bug fixes, feature work — bundle related technical work into pomo sessions.
+   - **Focus**: coding, bug fixes, feature work — bundle related work.
 
    Recommend social first to unblock others, then protected focus time.
 
-5. **Write `~/plan.md`** with this format:
+5. **Write `~/w/plan.md`** using the format below. List ALL items — issues,
+   PRs, reviews, slack. Items below the `---` are deprioritized for today
+   but still tracked. Every item is a single line. Link everything.
 
    ```markdown
    # <today's date>
 
    Sprint ends: <date or "this week" etc.>
 
-   ## Recommended focus
+   ## Social
 
-   - [ ] **<action>** — <why urgent/important>
-         `pomo "<task name>"`
-   - [ ] ...
+   - [ ] [Review: <PR title> #<number>](<pr url>) — <repo>, <context>
+   - [ ] <Slack summary needing response>
 
-   ## Review requests
-   - [ ] <PR title> — <repo> #<number>
+   ## Focus
 
-   ## Your PRs
-   - [ ] <PR title> — <status: approved/changes requested/waiting>
+   - [ ] [<issue title>](<issue url>)
+     - [ ] [<PR title> #<number>](<pr url>) — <specific next step>
+   - [ ] [<issue title>](<issue url>)
+     - [ ] [<PR title> #<number>](<pr url>) — <specific next step>
 
-   ## Slack
-   - [ ] <summary of thread or DM needing response>
+   ---
 
-   ## Sprint items not started
-   - [ ] <issue title> — <label>
+   ## Deprioritized
+
+   - [ ] [<issue title>](<issue url>) — <reason: waiting, blocked, low priority, etc.>
+   - [ ] [<PR title> #<number>](<pr url>) — <reason>
    ```
 
-   Each recommended focus item must include a ready-to-paste `pomo` command.
-   Keep recommended focus to 3–5 items max.
+   Be specific in next steps (e.g. "fix rustfmt in src/lib.rs",
+   "rebase on main after #2551 merges", "address review comment on
+   retry logic") — not vague like "continue work" or "finish PR".
 
-6. **Present the plan.** Show the recommended focus section in the conversation. Keep it brief.
+6. **Present the plan.** Show the focus section in the conversation. Keep it brief.
 
 ## Notes
 
-- If `~/plan.md` already exists for today's date, update it rather than overwriting.
-- Be opinionated. Don't just list everything. Make a call on what matters most.
-- Keep Slack summaries vague enough to avoid leaking sensitive content — just enough to remind the user what needs attention.
-- The output is a daily plan, NOT a project board dump.
+- If `~/w/plan.md` already exists for today's date, update it rather than overwriting.
+- Be opinionated about what's today vs deprioritized. Make a call.
+- Keep Slack summaries vague enough to avoid leaking sensitive content.
+- Everything gets listed — nothing is silently dropped.
