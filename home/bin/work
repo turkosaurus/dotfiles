@@ -1,22 +1,5 @@
 #!/usr/bin/env bash
 
-# work - manage git worktrees in ~/w with fuzzy finding
-# usage: work [command] [args]
-#
-# commands:
-#   work              create or switch
-#   work <branch>     create worktree for branch (or switch if exists)
-#   work .            move current branch to a new worktree
-#   work main         switch to main worktree
-#   work -            switch to previous worktree
-#   work ls           list all worktrees
-#   work rm [name]    remove a worktree (pick if no name)
-#   work mv [old] <new>  rename a worktree (pick if no old)
-#   work clean [-d]   remove worktrees with merged+clean branches
-#
-# worktrees are stored in ~/w/{repo}/{branch} with slashes as dashes
-# e.g. "work a/feat" from ~/p/foo creates ~/w/foo/a-feat
-
 set -euo pipefail
 
 WORK_DIR="$HOME/w"
@@ -29,7 +12,26 @@ error() {
 }
 
 usage() {
-  sed -n '3,17s/^# //p' "$0"
+  cat <<'EOF'
+work - manage git worktrees in ~/w
+
+usage: work [command] [args]
+
+commands:
+  work              create or switch
+  work <branch>     create worktree for branch (or switch if exists)
+  work .            move current branch to a new worktree
+  work main         switch to main worktree
+  work -            switch to previous worktree
+  work ls           list all worktrees
+  work rm [name]    remove a worktree (pick if no name)
+  work mv [old] <new>  rename a worktree (pick if no old)
+  work clean [-d]   remove worktrees with merged or closed PRs
+  work plan         open ~/w/plan.md in $EDITOR
+
+worktrees are stored in ~/w/{repo}/{branch} with slashes as dashes
+e.g. "work a/feat" from ~/p/foo creates ~/w/foo/a-feat
+EOF
   exit "${1:-0}"
 }
 
@@ -184,14 +186,20 @@ case "${1:-}" in
         --json state,mergedAt \
         --jq '[.state, .mergedAt] | @tsv' 2>/dev/null) || pr_info=""
       pr_state=$(printf '%s' "$pr_info" | cut -f1)
-      if [[ "$pr_state" != "MERGED" ]]; then
-        echo "skip $rel: $branch not merged (${pr_state:-no pr})" >&2
+      if [[ "$pr_state" != "MERGED" && "$pr_state" != "CLOSED" ]]; then
+        echo "skip $rel: $branch not removable (${pr_state:-no pr})" >&2
         continue
       fi
-      merged_at=$(printf '%s' "$pr_info" | cut -f2)
-      merged_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "$merged_at" +%s 2>/dev/null ||
-        date -d "$merged_at" +%s 2>/dev/null)
-      merged_ago=$(timeago "$merged_epoch")
+      if [[ "$pr_state" == "MERGED" ]]; then
+        merged_at=$(printf '%s' "$pr_info" | cut -f2)
+        ago_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "$merged_at" +%s 2>/dev/null ||
+          date -d "$merged_at" +%s 2>/dev/null)
+      else
+        ago_epoch=$(git -C "$dir" log -1 --format=%ct 2>/dev/null ||
+          stat -f %m "$dir" 2>/dev/null || stat -c %Y "$dir" 2>/dev/null)
+      fi
+      ago=$(timeago "${ago_epoch:-0}")
+      label=$([[ "$pr_state" == "MERGED" ]] && echo "merged" || echo "closed")
       if ! git -C "$dir" diff --quiet 2>/dev/null ||
          ! git -C "$dir" diff --cached --quiet 2>/dev/null; then
         echo "skip $rel: dirty working tree" >&2
@@ -199,15 +207,18 @@ case "${1:-}" in
       fi
 
       if $dry; then
-        echo "would rm $rel ($branch, merged $merged_ago ago)" >&2
+        echo "would rm $rel ($branch, $label $ago ago)" >&2
         continue
       fi
-      echo "rm   $rel ($branch, merged $merged_ago ago)" >&2
+      echo "rm   $rel ($branch, $label $ago ago)" >&2
       if ! remove_worktree "$dir" >/dev/null; then
         echo "FAIL $rel: could not remove" >&2
         continue
       fi
     done
+    ;;
+  plan)
+    exec "${EDITOR:-nvim}" "$WORK_DIR/plan.md"
     ;;
   mv)
     old="${2:-$(pick)}"
