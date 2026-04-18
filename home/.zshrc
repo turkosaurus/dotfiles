@@ -54,7 +54,7 @@ PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 # work - git worktree wrapper with cd support
 work() {
   case "${1:-}" in
-    -h|--help|help|ls)
+    -h|--help|help|ls|plan)
       command work "$@"
       return
       ;;
