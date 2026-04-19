@@ -1,4 +1,4 @@
-# --- oh-my-zsh ---
+# oh-my-zsh
 export ZSH="$HOME/.oh-my-zsh"
 export ZSH_THEME="agnoster"
 export AGNOSTER_CONTEXT_BG=magenta
@@ -8,27 +8,23 @@ plugins=(git mise)
 source "$ZSH/oh-my-zsh.sh"
 
 export PATH=$PATH:~/.local/bin:~/bin
+export PATH=$PATH:~/.pulumi/bin
 export EDITOR=nvim
 
 # --- shared aliases ---
-#
 [[ -f ~/.aliases ]] && source ~/.aliases
 
-# --- fzf ---
-#
 # fuzzy finder: Ctrl+R (history), Ctrl+T (files), Alt+C (directories)
 if [[ -x "$(command -v fzf)" ]]; then
   eval "$(fzf --zsh)"
 fi
 
-# --- mise ---
-#
+# mise
 if [[ -x "$(command -v mise)" ]]; then
   eval "$(mise activate zsh)"
 fi
 
-# --- os ---
-#
+# os
 # determine if linux or macos
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
   : # linux-specific aliases
@@ -54,7 +50,7 @@ PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 # work - git worktree wrapper with cd support
 work() {
   case "${1:-}" in
-    -h|--help|help|ls|plan)
+    -h | --help | help | ls | plan)
       command work "$@"
       return
       ;;
