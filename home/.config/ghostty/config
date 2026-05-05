@@ -1,0 +1,27 @@
+# Theme
+theme = TokyoNight Night
+
+# Font
+font-family = RobotoMono Nerd Font Mono
+font-size = 16
+
+# Window
+macos-titlebar-style = transparent
+macos-non-native-fullscreen = false
+window-padding-x = 0
+# top padding for notch; ghostty's transparent titlebar reserves
+# space for traffic lights, so you may want to reduce this
+window-padding-y = 30,0
+adjust-cell-width = 0
+
+# Cursor (no cursor-color = reverse video, matching force_reverse_video_cursor)
+cursor-style = block
+cursor-style-blink = true
+
+# Bell
+shell-integration-features = no-cursor,sudo,no-title
+
+# Keybindings
+keybind = f11=toggle_fullscreen
+keybind = ctrl+shift+f=toggle_fullscreen
+keybind = shift+enter=text:\x1b\x0d
