@@ -73,12 +73,17 @@ All file reads and edits happen inside the worktree.
 
    Add a nil check on the return value of `Fetch()` and wrap
    the error with context before returning.
+
+   ### Reply
+
+   Added nil check on `Fetch()` return — wrapped with context before returning.
    ```
 
    Rules:
    - `##` title: 2-3 words summarizing the change.
    - Aligned columns in the metadata table.
    - `### Plan`: a specific proposed fix — name functions, variables, and the exact change.
+   - `### Reply`: a short reply to the reviewer. Always include the latest commit hash naturally (e.g., "fixed in abc1234 with per-page files"). For `skip` items, explain why it's not needed. For `done` items, describe what was done.
    - If the thread is already addressed in the branch code, set `status: skip` and explain why.
 
 4. **Stop.** Tell the user how many items are pending vs skip, and wait.
@@ -112,17 +117,18 @@ All file reads and edits happen inside the worktree.
    gh pr view <number> --json commits --jq '.commits[-1].oid[0:7]'
    ```
 
-2. Collect every `thread` value from `done` sections, then resolve them
-   all in **one** Bash call:
+2. For every `done` or `skip` section, resolve using its `### Reply` text.
+   Resolve all threads in **one** Bash call:
 
    ```bash
    failed=0
-   for tid in <thread-id-1> <thread-id-2> …; do
-     if ! gh-pr-thread-resolve "$tid" "addressed with <hash>"; then
-       echo "FAIL: $tid"
-       failed=$((failed + 1))
-     fi
-   done
+   # For each thread: gh-pr-thread-resolve <thread-id> "<reply text> (<hash>)"
+   if ! gh-pr-thread-resolve "<tid-1>" "<reply-1> (<hash>)"; then
+     echo "FAIL: <tid-1>"; failed=$((failed + 1))
+   fi
+   if ! gh-pr-thread-resolve "<tid-2>" "<reply-2> (<hash>)"; then
+     echo "FAIL: <tid-2>"; failed=$((failed + 1))
+   fi
    if [ "$failed" -gt 0 ]; then
      echo "$failed thread(s) failed to resolve"
      exit 1
