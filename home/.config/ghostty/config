@@ -31,3 +31,4 @@ keybind = global:ctrl+grave_accent=toggle_quick_terminal
 keybind = f11=toggle_fullscreen
 keybind = ctrl+shift+f=toggle_fullscreen
 keybind = shift+enter=text:\x1b\x0d
+keybind = ctrl+shift+v=paste_from_clipboard
