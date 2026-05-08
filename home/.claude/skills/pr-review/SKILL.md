@@ -3,7 +3,7 @@ name: pr-review
 description: Fetch unresolved PR comments, plan fixes, implement them, and resolve threads
 user-invocable: true
 disable-model-invocation: true
-allowed-tools: Bash(gh pr view:*), Bash(gh-pr-threads:*), Bash(gh-pr-thread-resolve:*), Read, Grep, Glob, Edit, Write, AskUserQuestion
+allowed-tools: Bash(gh pr view:*), Bash(gh-pr-threads:*), Bash(cat plan.md), Bash(gh-pr-thread-resolve:*), Read, Grep, Glob, Edit, Write, AskUserQuestion
 argument-hint: [pr-number]
 ---
 
@@ -76,14 +76,15 @@ All file reads and edits happen inside the worktree.
 
    ### Reply
 
-   Added nil check on `Fetch()` return — wrapped with context before returning.
+   _To be written after implementation._
    ```
 
    Rules:
    - `##` title: 2-3 words summarizing the change.
    - Aligned columns in the metadata table.
    - `### Plan`: a specific proposed fix — name functions, variables, and the exact change.
-   - `### Reply`: a short reply to the reviewer. Always include the latest commit hash naturally (e.g., "fixed in abc1234 with per-page files"). For `skip` items, explain why it's not needed. For `done` items, describe what was done.
+   - `### Reply`: leave as `_To be written in Phase 3._` for `pending` items. For `skip` items, write the reply immediately.
+   - Replies must be terse. No em dashes, no filler. One short sentence with commit hash.
    - If the thread is already addressed in the branch code, set `status: skip` and explain why.
 
 4. **Stop.** Tell the user how many items are pending vs skip, and wait.
@@ -117,7 +118,9 @@ All file reads and edits happen inside the worktree.
    gh pr view <number> --json commits --jq '.commits[-1].oid[0:7]'
    ```
 
-2. For every `done` or `skip` section, resolve using its `### Reply` text.
+2. For every `done` or `skip` section:
+   - If `### Reply` is still a placeholder, fill it in now: terse description of the change + commit hash (e.g., "Added `require_arg` guard (abc1234).").
+   - Resolve using the `### Reply` text.
    Resolve all threads in **one** Bash call:
 
    ```bash
