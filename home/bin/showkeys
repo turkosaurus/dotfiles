@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""Show keypresses in human-readable form. Useful for demos."""
+import sys, tty, termios, signal
+
+SEQS = {
+    "\x1b[A": "Up", "\x1b[B": "Down", "\x1b[C": "Right", "\x1b[D": "Left",
+    "\x1b[H": "Home", "\x1b[F": "End",
+    "\x1b[2~": "Insert", "\x1b[3~": "Delete",
+    "\x1b[5~": "PageUp", "\x1b[6~": "PageDown",
+    "\x1bOP": "F1", "\x1bOQ": "F2", "\x1bOR": "F3", "\x1bOS": "F4",
+    "\x1b[15~": "F5", "\x1b[17~": "F6", "\x1b[18~": "F7", "\x1b[19~": "F8",
+    "\x1b[20~": "F9", "\x1b[21~": "F10", "\x1b[23~": "F11", "\x1b[24~": "F12",
+    "\x1b[1;2A": "Shift+Up", "\x1b[1;2B": "Shift+Down",
+    "\x1b[1;2C": "Shift+Right", "\x1b[1;2D": "Shift+Left",
+    "\x1b[1;5A": "Ctrl+Up", "\x1b[1;5B": "Ctrl+Down",
+    "\x1b[1;5C": "Ctrl+Right", "\x1b[1;5D": "Ctrl+Left",
+    "\x1b[1;3A": "Alt+Up", "\x1b[1;3B": "Alt+Down",
+    "\x1b[1;3C": "Alt+Right", "\x1b[1;3D": "Alt+Left",
+    "\x1b[Z": "Shift+Tab",
+    "\x7f": "Backspace", "\x1b[3;5~": "Ctrl+Delete",
+    "\r": "Enter", "\t": "Tab", "\x1b": "Escape",
+}
+
+CTRL = {chr(i): f"Ctrl+{chr(i+96)}" for i in range(1, 27)}
+CTRL["\x00"] = "Ctrl+Space"
+CTRL["\x1c"] = r"Ctrl+\\"
+CTRL["\x1d"] = "Ctrl+]"
+CTRL["\x1e"] = "Ctrl+^"
+CTRL["\x1f"] = "Ctrl+_"
+
+def read_key(fd):
+    c = sys.stdin.read(1)
+    if not c:
+        return None
+    if c == "\x1b":
+        buf = c
+        while True:
+            old = termios.tcgetattr(fd)
+            tty.setraw(fd)
+            termios.tcsetattr(fd, termios.TCSANOW,
+                old[:3] + [old[3], old[4], old[5],
+                           0,  # cc[VMIN]
+                           0]  # cc[VTIME] = 0 → poll
+                + old[8:] if len(old) > 8 else old)
+            # non-blocking read
+            import select
+            r, _, _ = select.select([fd], [], [], 0.05)
+            termios.tcsetattr(fd, termios.TCSANOW, old)
+            if not r:
+                break
+            ch = sys.stdin.read(1)
+            if not ch:
+                break
+            buf += ch
+        return buf
+    return c
+
+def label(raw):
+    if raw in SEQS:
+        return SEQS[raw]
+    if len(raw) == 1 and raw in CTRL:
+        return CTRL[raw]
+    if len(raw) > 1 and raw.startswith("\x1b"):
+        # Alt+key
+        if len(raw) == 2:
+            ch = raw[1]
+            if ch in CTRL:
+                return f"Alt+{CTRL[ch]}"
+            return f"Alt+{ch}"
+        return f"Esc {raw[1:]!r}"
+    if len(raw) == 1 and raw.isprintable():
+        return raw
+    return repr(raw)
+
+def main():
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    signal.signal(signal.SIGINT, lambda *_: None)
+    print("Press keys (Ctrl+C twice to quit)")
+    quit_count = 0
+    try:
+        tty.setraw(fd)
+        while True:
+            termios.tcsetattr(fd, termios.TCSANOW, old)
+            tty.setraw(fd)
+            key = read_key(fd)
+            if key is None:
+                break
+            name = label(key)
+            termios.tcsetattr(fd, termios.TCSANOW, old)
+            if key == "\x03":
+                quit_count += 1
+                if quit_count >= 2:
+                    print("Ctrl+C")
+                    break
+                print(f"\r{name}", flush=True)
+                continue
+            quit_count = 0
+            print(f"\r{name}", flush=True)
+    finally:
+        termios.tcsetattr(fd, termios.TCSANOW, old)
+
+if __name__ == "__main__":
+    main()
