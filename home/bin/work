@@ -37,7 +37,7 @@ EOF
 
 # save current dir as previous, then emit target path
 goto() {
-  pwd >"$PREV_FILE"
+  [[ -d "$PWD" ]] && pwd >"$PREV_FILE"
   echo "$1"
 }
 
@@ -113,9 +113,17 @@ remove_worktree() {
 
 repo() {
   local root
-  root=$(git rev-parse --show-toplevel 2>/dev/null) ||
-    error "not in a git repo"
-  basename "$root"
+  root=$(git rev-parse --show-toplevel 2>/dev/null) && {
+    basename "$root"
+    return
+  }
+  # fallback: infer repo from PWD when inside WORK_DIR
+  if [[ "$PWD" == "$WORK_DIR"/* ]]; then
+    local rel="${PWD#"$WORK_DIR"/}"
+    echo "${rel%%/*}"
+    return
+  fi
+  error "not in a git repo"
 }
 
 case "${1:-}" in
@@ -244,8 +252,18 @@ case "${1:-}" in
   main)
     # try git directly; fall back to scanning WORK_DIR if cwd is gone
     dir=$(git worktree list 2>/dev/null | head -1 | awk '{print $1}')
+    # prefer sibling worktrees from the same repo
+    if [[ -z "$dir" && "$PWD" == "$WORK_DIR"/* ]]; then
+      local rel="${PWD#"$WORK_DIR"/}"
+      for d in "$WORK_DIR/${rel%%/*}"/*; do
+        [[ -d "$d" ]] || continue
+        dir=$(git -C "$d" worktree list 2>/dev/null |
+          head -1 | awk '{print $1}')
+        [[ -n "$dir" ]] && break
+      done
+    fi
     if [[ -z "$dir" ]]; then
-      for d in "$WORK_DIR"/*/; do
+      for d in "$WORK_DIR"/*/*; do
         [[ -d "$d" ]] || continue
         dir=$(git -C "$d" worktree list 2>/dev/null |
           head -1 | awk '{print $1}')
@@ -283,6 +301,17 @@ case "${1:-}" in
     if [[ -d "$dir" ]]; then
       goto "$dir"
       exit
+    fi
+    # ensure we have a working git context
+    if ! git rev-parse --git-dir &>/dev/null; then
+      for d in "$WORK_DIR/$root"/*; do
+        if [[ -d "$d" ]] && git -C "$d" rev-parse --git-dir &>/dev/null; then
+          cd "$d"
+          break
+        fi
+      done
+      git rev-parse --git-dir &>/dev/null ||
+        error "no git context for $root"
     fi
     mkdir -p "$WORK_DIR/$root"
     if git show-ref --verify --quiet \
