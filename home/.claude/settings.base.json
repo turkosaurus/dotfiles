@@ -19,6 +19,7 @@
       "Bash(gh pr view:*)",
       "Bash(gh pr get:*)",
       "Bash(gh pr diff:*)",
+      "Bash(gh run view:*)",
       "Bash(gh-pr-threads:*)",
       "Bash(gh-pr-thread-resolve:*)",
       "Bash(gh project item-list:*)",
