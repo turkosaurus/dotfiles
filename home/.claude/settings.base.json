@@ -19,13 +19,19 @@
       "Bash(gh pr view:*)",
       "Bash(gh pr get:*)",
       "Bash(gh pr diff:*)",
+      "Bash(gh-pr-threads:*)",
+      "Bash(gh-pr-thread-resolve:*)",
       "Bash(gh project item-list:*)",
       "Bash(gh project list:*)",
       "Bash(dotsync -lv)",
       "Bash(ls:*)",
       "Bash(fzf:*)",
       "Bash(find:*)",
-      "Read(**)"
+      "Read(**)",
+      "mcp__signoz__signoz_search_logs",
+      "mcp__signoz__signoz_get_field_keys",
+      "mcp__signoz__signoz_query_metrics",
+      "mcp__signoz__signoz_search_traces"
     ],
     "deny": [
       "Read(./.env)",

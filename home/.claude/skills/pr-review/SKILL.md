@@ -3,7 +3,7 @@ name: pr-review
 description: Fetch unresolved PR comments, plan fixes, implement them, and resolve threads
 user-invocable: true
 disable-model-invocation: true
-allowed-tools: Bash(gh pr view:*), Bash(gh-pr-threads:*), Bash(gh-pr-thread-resolve:*), Read, Grep, Glob, Edit, Write, AskUserQuestion
+allowed-tools: Bash(gh pr view:*), Bash(gh-pr-threads:*), Bash(cat plan.md), Bash(gh-pr-thread-resolve:*), Read, Grep, Glob, Edit, Write, AskUserQuestion
 argument-hint: [pr-number]
 ---
 
@@ -73,12 +73,18 @@ All file reads and edits happen inside the worktree.
 
    Add a nil check on the return value of `Fetch()` and wrap
    the error with context before returning.
+
+   ### Reply
+
+   _To be written after implementation._
    ```
 
    Rules:
    - `##` title: 2-3 words summarizing the change.
    - Aligned columns in the metadata table.
    - `### Plan`: a specific proposed fix — name functions, variables, and the exact change.
+   - `### Reply`: leave as `_To be written in Phase 3._` for `pending` items. For `skip` items, write the reply immediately.
+   - Replies must be terse. No em dashes, no filler. One short sentence with commit hash.
    - If the thread is already addressed in the branch code, set `status: skip` and explain why.
 
 4. **Stop.** Tell the user how many items are pending vs skip, and wait.
@@ -112,17 +118,20 @@ All file reads and edits happen inside the worktree.
    gh pr view <number> --json commits --jq '.commits[-1].oid[0:7]'
    ```
 
-2. Collect every `thread` value from `done` sections, then resolve them
-   all in **one** Bash call:
+2. For every `done` or `skip` section:
+   - If `### Reply` is still a placeholder, fill it in now: terse description of the change + commit hash (e.g., "Added `require_arg` guard (abc1234).").
+   - Resolve using the `### Reply` text.
+   Resolve all threads in **one** Bash call:
 
    ```bash
    failed=0
-   for tid in <thread-id-1> <thread-id-2> …; do
-     if ! gh-pr-thread-resolve "$tid" "addressed with <hash>"; then
-       echo "FAIL: $tid"
-       failed=$((failed + 1))
-     fi
-   done
+   # For each thread: gh-pr-thread-resolve <thread-id> "<reply text> (<hash>)"
+   if ! gh-pr-thread-resolve "<tid-1>" "<reply-1> (<hash>)"; then
+     echo "FAIL: <tid-1>"; failed=$((failed + 1))
+   fi
+   if ! gh-pr-thread-resolve "<tid-2>" "<reply-2> (<hash>)"; then
+     echo "FAIL: <tid-2>"; failed=$((failed + 1))
+   fi
    if [ "$failed" -gt 0 ]; then
      echo "$failed thread(s) failed to resolve"
      exit 1

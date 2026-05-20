@@ -136,3 +136,5 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 	# MacOS specific PATHs
 	export PATH=$PATH:/Applications/Firefox.app/Contents/MacOS # firefox
 fi
+
+[[ -f ~/.secrets ]] && source ~/.secrets
