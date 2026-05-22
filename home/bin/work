@@ -23,7 +23,7 @@ commands:
   work .            move current branch to a new worktree
   work main         switch to main worktree
   work -            switch to previous worktree
-  work ls           list all worktrees
+  work ls [-l]      list worktrees (newest first); -l adds PR info
   work rm [name]    remove a worktree (pick if no name)
   work mv [old] <new>  rename a worktree (pick if no old)
   work clean [-d]   remove worktrees with merged or closed PRs
@@ -66,7 +66,7 @@ worktrees() {
       mtime=$(stat -f %m "$dir" 2>/dev/null ||
               stat -c %Y "$dir" 2>/dev/null)
     printf '%s\t%s\t%s\n' "$branch" "$rel" "${mtime:-0}"
-  done
+  done | sort -t$'\t' -k3,3nr
 }
 
 # pick a worktree from numbered list, returns relpath
