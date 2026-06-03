@@ -54,7 +54,7 @@ PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 # work - git worktree wrapper with cd support
 work() {
   case "${1:-}" in
-    -h|--help|help|ls|plan)
+    -h | --help | help | ls | plan)
       command work "$@"
       return
       ;;
@@ -67,6 +67,8 @@ work() {
     echo "$out"
   fi
 }
+
+export GOFLAGS=-buildvcs=false # fix worktree wonkiness
 
 # gcloud
 if [ -f "$HOME/p/google-cloud-sdk/path.zsh.inc" ]; then . "$HOME/p/google-cloud-sdk/path.zsh.inc"; fi
