@@ -4,3 +4,6 @@
 
 [include]
 	path = ~/.gitconfig.local
+[user]
+	email = turk@grackle.club
+	name = turk
