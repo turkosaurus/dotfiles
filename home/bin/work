@@ -69,7 +69,8 @@ worktrees() {
   done | sort -t$'\t' -k3,3n
 }
 
-# pick a worktree from numbered list, returns relpath
+# pick a worktree, returns relpath. uses fzf when available, else
+# falls back to a numbered prompt.
 pick() {
   local entries
   entries=$(worktrees)
@@ -81,6 +82,23 @@ pick() {
     (( ${#name} > maxw )) && maxw=${#name}
   done <<<"$entries"
   (( maxw += 2 ))
+
+  if command -v fzf >/dev/null; then
+    while IFS=$'\t' read -r branch rel mtime; do
+      local r="${rel%%/*}"
+      local ago
+      ago=$(timeago "$mtime")
+      printf "%-${maxw}s %6s\t%s\n" "$r:$branch" "($ago)" "$rel"
+    done <<<"$entries" |
+      fzf --delimiter=$'\t' --with-nth=1 --no-sort \
+          --height=80% --reverse --prompt="worktree> " \
+          --bind 'ctrl-j:down,ctrl-k:up,ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
+          --preview-window=down:50% \
+          --preview "git -C $WORK_DIR/{2} status -sb; echo; \
+git -C $WORK_DIR/{2} log --oneline -10" |
+      cut -f2
+    return
+  fi
 
   local i=1
   while IFS=$'\t' read -r branch rel mtime; do
