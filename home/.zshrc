@@ -15,6 +15,8 @@ export EDITOR=nvim
 [[ -f ~/.aliases ]] && source ~/.aliases
 
 # fuzzy finder: Ctrl+R (history), Ctrl+T (files), Alt+C (directories)
+# Ctrl+J/K for vim-style list navigation in every fzf prompt.
+export FZF_DEFAULT_OPTS="--bind 'ctrl-j:down,ctrl-k:up'"
 if [[ -x "$(command -v fzf)" ]]; then
   eval "$(fzf --zsh)"
 fi
