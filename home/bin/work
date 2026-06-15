@@ -92,7 +92,6 @@ pick() {
     done <<<"$entries" |
       fzf --delimiter=$'\t' --with-nth=1 --no-sort \
           --height=80% --reverse --prompt="worktree> " \
-          --bind 'ctrl-j:down,ctrl-k:up,ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
           --preview-window=down:50% \
           --preview "git -C $WORK_DIR/{2} status -sb; echo; \
 git -C $WORK_DIR/{2} log --oneline -10" |
