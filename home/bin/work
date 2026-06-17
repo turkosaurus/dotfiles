@@ -89,7 +89,7 @@ pick() {
       local ago
       ago=$(timeago "$mtime")
       printf "%-${maxw}s %6s\t%s\n" "$r:$branch" "($ago)" "$rel"
-    done <<<"$entries" |
+    done <<<"$entries" | tail -r |
       fzf --delimiter=$'\t' --with-nth=1 --no-sort \
           --height=80% --reverse --prompt="worktree> " \
           --preview-window=down:50% \
