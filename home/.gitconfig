@@ -2,10 +2,6 @@
 	excludesFile = ~/.gitignore_global
 	hooksPath = ~/.githooks
 
-[user]
-	email = 55367187+turkosaurus@users.noreply.github.com
-	name = turk
-
 [include]
 	path = ~/.gitconfig.local
 
