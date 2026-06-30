@@ -1,0 +1,43 @@
+title = "stuff and things to fix xyz"
+status = "open"                     # open, pending, done
+criteria = "must x when y is z"     # specific, measurable relevance
+due = 2038-01-18                    # time bound
+tasks = [
+	"do a thing",
+'''
+do a thing
+with multiline
+''',
+	"do another thing",
+]
+
+[slack]
+title = "Alf asked for the widget for the thing"
+url = "https://workspace.slack.com/thread/something"
+waiting = false
+resolved = true
+
+[issue]
+title = "example issue"
+url = "https://foo.com/123"
+closed = false
+
+[pr]
+title = "example pr"
+url = "https://foo.com/456"
+mergeable = "draft"
+
+[[pr.comment]]
+title = "nit: inconsistent style"
+status = "open"         # open, pending, done
+source = "main.go:123"  # file:line
+author = "copilot"
+thread = "xyz"          # thread id
+fix_ref = "abc123"
+comment = '''
+something
+kind long
+or so
+'''
+plan = "do a thing"
+reply = "we've done the plan"
