@@ -1,0 +1,28 @@
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      title
+      url
+      mergeable
+      isDraft
+      closingIssuesReferences(first: 10) {
+        nodes { number title url closed }
+      }
+      reviewThreads(first: 100) {
+        nodes {
+          id
+          isResolved
+          comments(first: 10) {
+            nodes {
+              author { login }
+              body
+              path
+              line
+              url
+            }
+          }
+        }
+      }
+    }
+  }
+}
