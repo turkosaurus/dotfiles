@@ -3,15 +3,37 @@
 ## plans
 Every worktree under `~/w/<repo>/<branch>/` has two plan files (both gitignored):
 
-- `plan.toml` — structured, tool-managed. Read/written by the `work` CLI: title, status, due, tasks, slack, issue(s), pr. Populated by `work sync`. Don't hand-edit unless you know what you're doing; use `work` verbs.
+- `plan.toml` — structured, tool-managed. Canonical schema: `dotfiles/cmd/work/plan.go`. Fields: `title`, `status`, `due`, `tasks[]`, `slack`, `[[issue]]`, `[pr]` with `[[pr.comment]]`. Populated by `work sync`.
 - `plan.md` — freeform scratchpad. Human notes, LLM output, outlining, temp thoughts. The `work` tool never touches this file. Top of the doc is for humans; bottom is for LLMs.
 
 The old `~/w/plan.md` aggregate is retired. The live cross-worktree view is `work list`.
 
-## editing toml
-Always edit TOML files with `yq -p toml -o toml -i` — never `sed`, `awk`, or
-hand-editing when doing bulk changes. yq round-trips the parse so structure
-stays sound and quoting/escaping is correct.
+### editing plan.toml
+
+Use `work` verbs for anything that has one — never hand-edit or `sed`:
+
+| Change | Command |
+|---|---|
+| new worktree/task | `work new [title]` |
+| set status | `work set -o\|-w\|-W\|-c` (open, waiting, working, closed) |
+| refresh from GitHub | `work sync` |
+| open in $EDITOR | `work edit` |
+| parse-check | `work validate [-a]` |
+
+For fields without a verb yet — most notably `[[pr.comment]]` entries used by `/pr-review` — use `yq -p toml -o toml -i` so structure and quoting stay sound. Example, append a comment:
+
+```bash
+yq -p toml -o toml -i '.pr.comment += [{"title":"…","status":"open","source":"…","author":"…","thread":"…","fix_ref":"","comment":"…","plan":"","reply":""}]' plan.toml
+```
+
+Update a comment's status by index:
+
+```bash
+yq -p toml -o toml -i '.pr.comment[0].status = "closed"' plan.toml
+```
+
+## editing toml (non-plan)
+For other TOML files (e.g. `mise.toml`, config files), use `yq -p toml -o toml -i` — never `sed`, `awk`, or hand-editing when doing bulk changes.
 
 ## usage rules
 - Never commit or push.

@@ -23,7 +23,7 @@ const (
 type plan struct {
 	Title  string         `toml:"title"`
 	Status statusKind     `toml:"status"`
-	Due    toml.LocalDate `toml:"due"`
+	Due    time.Time      `toml:"due"`
 	Tasks  []string       `toml:"tasks"`
 	Slack  slack          `toml:"slack"`
 	Issues []Issue        `toml:"issue"`
@@ -71,13 +71,8 @@ func defaultPlan(title string) plan {
 	return plan{
 		Title:  title,
 		Status: statusOpen,
-		Due:    toml.LocalDate{Year: due.Year(), Month: int(due.Month()), Day: due.Day()},
+		Due:    time.Date(due.Year(), due.Month(), due.Day(), 0, 0, 0, 0, time.Local),
 	}
-}
-
-// localDateAsTime converts a toml.LocalDate to time.Time at midnight local time.
-func localDateAsTime(d toml.LocalDate) time.Time {
-	return time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, time.Local)
 }
 
 func readPlan(path string) (plan, error) {

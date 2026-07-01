@@ -21,6 +21,7 @@ type args struct {
 	Edit    *editCmd    `arg:"subcommand:edit" help:"edit current worktree's plan.toml (default); -a for batch status editor"`
 	Clean   *cleanCmd   `arg:"subcommand:clean" help:"remove worktrees with merged/closed PRs"`
 	Rm      *rmCmd      `arg:"subcommand:rm" help:"remove a worktree"`
+	Promote *promoteCmd `arg:"subcommand:promote" help:"promote a task (~/w/t/open/N.toml) into the current branch's worktree"`
 	Sync    *syncCmd    `arg:"subcommand:sync" help:"sync plan with github"`
 	Install *installCmd `arg:"subcommand:install" help:"append the shim to your shellrc (--print to stdout instead)"`
 	Legend   *legendCmd   `arg:"subcommand:legend" help:"print the icon legend"`
@@ -40,7 +41,7 @@ func (args) Description() string {
 var knownSubcommands = map[string]bool{
 	"pick": true, "new": true, "main": true, "-": true,
 	"status": true, "set": true, "edit": true, "rm": true, "clean": true, "list": true, "sync": true,
-	"install": true, "legend": true, "validate": true,
+	"install": true, "legend": true, "validate": true, "promote": true,
 }
 
 // globalFlags are the top-level flags that must precede a subcommand.
@@ -162,6 +163,8 @@ func dispatch(a *args) error {
 		return runEdit(a.Edit)
 	case a.Rm != nil:
 		return runRm(a.Rm)
+	case a.Promote != nil:
+		return runPromote(a.Promote)
 	case a.Clean != nil:
 		return runClean(a.Clean)
 	case a.List != nil:
