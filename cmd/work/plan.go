@@ -12,8 +12,9 @@ type statusKind string
 
 const (
 	statusOpen    statusKind = "open"
-	statusPending statusKind = "pending"
-	statusDone    statusKind = "done"
+	statusWaiting statusKind = "waiting"
+	statusWorking statusKind = "working"
+	statusClosed  statusKind = "closed"
 
 	planFileName             = "plan.toml"
 	planFileMode os.FileMode = 0o644

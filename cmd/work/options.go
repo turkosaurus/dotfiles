@@ -16,7 +16,7 @@ var log = pterm.DefaultLogger.WithLevel(pterm.LogLevelInfo).WithTime(false)
 var (
 	confirmYes      bool // set from --yes; bypasses confirmation prompts
 	defaultWorkDir  = path.Join(os.Getenv("HOME"), "w")
-	defaultChoreDir = path.Join(defaultWorkDir, "x")
+	defaultTaskDir  = path.Join(defaultWorkDir, "t")
 	defaultDaysDue  = 3
 )
 

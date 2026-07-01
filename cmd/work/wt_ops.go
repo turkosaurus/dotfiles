@@ -19,29 +19,63 @@ type cleanCmd struct {
 	DryRun bool `arg:"-d,--dry-run" help:"show what would be removed"`
 }
 
-// runRm removes a worktree, cleaning up the empty parent repo dir.
-// If cwd was the removed tree, emits the main worktree path so the shell cds out.
+// runRm dispatches on what was selected:
+//   - worktree → git worktree remove + emit main path if cwd is now gone
+//   - task    → mark as closed (mv to ~/w/t/closed/)
 func runRm(c *rmCmd) error {
+	// Empty name → unified picker (both types).
+	if c.Name == "" {
+		spinner, _ := pterm.DefaultSpinner.WithText("loading").Start()
+		items, err := loadInventory(true, true)
+		_ = spinner.Stop()
+		if err != nil {
+			return fmt.Errorf("rm: %w", err)
+		}
+		if len(items) == 0 {
+			return fmt.Errorf("rm: nothing to remove")
+		}
+		it, err := pickInventory(items)
+		if err != nil {
+			return fmt.Errorf("rm: %w", err)
+		}
+		return processRm(it)
+	}
+
+	// Named or "." → worktree only.
 	wt, err := selectWorktree(c.Name)
 	if err != nil {
 		return fmt.Errorf("rm: %w", err)
 	}
+	return processRm(inventoryItem{Worktree: &wt})
+}
 
-	// Note the main worktree path *before* removal for possible emit.
-	mainDir := mainWorktreePath(wt.Path)
-
-	if err := removeWorktree(wt); err != nil {
-		return fmt.Errorf("rm: %w", err)
-	}
-	pterm.Success.Printfln("removed %s", wt)
-
-	// If our cwd is now gone, emit the main worktree path so the shell cds.
-	if cwd, err := os.Getwd(); err == nil {
-		if _, err := os.Stat(cwd); err != nil && mainDir != "" {
-			emitPath(mainDir)
+// processRm executes the removal for whichever kind of item was chosen.
+func processRm(it inventoryItem) error {
+	switch {
+	case it.Task != nil:
+		p, err := moveTask(*it.Task, statusClosed)
+		if err != nil {
+			return fmt.Errorf("task done: %w", err)
 		}
+		pterm.Success.Printfln("done: %s", p.Title)
+		return nil
+
+	case it.Worktree != nil:
+		wt := *it.Worktree
+		mainDir := mainWorktreePath(wt.Path)
+		if err := removeWorktree(wt); err != nil {
+			return fmt.Errorf("remove: %w", err)
+		}
+		pterm.Success.Printfln("removed %s", wt)
+		// If our cwd was the removed tree, emit main so the shell cds out.
+		if cwd, err := os.Getwd(); err == nil {
+			if _, err := os.Stat(cwd); err != nil && mainDir != "" {
+				emitPath(mainDir)
+			}
+		}
+		return nil
 	}
-	return nil
+	return fmt.Errorf("rm: unknown item type")
 }
 
 // runClean walks all worktrees, collects ones whose PR is merged or closed and

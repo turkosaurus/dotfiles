@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"strings"
 
 	"github.com/alexflint/go-arg"
 	"github.com/pterm/pterm"
@@ -12,11 +11,11 @@ type args struct {
 	Verbose bool `arg:"-v,--verbose" help:"verbose output"`
 	Yes     bool `arg:"-y,--yes" help:"assume yes to all prompts"`
 
-	List    *listCmd    `arg:"subcommand:list" help:"list worktrees and chores (alias: ls)"`
+	List    *listCmd    `arg:"subcommand:list" help:"list worktrees and tasks (alias: ls)"`
 	Pick    *pickCmd    `arg:"subcommand:pick" help:"pick a worktree (empty → fzf; name → navigate). same as: work [name]"`
 	Main    *mainCmd    `arg:"subcommand:main" help:"switch to the main worktree"`
 	Prev    *prevCmd    `arg:"subcommand:-" help:"previous worktree"`
-	New     *newCmd     `arg:"subcommand:new" help:"create: worktree from current branch (.), or chore (\"title with spaces\")"`
+	New     *newCmd     `arg:"subcommand:new" help:"create: worktree from current branch (.), or task (\"title with spaces\")"`
 	Clean   *cleanCmd   `arg:"subcommand:clean" help:"remove worktrees with merged/closed PRs"`
 	Rm      *rmCmd      `arg:"subcommand:rm" help:"remove a worktree"`
 	Sync    *syncCmd    `arg:"subcommand:sync" help:"sync plan with github"`
@@ -29,58 +28,71 @@ type syncCmd struct {
 }
 
 func (args) Description() string {
-	return "work: manage worktrees, plans, and chores under ~/w"
+	return "work: manage worktrees, plans, and tasks under ~/w"
 }
 
-// knownSubcommands lists strings that should NOT be treated as branch names.
-// Kept in sync with the arg tags above.
+// knownSubcommands lists tokens go-arg recognizes as a subcommand name.
+// Anything else in that position becomes `pick <arg>` via preprocessArgs.
 var knownSubcommands = map[string]bool{
 	"pick": true, "new": true, "main": true, "-": true,
-	"rm": true, "clean": true,
-	"list": true, "ls": true, "sync": true, // ls preprocesses to list
+	"rm": true, "clean": true, "list": true, "sync": true,
 	"install": true, "legend": true,
-	"help": true, "-h": true, "--help": true,
+}
+
+// globalFlags are the top-level flags that must precede a subcommand.
+var globalFlags = map[string]bool{
+	"-v": true, "--verbose": true,
+	"-y": true, "--yes": true,
+	"-h": true, "--help": true,
 }
 
 // preprocessArgs rewrites terse forms so go-arg sees a real subcommand:
-//   - no args     → "pick"
-//   - "help"      → "-h"
-//   - "ls"        → "list"
-//   - "<branch>"  → "pick <branch>"  (only if <branch> isn't a known subcommand/flag)
+//   - no args              → "pick"
+//   - only globals         → "pick" (e.g., `work -v`)
+//   - "help"               → "-h"
+//   - "ls"                 → "list"
+//   - "."                  → "new ."
+//   - "<branch>"           → "pick <branch>"
+//   - "-c" / "-w" / etc.   → "pick -c" / "pick -w" (subcommand-scoped flag → pick)
 //
-// `.` and `-` are subcommand names directly (go-arg accepts them) so no
-// rewrite is needed for those.
+// `-` (bare dash) is the `prev` subcommand; left alone.
 func preprocessArgs() {
-	if len(os.Args) < 2 {
+	// Skip past global flags.
+	i := 1
+	for i < len(os.Args) && globalFlags[os.Args[i]] {
+		i++
+	}
+	if i >= len(os.Args) {
 		os.Args = append(os.Args, "pick")
 		return
 	}
-	first := os.Args[1]
-	switch first {
+	tok := os.Args[i]
+
+	switch tok {
 	case "help":
-		os.Args[1] = "-h"
+		os.Args[i] = "-h"
 		return
 	case "ls":
-		os.Args[1] = "list"
+		os.Args[i] = "list"
 		return
 	case ".":
-		// muscle-memory alias for `new .`
-		os.Args = append([]string{os.Args[0], "new", "."}, os.Args[2:]...)
+		out := append([]string(nil), os.Args[:i]...)
+		out = append(out, "new", ".")
+		out = append(out, os.Args[i+1:]...)
+		os.Args = out
+		return
+	case "-":
+		return // bare dash IS the `prev` subcommand
+	}
+	if knownSubcommands[tok] {
 		return
 	}
-	if first == "-" {
-		// bare dash IS the `prev` subcommand; leave alone.
-		return
-	}
-	if strings.HasPrefix(first, "-") {
-		// real flag — leave alone
-		return
-	}
-	if knownSubcommands[first] {
-		return
-	}
-	// branch name — insert "pick" (pick takes an optional positional)
-	os.Args = append([]string{os.Args[0], "pick"}, os.Args[1:]...)
+	// Either a branch positional or a subcommand-scoped flag (e.g., -c).
+	// Insert "pick" here so go-arg parses it as a pickCmd arg.
+	out := append([]string(nil), os.Args[:i]...)
+	out = append(out, "pick")
+	out = append(out, os.Args[i:]...)
+	os.Args = out
 }
 
 func main() {

@@ -13,18 +13,19 @@ import (
 	"github.com/pterm/pterm"
 )
 
-const choreCounterFile = ".counter"
+const taskCounterFile = ".counter"
 
-// setupDirs ensures defaultWorkDir, defaultChoreDir, and the open/pending/done
-// chore subdirs exist, and initializes .counter to 1 if missing. If anything
+// setupDirs ensures defaultWorkDir, defaultTaskDir, and the open/pending/done
+// task subdirs exist, and initializes .counter to 1 if missing. If anything
 // needs creating and assumeYes is false, prompts for confirmation first.
 func setupDirs() error {
 	dirs := []string{
 		defaultWorkDir,
-		defaultChoreDir,
-		choreDir(statusOpen),
-		choreDir(statusPending),
-		choreDir(statusDone),
+		defaultTaskDir,
+		taskDir(statusOpen),
+		taskDir(statusWaiting),
+		taskDir(statusWorking),
+		taskDir(statusClosed),
 	}
 	var missing []string
 	for _, d := range dirs {
@@ -54,7 +55,7 @@ func setupDirs() error {
 		}
 	}
 
-	cpath := path.Join(defaultChoreDir, choreCounterFile)
+	cpath := path.Join(defaultTaskDir, taskCounterFile)
 	_, err := os.Stat(cpath)
 	switch {
 	case err == nil:
@@ -70,19 +71,19 @@ func setupDirs() error {
 	return nil
 }
 
-// choreDir returns the directory for chores with the given status.
-func choreDir(s statusKind) string {
-	return path.Join(defaultChoreDir, string(s))
+// taskDir returns the directory for tasks with the given status.
+func taskDir(s statusKind) string {
+	return path.Join(defaultTaskDir, string(s))
 }
 
-// nextChoreNum atomically reads-and-increments the chore counter under an
+// nextTaskNum atomically reads-and-increments the task counter under an
 // exclusive file lock so concurrent invocations never hand out the same N.
 // Missing counter file starts the sequence at 1.
-func nextChoreNum() (int, error) {
-	if err := os.MkdirAll(defaultChoreDir, 0o755); err != nil {
-		return 0, fmt.Errorf("mkdir chore root: %w", err)
+func nextTaskNum() (int, error) {
+	if err := os.MkdirAll(defaultTaskDir, 0o755); err != nil {
+		return 0, fmt.Errorf("mkdir task root: %w", err)
 	}
-	cpath := path.Join(defaultChoreDir, choreCounterFile)
+	cpath := path.Join(defaultTaskDir, taskCounterFile)
 
 	f, err := os.OpenFile(cpath, os.O_RDWR|os.O_CREATE, planFileMode)
 	if err != nil {
@@ -121,53 +122,53 @@ func nextChoreNum() (int, error) {
 	return n, nil
 }
 
-// newChore allocates the next chore number and writes a default plan file
+// newTask allocates the next task number and writes a default plan file
 // to the `open` subdirectory. Returns the populated plan.
-func newChore(title string) (plan, error) {
-	n, err := nextChoreNum()
+func newTask(title string) (plan, error) {
+	n, err := nextTaskNum()
 	if err != nil {
-		return plan{}, fmt.Errorf("new chore: %w", err)
+		return plan{}, fmt.Errorf("new task: %w", err)
 	}
-	dir := choreDir(statusOpen)
+	dir := taskDir(statusOpen)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return plan{}, fmt.Errorf("mkdir %s: %w", dir, err)
 	}
 	p := defaultPlan(title)
 	p.Path = path.Join(dir, fmt.Sprintf("%d.toml", n))
 	if err := writePlan(p); err != nil {
-		return plan{}, fmt.Errorf("write chore %d: %w", n, err)
+		return plan{}, fmt.Errorf("write task %d: %w", n, err)
 	}
 	return p, nil
 }
 
-// listChores returns all chore plans in the given status directory, sorted by
-// filename (so by chore number). Files that fail to parse are returned as
+// listTasks returns all task plans in the given status directory, sorted by
+// filename (so by task number). Files that fail to parse are returned as
 // placeholder plans with broken=true so the caller can still show them.
-func listChores(s statusKind) ([]plan, error) {
-	matches, err := filepath.Glob(path.Join(choreDir(s), "*.toml"))
+func listTasks(s statusKind) ([]plan, error) {
+	matches, err := filepath.Glob(path.Join(taskDir(s), "*.toml"))
 	if err != nil {
-		return nil, fmt.Errorf("glob chores: %w", err)
+		return nil, fmt.Errorf("glob tasks: %w", err)
 	}
-	var chores []plan
+	var tasks []plan
 	for _, m := range matches {
 		p, err := readPlan(m)
 		if err != nil {
 			// Placeholder so the caller can still surface the broken file.
-			chores = append(chores, plan{Path: m, broken: true})
+			tasks = append(tasks, plan{Path: m, broken: true})
 			continue
 		}
-		chores = append(chores, p)
+		tasks = append(tasks, p)
 	}
-	return chores, nil
+	return tasks, nil
 }
 
-// moveChore relocates the chore file to the directory for newStatus, updates
+// moveTask relocates the task file to the directory for newStatus, updates
 // its status field, and rewrites it.
-func moveChore(p plan, newStatus statusKind) (plan, error) {
+func moveTask(p plan, newStatus statusKind) (plan, error) {
 	if p.Path == "" {
-		return plan{}, fmt.Errorf("move chore: empty path")
+		return plan{}, fmt.Errorf("move task: empty path")
 	}
-	dir := choreDir(newStatus)
+	dir := taskDir(newStatus)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return plan{}, fmt.Errorf("mkdir %s: %w", dir, err)
 	}
@@ -178,7 +179,7 @@ func moveChore(p plan, newStatus statusKind) (plan, error) {
 	p.Path = newPath
 	p.Status = newStatus
 	if err := writePlan(p); err != nil {
-		return plan{}, fmt.Errorf("rewrite chore: %w", err)
+		return plan{}, fmt.Errorf("rewrite task: %w", err)
 	}
 	return p, nil
 }
