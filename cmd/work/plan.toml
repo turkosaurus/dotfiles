@@ -17,10 +17,15 @@ url = "https://workspace.slack.com/thread/something"
 waiting = false
 resolved = true
 
-[issue]
+[[issue]]
 title = "example issue"
 url = "https://foo.com/123"
 closed = false
+
+[[issue]]
+title = "second linked issue"
+url = "https://foo.com/124"
+closed = true
 
 [pr]
 title = "example pr"
