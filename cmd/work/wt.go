@@ -58,9 +58,12 @@ func runPick(c *pickCmd) error {
 		if err != nil {
 			return err
 		}
+		if len(items) == 0 {
+			return fmt.Errorf("nothing under %s", defaultWorkDir)
+		}
 		items = filterByStatus(items, c.statusFilter())
 		if len(items) == 0 {
-			return fmt.Errorf("nothing to pick under %s", defaultWorkDir)
+			return fmt.Errorf("no items match the current filters")
 		}
 		it, err := pickInventory(items)
 		if err != nil {
