@@ -143,15 +143,15 @@ func runSyncAll() error {
 	}
 	wg.Wait()
 
-	rows := pterm.TableData{{"plan", "status", "note"}}
+	rows := pterm.TableData{{"status", "plan", "note"}}
 	failed := 0
 	for _, r := range results {
 		if r.err != nil {
-			rows = append(rows, []string{r.name, pterm.Red("FAIL"), r.err.Error()})
+			rows = append(rows, []string{pterm.Red("FAIL"), r.name, r.err.Error()})
 			failed++
 			continue
 		}
-		rows = append(rows, []string{r.name, pterm.Green("ok"), ""})
+		rows = append(rows, []string{pterm.Green("ok"), r.name, ""})
 	}
 	_ = pterm.DefaultTable.WithHasHeader().WithData(rows).Render()
 

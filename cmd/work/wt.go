@@ -8,27 +8,57 @@ import (
 )
 
 type pickCmd struct {
-	Name      string `arg:"positional" help:"branch name to navigate to; empty → fuzzy-pick"`
-	Chores    bool   `arg:"-c,--chores" help:"only offer chores in the picker"`
-	Worktrees bool   `arg:"-w,--worktrees" help:"only offer worktrees in the picker"`
+	Name string `arg:"positional" help:"branch name to navigate to; empty → fuzzy-pick"`
+
+	// type filters
+	Tasks     bool `arg:"-t,--task" help:"offer only tasks in the picker"`
+	Worktrees bool `arg:"-b,--branch" help:"offer only worktree branches in the picker"`
+
+	// status filters — combinable
+	Open    bool `arg:"-o,--open" help:"only offer items with status=open"`
+	Waiting bool `arg:"-w,--waiting" help:"only offer items with status=waiting"`
+	Working bool `arg:"-W,--working" help:"only offer items with status=working"`
+	Closed  bool `arg:"-c,--closed" help:"only offer items with status=closed"`
+}
+
+// statusFilter mirrors listCmd.statusFilter().
+func (c *pickCmd) statusFilter() map[statusKind]bool {
+	set := map[statusKind]bool{}
+	if c.Open {
+		set[statusOpen] = true
+	}
+	if c.Waiting {
+		set[statusWaiting] = true
+	}
+	if c.Working {
+		set[statusWorking] = true
+	}
+	if c.Closed {
+		set[statusClosed] = true
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	return set
 }
 type mainCmd struct{} // work main
 type prevCmd struct{} // work -
 
-// runPick presents a unified interactive select over worktrees + chores when
-// no name is given. Selecting a worktree emits its path; selecting a chore
-// opens the chore file in $EDITOR. When a name is given, only worktrees are
-// matched (chore numbers can be added later if desired).
+// runPick presents a unified interactive select over worktrees + tasks when
+// no name is given. Selecting a worktree emits its path; selecting a task
+// opens the task file in $EDITOR. When a name is given, only worktrees are
+// matched (task numbers can be added later if desired).
 func runPick(c *pickCmd) error {
 	if c.Name == "" {
-		showWT := !c.Chores || c.Worktrees
-		showCh := !c.Worktrees || c.Chores
+		showWT := !c.Tasks || c.Worktrees
+		showCh := !c.Worktrees || c.Tasks
 		spinner, _ := pterm.DefaultSpinner.WithText("loading").Start()
 		items, err := loadInventory(showWT, showCh)
 		_ = spinner.Stop()
 		if err != nil {
 			return err
 		}
+		items = filterByStatus(items, c.statusFilter())
 		if len(items) == 0 {
 			return fmt.Errorf("nothing to pick under %s", defaultWorkDir)
 		}
@@ -40,8 +70,8 @@ func runPick(c *pickCmd) error {
 		case it.Worktree != nil:
 			emitPath(it.Worktree.Path)
 			return nil
-		case it.Chore != nil:
-			return openInEditor(it.Chore.Path)
+		case it.Task != nil:
+			return openInEditor(it.Task.Path)
 		}
 		return fmt.Errorf("pick: unknown item")
 	}

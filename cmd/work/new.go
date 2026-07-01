@@ -11,23 +11,33 @@ import (
 )
 
 type newCmd struct {
-	Arg string `arg:"positional,required" help:"'.' for worktree from current branch; \"title with spaces\" for a chore"`
+	Arg string `arg:"positional" help:"'.' for worktree from current branch; \"title with spaces\" for a task"`
 }
 
 // runNew dispatches on the shape of Arg:
+//   - ""                 → print usage
 //   - "."                → worktree from the current branch
-//   - contains a space   → chore (title stored in ~/w/x/open/N.toml), opens $EDITOR
-//   - anything else      → error (worktree-from-branch is no longer supported)
+//   - contains a space   → task (title stored in ~/w/t/open/N.toml), opens $EDITOR
+//   - anything else      → error (worktree-from-branch is not supported)
 func runNew(c *newCmd) error {
 	switch {
+	case c.Arg == "":
+		pterm.Info.Println(`usage: work new <arg>
+
+  work new .                    create worktree from the current branch
+  work new "title with spaces"  create a task (opens $EDITOR)
+
+Worktrees only come from the current branch — switch branches first, then run
+'work new .'. To navigate an existing worktree, use 'work' or 'work <name>'.`)
+		return nil
 	case c.Arg == ".":
 		return newFromCurrent()
 	case strings.Contains(c.Arg, " "):
-		p, err := newChore(c.Arg)
+		p, err := newTask(c.Arg)
 		if err != nil {
 			return err
 		}
-		pterm.Success.Printfln("chore #%s: %s",
+		pterm.Success.Printfln("task #%s: %s",
 			path.Base(strings.TrimSuffix(p.Path, ".toml")), p.Title)
 		return openInEditor(p.Path)
 	default:
