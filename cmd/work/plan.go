@@ -3,44 +3,36 @@ package main
 import (
 	"fmt"
 	"os"
-	"path"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
 
-type StatusKind string
-
-var (
-	DefaultWorkDir  = path.Join(os.Getenv("HOME"), "ww")
-	DefaultChoreDir = path.Join(DefaultWorkDir, "x")
-	DefaultDaysDue  = 3
-)
+type statusKind string
 
 const (
-	StatusOpen    StatusKind = "open"
-	StatusPending StatusKind = "pending"
-	StatusDone    StatusKind = "done"
+	statusOpen    statusKind = "open"
+	statusPending statusKind = "pending"
+	statusDone    statusKind = "done"
 
-	PlanFileMode os.FileMode = 0o644
+	planFileName             = "plan.toml"
+	planFileMode os.FileMode = 0o644
 )
 
-type Plans struct {
-	Plans []Plan `toml:"plan"`
+type plan struct {
+	Title  string         `toml:"title"`
+	Status statusKind     `toml:"status"`
+	Due    toml.LocalDate `toml:"due"`
+	Tasks  []string       `toml:"tasks"`
+	Slack  slack          `toml:"slack"`
+	Issues []Issue        `toml:"issue"`
+	PR     PR             `toml:"pr"`
+	Path   string         `toml:"path"` // path to plan
+
+	broken bool `toml:"-"` // in-memory only: true if this plan couldn't be parsed
 }
 
-type Plan struct {
-	Title  string     `toml:"title"`
-	Status StatusKind `toml:"status"`
-	Due    time.Time  `toml:"due"`
-	Tasks  []string   `toml:"tasks"`
-	Slack  Slack      `toml:"slack"`
-	Issue  Issue      `toml:"issue"`
-	PR     PR         `toml:"pr"`
-	Path   string     `toml:"path"` // path to plan
-}
-
-type Slack struct {
+type slack struct {
 	Title    string `toml:"title"`
 	URL      string `toml:"url"`
 	Body     string `toml:"body"`
@@ -58,12 +50,12 @@ type PR struct {
 	Title     string    `toml:"title"`
 	Mergeable string    `toml:"mergeable"`
 	URL       string    `toml:"url"`
-	Comments  []Comment `toml:"comment"`
+	Comments  []comment `toml:"comment"`
 }
 
-type Comment struct {
+type comment struct {
 	Title   string     `toml:"title"`
-	Status  StatusKind `toml:"status"`
+	Status  statusKind `toml:"status"`
 	Source  string     `toml:"source"`
 	Author  string     `toml:"author"`
 	Thread  string     `toml:"thread"`
@@ -73,28 +65,34 @@ type Comment struct {
 	Reply   string     `toml:"reply"`
 }
 
-func NewDefaultPlan(title string) Plan {
-	return Plan{
+func defaultPlan(title string) plan {
+	due := time.Now().AddDate(0, 0, defaultDaysDue)
+	return plan{
 		Title:  title,
-		Status: StatusOpen,
-		Due:    time.Now().Add(time.Hour * 24 * time.Duration(DefaultDaysDue)), // FIXME: round to the nearest day
+		Status: statusOpen,
+		Due:    toml.LocalDate{Year: due.Year(), Month: int(due.Month()), Day: due.Day()},
 	}
 }
 
-func readPlan(path string) (Plan, error) {
+// localDateAsTime converts a toml.LocalDate to time.Time at midnight local time.
+func localDateAsTime(d toml.LocalDate) time.Time {
+	return time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, time.Local)
+}
+
+func readPlan(path string) (plan, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return Plan{}, fmt.Errorf("read plan %q: %w", path, err)
+		return plan{}, fmt.Errorf("read plan %q: %w", path, err)
 	}
-	var plan Plan
-	if err := toml.Unmarshal(data, &plan); err != nil {
-		return Plan{}, fmt.Errorf("parse plan %q: %w", path, err)
+	var p plan
+	if err := toml.Unmarshal(data, &p); err != nil {
+		return plan{}, fmt.Errorf("parse plan %q: %w", path, err)
 	}
-	plan.Path = path
-	return plan, nil
+	p.Path = path
+	return p, nil
 }
 
-func writePlan(p Plan) error {
+func writePlan(p plan) error {
 	if p.Path == "" {
 		return fmt.Errorf("write plan: empty path")
 	}
@@ -102,8 +100,9 @@ func writePlan(p Plan) error {
 	if err != nil {
 		return fmt.Errorf("marshal plan: %w", err)
 	}
-	if err := os.WriteFile(p.Path, data, PlanFileMode); err != nil {
+	if err := os.WriteFile(p.Path, data, planFileMode); err != nil {
 		return fmt.Errorf("write plan %q: %w", p.Path, err)
 	}
 	return nil
 }
+
