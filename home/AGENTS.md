@@ -1,7 +1,17 @@
 # Style Guilde
 
 ## plans
-The most important file is a special `plan.md` which will be gitignored, but will contain anything useful about the plan or progress. The top of this document is for humans, the bottom of the document may be used for LLMs planning.
+Every worktree under `~/w/<repo>/<branch>/` has two plan files (both gitignored):
+
+- `plan.toml` — structured, tool-managed. Read/written by the `work` CLI: title, status, due, tasks, slack, issue(s), pr. Populated by `work sync`. Don't hand-edit unless you know what you're doing; use `work` verbs.
+- `plan.md` — freeform scratchpad. Human notes, LLM output, outlining, temp thoughts. The `work` tool never touches this file. Top of the doc is for humans; bottom is for LLMs.
+
+The old `~/w/plan.md` aggregate is retired. The live cross-worktree view is `work list`.
+
+## editing toml
+Always edit TOML files with `yq -p toml -o toml -i` — never `sed`, `awk`, or
+hand-editing when doing bulk changes. yq round-trips the parse so structure
+stays sound and quoting/escaping is correct.
 
 ## usage rules
 - Never commit or push.
