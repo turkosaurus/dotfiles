@@ -50,19 +50,15 @@ fi
 PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 
 # work - git worktree wrapper with cd support
+# (Go binary at ~/go/bin/work; UI goes to stderr, cd-target paths to stdout.
+# Non-directory stdout — help, --print, errors — is echoed back.)
 work() {
-  case "${1:-}" in
-    -h | --help | help | ls | plan)
-      command work "$@"
-      return
-      ;;
-  esac
   local out
-  out=$(command work "$@" | tail -1)
+  out=$("$HOME/go/bin/work" "$@")
   if [[ -d "$out" ]]; then
     cd "$out"
   elif [[ -n "$out" ]]; then
-    echo "$out"
+    printf '%s\n' "$out"
   fi
 }
 
