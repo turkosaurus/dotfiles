@@ -1,136 +1,119 @@
 ---
 name: pr-review
-description: Fetch unresolved PR comments, plan fixes, implement them, and resolve threads
+description: Address unresolved PR review comments — reads plan.toml (populated by `work sync`), plans fixes, implements them, and resolves threads
 user-invocable: true
 disable-model-invocation: true
-allowed-tools: Bash(gh pr view:*), Bash(gh-pr-threads:*), Bash(cat plan.md), Bash(gh-pr-thread-resolve:*), Read, Grep, Glob, Edit, Write, AskUserQuestion
+allowed-tools: Bash(work *), Bash(yq *), Bash(gh pr view:*), Bash(gh-pr-thread-resolve:*), Read, Grep, Glob, Edit, Write, AskUserQuestion
 argument-hint: [pr-number]
 ---
 
 # PR Review
 
-Address unresolved PR review comments in one conversation with three stops.
+Address unresolved PR review comments in one conversation with three stops. The
+canonical source for unresolved comments is `plan.toml`'s `[[pr.comment]]`
+array, populated by `work sync`.
 
 ## Input
 
-`$ARGUMENTS` is an optional PR number. If omitted, detect the PR for the
-current branch:
+`$ARGUMENTS` is an optional PR number. The current-worktree default is the
+common case:
 
-```
-gh pr view --json number,headRefName,baseRefName,url,headRepository,headRepositoryOwner
-```
+- If no arg: the current worktree's PR is used. Run `work sync` first to refresh.
+- If a number is given: locate the worktree that has that PR in its `plan.toml`.
 
-If a number is given, pass it explicitly:
+## Setup
 
-```
-gh pr view $ARGUMENTS --json number,headRefName,baseRefName,url,headRepository,headRepositoryOwner
-```
+1. Determine the worktree:
+   - If `$ARGUMENTS` is empty, use the current worktree (`work list -w` to
+     confirm you're in one).
+   - Otherwise, find the worktree whose `plan.toml` contains that PR number.
 
-Extract the PR number, head branch, and `owner/repo`.
-
-Compute the worktree path:
-- `slug` = headRefName with `/` replaced by `-`
-- `worktree` = `~/w/{headRepository.name}/{slug}`
-
-If the worktree directory doesn't exist, fall back to the current git toplevel.
-
-All file reads and edits happen inside the worktree.
+2. Refresh from GitHub:
+   ```
+   cd <worktree> && work sync
+   ```
+   This populates `[[pr.comment]]` in the worktree's `plan.toml` with every
+   unresolved review thread — one entry per comment. Each has:
+   - `thread` — GraphQL thread ID (for later resolve)
+   - `author`, `source` (file:line), `comment` — original review content
+   - `status` — starts as `open`
+   - `plan`, `reply`, `fix_ref` — populated by us
 
 ## Phase 1 — Plan
 
-1. Fetch unresolved review threads:
+1. Read the worktree's `plan.toml`. Iterate `[[pr.comment]]` entries.
+
+2. For each comment with empty `plan`, draft one:
+   - Read the file at `source` (file:line) and understand the surrounding code.
+   - Write a specific fix — name functions, variables, and the exact change.
+   - No em dashes, no filler. One or two short sentences.
+
+3. Present the plan in the conversation as a table:
+
    ```
-   gh-pr-threads <owner> <repo> <number>
-   ```
-
-2. For each unresolved thread, read the referenced file in the worktree and understand the surrounding code.
-
-3. If `{worktree}/plan.md` already exists, **append** the PR review section
-   below a `---` separator (preserving any existing content above it).
-   Otherwise create the file. Write the PR review section with this format:
-
-   ```markdown
-   ---
-   pr: <number>
-   repo: <owner/repo>
-   branch: <head-branch>
-   ---
-
-   ## Handle nil error
-
-   | key    | value             |
-   | ------ | ----------------- |
-   | thread | <thread-id>       |
-   | file   | src/handler.go:42 |
-   | author | reviewer-name     |
-   | status | pending           |
-
-   ### Comment
-
-   > Original review comment body, blockquoted.
-
-   ### Plan
-
-   Add a nil check on the return value of `Fetch()` and wrap
-   the error with context before returning.
-
-   ### Reply
-
-   _To be written after implementation._
+   thread | source                   | plan
+   -------|--------------------------|-------------------------------
+   T_ABC1 | src/handler.go:42        | add nil check on Fetch() result
+   T_DEF2 | src/store.go:88          | rename local `x` → `count`
+   ...
    ```
 
-   Rules:
-   - `##` title: 2-3 words summarizing the change.
-   - Aligned columns in the metadata table.
-   - `### Plan`: a specific proposed fix — name functions, variables, and the exact change.
-   - `### Reply`: leave as `_To be written in Phase 3._` for `pending` items. For `skip` items, write the reply immediately.
-   - Replies must be terse. No em dashes, no filler. One short sentence with commit hash.
-   - If the thread is already addressed in the branch code, set `status: skip` and explain why.
-
-4. **Stop.** Tell the user how many items are pending vs skip, and wait.
-   The user will review `plan.md`, may edit plans or mark items `status: skip`, then say "go" or "implement."
+4. **Stop.** Tell the user how many items are pending. The user reviews the
+   proposed plans (and may open `plan.toml` in their editor to tweak them or
+   mark items `status = "done"` if they're already addressed).
 
 ## Phase 2 — Implement
 
-1. Re-read `{worktree}/plan.md` (the user may have edited it).
+Reached when the user says "go" or "implement".
 
-2. For each `##` section:
-   - `skip` or `done` — skip silently.
-   - `pending` — implement the fix described in `### Plan`.
+1. Re-read `plan.toml` (they may have edited it).
+
+2. For each `[[pr.comment]]`:
+   - `status = "done"` — already addressed, skip.
+   - `status = "open"` — implement the fix described in `plan`.
      - Read the file, make the edit. **Never commit or push.**
-     - Update `status` to `done` in `plan.md`.
+     - After the edit succeeds, update the comment's `status` to `"done"` in
+       `plan.toml` and set `fix_ref` to a short description (e.g., "nil-check
+       in Fetch caller"). Actual commit hash is filled in during Phase 3.
 
-3. After all sections, print a summary table:
-
+3. Print a summary table:
    ```
    file                          | change
    ------------------------------|----------------------------------
-   db/queries/game_cards.sql     | add game_id to GameCardMove WHERE
-   actions.go                    | validate flip card ownership
+   src/handler.go                | add nil check to Fetch caller
+   src/store.go                  | rename x → count
    ```
 
-4. **Stop.** Tell the user to `git diff`, commit, and push. Wait for them to confirm.
+4. **Stop.** Tell the user to `git diff`, commit, and push. Wait for them to
+   confirm.
 
 ## Phase 3 — Resolve
 
-1. Get the latest commit hash (use the PR number resolved in Phase 1):
-   ```
-   gh pr view <number> --json commits --jq '.commits[-1].oid[0:7]'
-   ```
+Reached when the user says "resolved" or "posted".
 
-2. For every `done` or `skip` section:
-   - If `### Reply` is still a placeholder, fill it in now: terse description of the change + commit hash (e.g., "Added `require_arg` guard (abc1234).").
-   - Resolve using the `### Reply` text.
-   Resolve all threads in **one** Bash call:
+1. Get the latest commit hash:
+   ```
+   git rev-parse --short HEAD
+   ```
+   (or `gh pr view <n> --json commits --jq '.commits[-1].oid[0:7]'` if the
+   changes were force-pushed.)
 
+2. For every `[[pr.comment]]` with `status = "done"`:
+   - Build the reply: `<short description> (<hash>)`. Update the `reply` field
+     in `plan.toml`.
+   - Resolve the thread:
+     ```
+     gh-pr-thread-resolve "<thread-id>" "<reply text> (<hash>)"
+     ```
+
+3. Batch the resolves so a single failure doesn't stop the rest:
    ```bash
    failed=0
-   # For each thread: gh-pr-thread-resolve <thread-id> "<reply text> (<hash>)"
-   if ! gh-pr-thread-resolve "<tid-1>" "<reply-1> (<hash>)"; then
-     echo "FAIL: <tid-1>"; failed=$((failed + 1))
+   if ! gh-pr-thread-resolve "T_ABC1" "add nil-check in Fetch caller (abc1234)"; then
+     echo "FAIL: T_ABC1"; failed=$((failed + 1))
    fi
-   if ! gh-pr-thread-resolve "<tid-2>" "<reply-2> (<hash>)"; then
-     echo "FAIL: <tid-2>"; failed=$((failed + 1))
+   if ! gh-pr-thread-resolve "T_DEF2" "rename x → count (abc1234)"; then
+     echo "FAIL: T_DEF2"; failed=$((failed + 1))
    fi
    if [ "$failed" -gt 0 ]; then
      echo "$failed thread(s) failed to resolve"
@@ -138,7 +121,40 @@ All file reads and edits happen inside the worktree.
    fi
    ```
 
-3. Remove only the `## PR review (#<number>)` section (and its `---` separator)
-   from `{worktree}/plan.md`. If this was the only content, delete the file.
+4. Report how many threads were resolved vs skipped. The next `work sync` will
+   drop the resolved comments from `plan.toml` (sync only surfaces unresolved
+   threads).
 
-4. **Done.** Report how many threads were resolved vs skipped.
+## Editing plan.toml
+
+**Always use `yq` for TOML edits — never hand-edit or use `sed`.** `yq -p toml
+-o toml` round-trips the file, keeping structure sound.
+
+Examples (adjust the index):
+
+```bash
+# read the current plan/status of a comment
+yq -p toml '.pr.comment[2].status' plan.toml
+
+# set status/plan/reply/fix_ref on a comment (by 0-based array index)
+yq -p toml -o toml -i '.pr.comment[2].status = "done"' plan.toml
+yq -p toml -o toml -i '.pr.comment[2].plan   = "add nil-check to Fetch caller"' plan.toml
+yq -p toml -o toml -i '.pr.comment[2].reply  = "add nil-check in Fetch caller (abc1234)"' plan.toml
+yq -p toml -o toml -i '.pr.comment[2].fix_ref = "abc1234"' plan.toml
+
+# find the index of a comment by thread id
+yq -p toml '.pr.comment | to_entries | map(select(.value.thread == "T_ABC1")) | .[0].key' plan.toml
+```
+
+## Notes
+
+- **Never write to `plan.md`.** That's the freeform scratchpad — pr-review's
+  data lives in `plan.toml`'s `[[pr.comment]]` array.
+- Editing `plan.toml` from the skill is fine, but only through `yq -i`.
+  Preserve unrelated fields; only touch the `[[pr.comment]]` entries you're
+  processing.
+- Replies must be terse. No em dashes, no filler. One short sentence plus
+  commit hash.
+- If a comment is already addressed in the branch code (nothing to change),
+  set `status = "done"` and write an appropriate `reply` in Phase 1 — it'll
+  still get resolved in Phase 3.
