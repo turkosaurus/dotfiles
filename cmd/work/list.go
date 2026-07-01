@@ -124,8 +124,9 @@ func runeLen(s string) int {
 	return n
 }
 
-// filterByStatus keeps only items whose plan.status is in the set. Worktrees
-// without a plan.toml are treated as status "open" (visible unless filtered).
+// filterByStatus keeps items whose plan.status is in the set. Worktrees
+// without a plan.toml (or with an unparseable one) are treated as status
+// "open". Run `work validate` to see broken plans explicitly.
 // A nil set means no filter (return everything).
 func filterByStatus(items []inventoryItem, set map[statusKind]bool) []inventoryItem {
 	if set == nil {
@@ -133,20 +134,7 @@ func filterByStatus(items []inventoryItem, set map[statusKind]bool) []inventoryI
 	}
 	out := items[:0]
 	for _, it := range items {
-		var s statusKind
-		switch {
-		case it.Task != nil:
-			s = it.Task.Status
-		case it.Worktree != nil:
-			// Read the plan.toml to get status, falling back to "open" if missing.
-			pp := path.Join(it.Worktree.Path, planFileName)
-			if p, err := readPlan(pp); err == nil {
-				s = p.Status
-			} else {
-				s = statusOpen
-			}
-		}
-		if set[s] {
+		if set[itemStatus(it)] {
 			out = append(out, it)
 		}
 	}

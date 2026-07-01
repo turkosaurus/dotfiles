@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"path"
 	"strings"
 	"sync"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pterm/pterm"
 )
 
@@ -50,10 +52,20 @@ func runSync(args *syncCmd) error {
 		}
 	}
 
-	if err := syncRoot(wt.Path); err != nil {
+	changed, note, err := syncRoot(wt.Path)
+	if err != nil {
 		return err
 	}
-	pterm.Success.Printfln("synced %s", wt)
+	if changed {
+		if note != "" {
+			pterm.Success.Printfln("synced %s (%s)", wt, note)
+		} else {
+			pterm.Success.Printfln("synced %s (updated)", wt)
+		}
+	} else {
+		pterm.Info.Printfln("synced %s (no-op)", wt)
+	}
+	warnIfBroken()
 	return nil
 }
 
@@ -127,8 +139,10 @@ func runSyncAll() error {
 	defer func() { _, _ = bar.Stop() }()
 
 	type result struct {
-		name string
-		err  error
+		name    string
+		changed bool
+		note    string
+		err     error
 	}
 	results := make([]result, len(wts))
 
@@ -138,7 +152,8 @@ func runSyncAll() error {
 		go func(i int, wt worktree) {
 			defer wg.Done()
 			defer bar.Increment()
-			results[i] = result{name: wt.String(), err: syncRoot(wt.Path)}
+			changed, note, err := syncRoot(wt.Path)
+			results[i] = result{name: wt.String(), changed: changed, note: note, err: err}
 		}(i, wt)
 	}
 	wg.Wait()
@@ -146,15 +161,19 @@ func runSyncAll() error {
 	rows := pterm.TableData{{"status", "plan", "note"}}
 	failed := 0
 	for _, r := range results {
-		if r.err != nil {
-			rows = append(rows, []string{pterm.Red("FAIL"), r.name, r.err.Error()})
+		switch {
+		case r.err != nil:
+			rows = append(rows, []string{pterm.Red("err"), r.name, r.err.Error()})
 			failed++
-			continue
+		case r.changed:
+			rows = append(rows, []string{pterm.Green("updated"), r.name, r.note})
+		default:
+			rows = append(rows, []string{pterm.Gray("no-op"), r.name, ""})
 		}
-		rows = append(rows, []string{pterm.Green("ok"), r.name, ""})
 	}
 	_ = pterm.DefaultTable.WithHasHeader().WithData(rows).Render()
 
+	warnIfBroken()
 	if failed > 0 {
 		return fmt.Errorf("%d of %d plans failed", failed, len(wts))
 	}
@@ -169,15 +188,17 @@ func seedPlan(planPath, branch string) error {
 }
 
 // syncRoot performs the sync for a single worktree root. Caller must ensure
-// plan.toml exists.
-func syncRoot(root string) error {
+// plan.toml exists. Returns (changed, note, err) where changed=true means
+// the plan.toml was rewritten and note is a short human-readable summary of
+// what differed.
+func syncRoot(root string) (bool, string, error) {
 	branch, err := currentBranch(root)
 	if err != nil {
-		return fmt.Errorf("branch: %w", err)
+		return false, "", fmt.Errorf("branch: %w", err)
 	}
 	owner, repo, err := originOwnerRepo(root)
 	if err != nil {
-		return fmt.Errorf("remote: %w", err)
+		return false, "", fmt.Errorf("remote: %w", err)
 	}
 	log.Debug("repo state", log.Args(
 		"owner", owner,
@@ -189,19 +210,34 @@ func syncRoot(root string) error {
 	planPath := path.Join(root, planFileName)
 	p, err := readPlan(planPath)
 	if err != nil {
-		return fmt.Errorf("read plan: %w", err)
+		return false, "", fmt.Errorf("read plan: %w", err)
+	}
+	beforeBytes, err := toml.Marshal(p)
+	if err != nil {
+		return false, "", fmt.Errorf("marshal before: %w", err)
+	}
+	// Deep copy for later diffing.
+	var before plan
+	if err := toml.Unmarshal(beforeBytes, &before); err != nil {
+		return false, "", fmt.Errorf("clone plan: %w", err)
 	}
 
 	prInfo, err := prForBranch(owner, repo, branch)
 	if err != nil {
-		return fmt.Errorf("find pr: %w", err)
+		return false, "", fmt.Errorf("find pr: %w", err)
 	}
 
 	if prInfo != nil {
 		log.Debug("found pr", log.Args("url", prInfo.URL, "state", prInfo.State))
 		prData, closes, err := pr(prInfo.URL)
 		if err != nil {
-			return fmt.Errorf("fetch pr: %w", err)
+			return false, "", fmt.Errorf("fetch pr: %w", err)
+		}
+		// GitHub returns "unknown" for mergeable when it hasn't computed the
+		// state yet (lazy computation). Treat that as "no new data" and keep
+		// the previous value to avoid churn on every sync.
+		if prData.Mergeable == "unknown" && p.PR.Mergeable != "" && p.PR.Mergeable != "unknown" {
+			prData.Mergeable = p.PR.Mergeable
 		}
 		p.PR = prData
 		for _, ref := range closes {
@@ -225,10 +261,96 @@ func syncRoot(root string) error {
 		p.Issues[i] = fresh
 	}
 
-	if err := writePlan(p); err != nil {
-		return fmt.Errorf("write plan: %w", err)
+	afterBytes, err := toml.Marshal(p)
+	if err != nil {
+		return false, "", fmt.Errorf("marshal after: %w", err)
 	}
-	return nil
+	if bytes.Equal(beforeBytes, afterBytes) {
+		return false, "", nil // no-op
+	}
+	if err := writePlan(p); err != nil {
+		return false, "", fmt.Errorf("write plan: %w", err)
+	}
+	return true, diffPlans(before, p), nil
+}
+
+// diffPlans produces a short human-readable summary of what changed between
+// two plans. Used for the sync summary "note" column.
+func diffPlans(a, b plan) string {
+	var parts []string
+
+	// PR: appearance
+	switch {
+	case a.PR.URL == "" && b.PR.URL != "":
+		parts = append(parts, "new pr")
+	case a.PR.URL != "" && b.PR.URL == "":
+		parts = append(parts, "pr removed")
+	}
+	// PR: state
+	if a.PR.URL != "" && b.PR.URL != "" && a.PR.Mergeable != b.PR.Mergeable {
+		parts = append(parts, fmt.Sprintf("pr: %s→%s", nonEmpty(a.PR.Mergeable), nonEmpty(b.PR.Mergeable)))
+	}
+	// PR: title
+	if a.PR.URL != "" && b.PR.URL != "" && a.PR.Title != b.PR.Title {
+		parts = append(parts, "pr title changed")
+	}
+	// PR: comments (count delta + body edits on matching entries)
+	if d := len(b.PR.Comments) - len(a.PR.Comments); d != 0 {
+		parts = append(parts, fmt.Sprintf("%+d comments", d))
+	}
+	// Detect edits: match by (thread, author, source); if body changed → edit.
+	beforeBodies := make(map[string]string, len(a.PR.Comments))
+	for _, c := range a.PR.Comments {
+		beforeBodies[c.Thread+"|"+c.Author+"|"+c.Source] = c.Comment
+	}
+	edited := 0
+	for _, c := range b.PR.Comments {
+		if prev, ok := beforeBodies[c.Thread+"|"+c.Author+"|"+c.Source]; ok && prev != c.Comment {
+			edited++
+		}
+	}
+	if edited > 0 {
+		parts = append(parts, fmt.Sprintf("%d comment edited", edited))
+	}
+
+	// Issues: count delta
+	if d := len(b.Issues) - len(a.Issues); d != 0 {
+		parts = append(parts, fmt.Sprintf("%+d issues", d))
+	}
+	// Issues: closed transitions (only for issues present in both)
+	byURL := make(map[string]Issue, len(a.Issues))
+	for _, i := range a.Issues {
+		byURL[i.URL] = i
+	}
+	closedNow, openedNow := 0, 0
+	for _, bi := range b.Issues {
+		if ai, ok := byURL[bi.URL]; ok {
+			if !ai.Closed && bi.Closed {
+				closedNow++
+			}
+			if ai.Closed && !bi.Closed {
+				openedNow++
+			}
+		}
+	}
+	if closedNow > 0 {
+		parts = append(parts, fmt.Sprintf("%d issue closed", closedNow))
+	}
+	if openedNow > 0 {
+		parts = append(parts, fmt.Sprintf("%d issue reopened", openedNow))
+	}
+
+	if len(parts) == 0 {
+		return "updated" // fields differed but nothing we surface
+	}
+	return strings.Join(parts, ", ")
+}
+
+func nonEmpty(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
 }
 
 func hasIssueURL(issues []Issue, url string) bool {

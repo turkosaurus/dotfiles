@@ -18,6 +18,13 @@ func confirm(msg string) bool {
 	if confirmYes {
 		return true
 	}
+	return confirmAlways(msg)
+}
+
+// confirmAlways is like confirm() but ignores --yes. Use for file-creating or
+// otherwise significant actions where the user should always get a chance to
+// bail out.
+func confirmAlways(msg string) bool {
 	fmt.Fprintf(os.Stderr, "%s [y/N]: ", msg)
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil {
