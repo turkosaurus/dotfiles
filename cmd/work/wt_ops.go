@@ -63,8 +63,19 @@ func processRm(it inventoryItem) error {
 	case it.Worktree != nil:
 		wt := *it.Worktree
 		mainDir := mainWorktreePath(wt.Path)
+		converted, err := convertPlanToTaskIfPending(wt)
+		if err != nil {
+			return fmt.Errorf("convert plan: %w", err)
+		}
 		if err := removeWorktree(wt); err != nil {
+			// Roll back the conversion so we don't orphan a task copy.
+			if converted != "" {
+				_ = os.Remove(converted)
+			}
 			return fmt.Errorf("remove: %w", err)
+		}
+		if converted != "" {
+			pterm.Success.Printfln("converted plan → %s", relPath(converted))
 		}
 		pterm.Success.Printfln("removed %s", wt)
 		// If our cwd was the removed tree, emit main so the shell cds out.
@@ -246,6 +257,56 @@ func resolveWorktree(name string) (worktree, error) {
 		}
 	}
 	return worktree{}, fmt.Errorf("no worktree matching %q", name)
+}
+
+// convertPlanToTaskIfPending checks whether the worktree's plan.toml has any
+// tasks[] entries; if so, it writes a copy into ~/w/t/<status>/<N>.toml
+// preserving the plan's current status. Branches are the highest form of
+// work, tasks are underdeveloped follow-up, so this is called a conversion
+// (not a promotion — that word is reserved for the inverse direction). If the plan
+// is absent, unparseable, or has no tasks, returns "" and nil (nothing to
+// do). The original plan.toml stays put; the caller is expected to remove
+// the worktree next, which deletes the original along with the rest of the
+// tree.
+//
+// A worktree with status=closed but tasks[] still populated is treated as an
+// anomaly: we warn and, on confirmation, land the converted task in `working`
+// so it surfaces in `work list` and doesn't orphan.
+func convertPlanToTaskIfPending(wt worktree) (string, error) {
+	planPath := path.Join(wt.Path, planFileName)
+	p, err := readPlan(planPath)
+	if err != nil {
+		// Missing or broken — nothing to convert.
+		return "", nil
+	}
+	if len(p.Tasks) == 0 {
+		return "", nil
+	}
+	if p.Status == statusClosed {
+		pterm.Warning.Printfln("worktree %s is closed but has %d open task(s)",
+			relPath(wt.Path), len(p.Tasks))
+		if !confirm("convert to a working task instead?") {
+			return "", fmt.Errorf("convert cancelled")
+		}
+		p.Status = statusWorking
+	}
+	if p.Status == "" {
+		p.Status = statusOpen
+	}
+	n, err := nextTaskNum()
+	if err != nil {
+		return "", fmt.Errorf("alloc task num: %w", err)
+	}
+	dir := taskDir(p.Status)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("mkdir %s: %w", dir, err)
+	}
+	newPath := path.Join(dir, fmt.Sprintf("%d.toml", n))
+	p.Path = newPath
+	if err := writePlan(p); err != nil {
+		return "", fmt.Errorf("write converted task: %w", err)
+	}
+	return newPath, nil
 }
 
 // removeWorktree runs `git worktree remove` and cleans up an empty repo parent.

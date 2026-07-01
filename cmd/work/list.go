@@ -223,7 +223,7 @@ func taskRow(ch plan) []string {
 		status = iconStatusBroken
 		title = name + " (broken)"
 	}
-	return []string{iconTask, title, status, timeAgo(localDateAsTime(ch.Due))}
+	return []string{iconTask, title, status, timeAgo(ch.Due)}
 }
 
 // listTasksAll walks open/waiting/working/closed and returns every task plan.
