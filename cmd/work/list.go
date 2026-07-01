@@ -10,8 +10,37 @@ import (
 )
 
 type listCmd struct {
-	Chores    bool `arg:"-c,--chores" help:"only show chores"`
-	Worktrees bool `arg:"-w,--worktrees" help:"only show worktrees"`
+	// type filters
+	Tasks     bool `arg:"-t,--task" help:"show only tasks"`
+	Worktrees bool `arg:"-b,--branch" help:"show only worktree branches"`
+
+	// status filters — combinable
+	Open    bool `arg:"-o,--open" help:"status=open"`
+	Waiting bool `arg:"-w,--waiting" help:"status=waiting"`
+	Working bool `arg:"-W,--working" help:"status=working"`
+	Closed  bool `arg:"-c,--closed" help:"status=closed"`
+}
+
+// statusFilter returns the set of statuses to include based on the flags, or
+// nil if no filter is active (include all).
+func (c *listCmd) statusFilter() map[statusKind]bool {
+	set := map[statusKind]bool{}
+	if c.Open {
+		set[statusOpen] = true
+	}
+	if c.Waiting {
+		set[statusWaiting] = true
+	}
+	if c.Working {
+		set[statusWorking] = true
+	}
+	if c.Closed {
+		set[statusClosed] = true
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	return set
 }
 
 // Nerd-font icons — octicons for the type + status glyphs. All in the
@@ -19,32 +48,35 @@ type listCmd struct {
 // renders, these should too.
 const (
 	iconWorktree = "" // U+F418 nf-oct-git_branch
-	iconChore    = "" // U+F0AE nf-fa-tasks
+	iconTask     = "" // U+F0AE nf-fa-tasks
 
 	iconStatusOpen    = "" // nf-fa-circle_o (empty circle)
-	iconStatusPending = "" // nf-oct-issue_opened (small dot in circle)
-	iconStatusDone    = "" // nf-fa-check_circle_o (check in circle)
+	iconStatusWaiting = "" // nf-fa-clock_o — waiting
+	iconStatusWorking = "" // nf-oct-issue_opened (small dot in circle) — working
+	iconStatusClosed  = "" // nf-fa-check_circle_o (check in circle) — closed
 	iconStatusBroken  = "" // nf-fa-times_circle_o (X in circle)
 	iconStatusUnknown = "" // nf-fa-question_circle
 )
 
-// statusIcon maps a statusKind to a nerd-font glyph. Empty status → · placeholder.
+// statusIcon maps a statusKind to a nerd-font glyph. Unknown → · placeholder.
 func statusIcon(s statusKind) string {
 	switch s {
 	case statusOpen:
 		return iconStatusOpen
-	case statusPending:
-		return iconStatusPending
-	case statusDone:
-		return iconStatusDone
+	case statusWaiting:
+		return iconStatusWaiting
+	case statusWorking:
+		return iconStatusWorking
+	case statusClosed:
+		return iconStatusClosed
 	}
 	return iconStatusUnknown
 }
 
-// inventoryItem is a picker/list entry: exactly one of Worktree, Chore is set.
+// inventoryItem is a picker/list entry: exactly one of Worktree, Task is set.
 type inventoryItem struct {
 	Worktree *worktree
-	Chore    *plan
+	Task     *plan
 }
 
 // row renders an item as columns for the summary table.
@@ -52,7 +84,7 @@ func (it inventoryItem) row() []string {
 	if it.Worktree != nil {
 		return worktreeRow(*it.Worktree)
 	}
-	return choreRow(*it.Chore)
+	return taskRow(*it.Task)
 }
 
 // label — fallback if someone bypasses formatLabels.
@@ -92,7 +124,36 @@ func runeLen(s string) int {
 	return n
 }
 
-// loadInventory returns worktrees and/or chores per the flags.
+// filterByStatus keeps only items whose plan.status is in the set. Worktrees
+// without a plan.toml are treated as status "open" (visible unless filtered).
+// A nil set means no filter (return everything).
+func filterByStatus(items []inventoryItem, set map[statusKind]bool) []inventoryItem {
+	if set == nil {
+		return items
+	}
+	out := items[:0]
+	for _, it := range items {
+		var s statusKind
+		switch {
+		case it.Task != nil:
+			s = it.Task.Status
+		case it.Worktree != nil:
+			// Read the plan.toml to get status, falling back to "open" if missing.
+			pp := path.Join(it.Worktree.Path, planFileName)
+			if p, err := readPlan(pp); err == nil {
+				s = p.Status
+			} else {
+				s = statusOpen
+			}
+		}
+		if set[s] {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+// loadInventory returns worktrees and/or tasks per the flags.
 func loadInventory(showWT, showCh bool) ([]inventoryItem, error) {
 	var items []inventoryItem
 	if showWT {
@@ -106,22 +167,24 @@ func loadInventory(showWT, showCh bool) ([]inventoryItem, error) {
 		}
 	}
 	if showCh {
-		chores, err := listChoresAll()
+		tasks, err := listTasksAll()
 		if err != nil {
-			return nil, fmt.Errorf("chores: %w", err)
+			return nil, fmt.Errorf("tasks: %w", err)
 		}
-		for i := range chores {
-			ch := chores[i]
-			items = append(items, inventoryItem{Chore: &ch})
+		for i := range tasks {
+			ch := tasks[i]
+			items = append(items, inventoryItem{Task: &ch})
 		}
 	}
 	return items, nil
 }
 
-// runList renders a unified table of worktrees + chores. -c/-w narrow the view.
+// runList renders a unified table of worktrees + tasks.
+// Type flags (--tasks/--worktrees) narrow by kind; status flags
+// (-o/-w/-W/-c) narrow by status.
 func runList(c *listCmd) error {
-	showWT := !c.Chores || c.Worktrees
-	showCh := !c.Worktrees || c.Chores
+	showWT := !c.Tasks || c.Worktrees
+	showCh := !c.Worktrees || c.Tasks
 
 	spinner, _ := pterm.DefaultSpinner.WithText("loading").Start()
 	items, err := loadInventory(showWT, showCh)
@@ -129,6 +192,7 @@ func runList(c *listCmd) error {
 	if err != nil {
 		return err
 	}
+	items = filterByStatus(items, c.statusFilter())
 	if len(items) == 0 {
 		pterm.Info.Println("nothing found")
 		return nil
@@ -142,10 +206,10 @@ func runList(c *listCmd) error {
 }
 
 // row schema: [type_icon, name, status_icon, age]
-//   - type_icon: git-branch (worktree) or tasks (chore)
-//   - name: repo:branch (worktree) or title (chore) — the filterable column
+//   - type_icon: git-branch (worktree) or tasks (task)
+//   - name: repo:branch (worktree) or title (task) — the filterable column
 //   - status_icon: nerd-font glyph for open/pending/done (· if unknown)
-//   - age: relative time (mtime for worktrees, due for chores)
+//   - age: relative time (mtime for worktrees, due for tasks)
 
 func worktreeRow(wt worktree) []string {
 	status := iconStatusUnknown
@@ -160,7 +224,7 @@ func worktreeRow(wt worktree) []string {
 	return []string{iconWorktree, wt.String(), status, timeAgo(wt.Mtime)}
 }
 
-func choreRow(ch plan) []string {
+func taskRow(ch plan) []string {
 	name := strings.TrimSuffix(path.Base(ch.Path), ".toml")
 	title := ch.Title
 	if title == "" {
@@ -171,18 +235,18 @@ func choreRow(ch plan) []string {
 		status = iconStatusBroken
 		title = name + " (broken)"
 	}
-	return []string{iconChore, title, status, timeAgo(localDateAsTime(ch.Due))}
+	return []string{iconTask, title, status, timeAgo(localDateAsTime(ch.Due))}
 }
 
-// listChoresAll walks open/pending/done and returns every chore plan.
-func listChoresAll() ([]plan, error) {
+// listTasksAll walks open/waiting/working/closed and returns every task plan.
+func listTasksAll() ([]plan, error) {
 	var all []plan
-	for _, s := range []statusKind{statusOpen, statusPending, statusDone} {
-		chores, err := listChores(s)
+	for _, s := range []statusKind{statusOpen, statusWaiting, statusWorking, statusClosed} {
+		tasks, err := listTasks(s)
 		if err != nil {
 			return nil, err
 		}
-		all = append(all, chores...)
+		all = append(all, tasks...)
 	}
 	return all, nil
 }

@@ -48,7 +48,7 @@ func listWorktrees() ([]worktree, error) {
 		if err != nil || !fi.IsDir() {
 			continue
 		}
-		if strings.HasPrefix(dir, defaultChoreDir+"/") || dir == defaultChoreDir {
+		if strings.HasPrefix(dir, defaultTaskDir+"/") || dir == defaultTaskDir {
 			continue
 		}
 		rel := strings.TrimPrefix(dir, defaultWorkDir+"/")

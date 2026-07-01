@@ -10,10 +10,11 @@ func runLegend(_ *legendCmd) error {
 	rows := pterm.TableData{
 		{"glyph", "meaning"},
 		{iconWorktree, "worktree"},
-		{iconChore, "chore"},
+		{iconTask, "task"},
 		{iconStatusOpen, "status: open"},
-		{iconStatusPending, "status: pending"},
-		{iconStatusDone, "status: done"},
+		{iconStatusWaiting, "status: waiting"},
+		{iconStatusWorking, "status: working"},
+		{iconStatusClosed, "status: closed"},
 		{iconStatusBroken, "status: broken (plan.toml won't parse)"},
 		{iconStatusUnknown, "status: unknown (no plan.toml)"},
 	}
