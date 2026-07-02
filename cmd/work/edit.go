@@ -75,13 +75,8 @@ func editCurrentPlan() error {
 		return fmt.Errorf("edit: %w", err)
 	}
 	planPath := path.Join(wt.Path, planFileName)
-	if _, err := os.Stat(planPath); os.IsNotExist(err) {
-		if !confirmAlways(fmt.Sprintf("no plan.toml in %s. Seed one?", wt)) {
-			return fmt.Errorf("edit: no plan.toml")
-		}
-		if err := seedPlan(planPath, wt.Branch); err != nil {
-			return fmt.Errorf("seed: %w", err)
-		}
+	if _, err := ensurePlanFile(planPath, wt.String(), wt.Branch); err != nil {
+		return fmt.Errorf("edit: %w", err)
 	}
 	if err := openInEditor(planPath); err != nil {
 		return err

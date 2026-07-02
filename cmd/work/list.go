@@ -11,45 +11,44 @@ import (
 	"github.com/pterm/pterm"
 )
 
-type listCmd struct {
-	// type filters
-	Tasks     bool `arg:"-t,--task" help:"show only tasks"`
-	Worktrees bool `arg:"-b,--branch" help:"show only worktree branches"`
-
-	// status filters — combinable. No flags = default (open+waiting+working;
-	// closed is hidden). --all overrides and shows every status including closed.
-	Open    bool `arg:"-o,--open" help:"status=open"`
-	Waiting bool `arg:"-w,--waiting" help:"status=waiting"`
-	Working bool `arg:"-W,--working" help:"status=working"`
-	Closed  bool `arg:"-c,--closed" help:"status=closed"`
-	All     bool `arg:"-a,--all" help:"show every status, including closed"`
+// filterSpec is the shared set of flags for commands that pick from
+// inventory (list, pick, edit, status). Embedded via arg tags so the
+// short/long flags appear on each command's --help with one wording.
+// Owns the default "closed hidden" rule and the explicit-vs-default
+// detection needed by filterInventory's -s union/intersect composition.
+type filterSpec struct {
+	Tasks     bool `arg:"-t,--task" help:"only offer tasks"`
+	Worktrees bool `arg:"-b,--branch" help:"only offer worktree branches"`
+	Open      bool `arg:"-o,--open" help:"status=open"`
+	Waiting   bool `arg:"-w,--waiting" help:"status=waiting"`
+	Working   bool `arg:"-W,--working" help:"status=working"`
+	Closed    bool `arg:"-c,--closed" help:"status=closed"`
+	All       bool `arg:"-a,--all" help:"include closed items"`
 }
 
-// statusFilter returns the set of statuses to include based on the flags,
-// or nil if --all was passed. The second return reports whether at least
-// one status flag was set explicitly by the user — callers use this to
-// choose between intersect and union semantics when composing with
-// -s/--sprint (see applySprintUnion).
+// statusFilter returns the effective status set + whether the caller
+// set at least one flag explicitly. The bool feeds filterInventory's
+// intersect-vs-union rule for -s/--sprint.
 //
 // Precedence:
-//   - --all           → (nil, false)
+//   - --all           → (nil, false)     — everything, no filter
 //   - any status flag → (explicit set, true)
-//   - no flags        → (open+waiting+working, false)  [default: closed hidden]
-func (c *listCmd) statusFilter() (map[statusKind]bool, bool) {
-	if c.All {
+//   - no flags        → ({open,waiting,working}, false) — closed hidden
+func (f *filterSpec) statusFilter() (map[statusKind]bool, bool) {
+	if f.All {
 		return nil, false
 	}
 	set := map[statusKind]bool{}
-	if c.Open {
+	if f.Open {
 		set[statusOpen] = true
 	}
-	if c.Waiting {
+	if f.Waiting {
 		set[statusWaiting] = true
 	}
-	if c.Working {
+	if f.Working {
 		set[statusWorking] = true
 	}
-	if c.Closed {
+	if f.Closed {
 		set[statusClosed] = true
 	}
 	if len(set) == 0 {
@@ -60,6 +59,16 @@ func (c *listCmd) statusFilter() (map[statusKind]bool, bool) {
 		}, false
 	}
 	return set, true
+}
+
+// showKinds returns (showWorktrees, showTasks) based on -t/-b. Neither
+// flag → both. Used by every embedder to gate loadInventory.
+func (f *filterSpec) showKinds() (bool, bool) {
+	return !f.Tasks || f.Worktrees, !f.Worktrees || f.Tasks
+}
+
+type listCmd struct {
+	filterSpec
 }
 
 // Nerd-font icons — octicons for the type + status glyphs. All in the

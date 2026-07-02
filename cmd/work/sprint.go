@@ -276,6 +276,37 @@ func countUserFacingActions(actions []sprintAction) int {
 	return n
 }
 
+// loudSprintActions returns the subset of actions that need a user
+// confirm (status changes, creations, close-outs). Silent metadata
+// stamps are excluded.
+func loudSprintActions(actions []sprintAction) []sprintAction {
+	out := actions[:0:0]
+	for _, a := range actions {
+		if !a.silent {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// applySilentSprint runs the silent (metadata-stamp) actions from
+// actions unconditionally — no confirm prompt, no summary line. Ensures
+// project.url/status drift heals on every non-dry-run sync even when
+// there are no loud changes to prompt about. Returns the failure count.
+func applySilentSprint(actions []sprintAction, out *sprintOutput) int {
+	failed := 0
+	for _, a := range actions {
+		if !a.silent {
+			continue
+		}
+		if err := a.do(); err != nil {
+			out.errline("apply %s (error: %v)", a.label, err)
+			failed++
+		}
+	}
+	return failed
+}
+
 // issueNeedsStamp reports whether the linked issue in p already has the
 // project.url and project.status we're about to stamp. Used to short-
 // circuit no-op writes on subsequent syncs after the initial stamp.
