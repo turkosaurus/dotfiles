@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/pterm/pterm"
 )
@@ -23,14 +25,19 @@ type listCmd struct {
 	All     bool `arg:"-a,--all" help:"show every status, including closed"`
 }
 
-// statusFilter returns the set of statuses to include based on the flags, or
-// nil if no filter is active (include everything). Precedence:
-//   - --all           → nil (everything)
-//   - any status flag → the explicit union
-//   - no flags        → open + waiting + working (closed hidden)
-func (c *listCmd) statusFilter() map[statusKind]bool {
+// statusFilter returns the set of statuses to include based on the flags,
+// or nil if --all was passed. The second return reports whether at least
+// one status flag was set explicitly by the user — callers use this to
+// choose between intersect and union semantics when composing with
+// -s/--sprint (see applySprintUnion).
+//
+// Precedence:
+//   - --all           → (nil, false)
+//   - any status flag → (explicit set, true)
+//   - no flags        → (open+waiting+working, false)  [default: closed hidden]
+func (c *listCmd) statusFilter() (map[statusKind]bool, bool) {
 	if c.All {
-		return nil
+		return nil, false
 	}
 	set := map[statusKind]bool{}
 	if c.Open {
@@ -50,9 +57,9 @@ func (c *listCmd) statusFilter() map[statusKind]bool {
 			statusOpen:    true,
 			statusWaiting: true,
 			statusWorking: true,
-		}
+		}, false
 	}
-	return set
+	return set, true
 }
 
 // Nerd-font icons — octicons for the type + status glyphs. All in the
@@ -119,6 +126,8 @@ func (it inventoryItem) label() string {
 
 // formatLabels renders picker labels with the name column padded to the widest
 // value. Layout: [type] [name] [status] [age] — name is the filterable column.
+// Long name columns are truncated with an ellipsis so labels fit within the
+// terminal width (no wrapping into an ugly second line).
 func formatLabels(items []inventoryItem) []string {
 	if len(items) == 0 {
 		return nil
@@ -131,12 +140,43 @@ func formatLabels(items []inventoryItem) []string {
 			nameW = l
 		}
 	}
+	// Reserve the fixed columns: icon (1) + 2sp + name + 2sp + status (1) +
+	// 2sp + due (up to 4, e.g. "+1mo") — plus a right-edge safety margin.
+	// Multiselect prefixes each line with `[ ]` and a space (4 chars) so
+	// account for that too.
+	term := pterm.GetTerminalWidth()
+	const fixed = 1 + 2 + 2 + 1 + 2 + 4 + 4 + 3
+	maxName := term - fixed
+	if maxName < 10 { // paranoid floor for very narrow terminals
+		maxName = 10
+	}
+	if nameW > maxName {
+		nameW = maxName
+	}
 	labels := make([]string, len(items))
 	for i, r := range rows {
+		name := truncateRunes(r[1], nameW)
 		labels[i] = fmt.Sprintf("%s  %-*s  %s  %s",
-			r[0], nameW, r[1], r[2], r[3])
+			r[0], nameW, name, r[2], r[3])
 	}
 	return labels
+}
+
+// truncateRunes returns s truncated to at most max visible runes,
+// replacing the last rune with an ellipsis when clipped. Assumes single-
+// width glyphs (matches runeLen).
+func truncateRunes(s string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	if max == 1 {
+		return "…"
+	}
+	return string(runes[:max-1]) + "…"
 }
 
 // runeLen counts visible runes (approx — assumes single-width glyphs).
@@ -165,9 +205,14 @@ func filterByStatus(items []inventoryItem, set map[statusKind]bool) []inventoryI
 	return out
 }
 
-// loadInventory returns worktrees and/or tasks per the flags. The global
-// -p/--project filter (via applyProjectFilter) is applied at the end so
-// every caller — list, rm, promote, merge, status, edit — honors it.
+// loadInventory returns worktrees and/or tasks per the flags. Callers
+// apply status/sprint filters via filterInventory (or applySprintFilter
+// directly for callers without status filters) so composition rules
+// stay uniform. See filterInventory for the -s union/intersect logic.
+//
+// Items are sorted by due-date ascending (soonest/overdue first), then
+// by mtime descending as a tiebreak. Items with no due date sink to the
+// end. See itemDue for how due-date is resolved per item.
 func loadInventory(showWT, showCh bool) ([]inventoryItem, error) {
 	var items []inventoryItem
 	if showWT {
@@ -190,7 +235,57 @@ func loadInventory(showWT, showCh bool) ([]inventoryItem, error) {
 			items = append(items, inventoryItem{Task: &ch})
 		}
 	}
-	return applySprintFilter(applyProjectFilter(items)), nil
+	sortByDue(items)
+	return items, nil
+}
+
+// sortByDue orders items in place: earliest due first, no-due last.
+// Tiebreak within same due date (and among no-due items) is mtime
+// descending so recently-touched items surface first. Pairs item+due+mt
+// into a single struct before sorting so due/mt travel with the item
+// during swaps (parallel arrays go stale — sort permutes items but not
+// the sidecar slices).
+func sortByDue(items []inventoryItem) {
+	type keyed struct {
+		it  inventoryItem
+		due time.Time
+		mt  time.Time
+	}
+	rows := make([]keyed, len(items))
+	for i, it := range items {
+		d, m := itemDueAndMtime(it)
+		rows[i] = keyed{it: it, due: d, mt: m}
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		iZero, jZero := rows[i].due.IsZero(), rows[j].due.IsZero()
+		if iZero != jZero {
+			return !iZero
+		}
+		if !iZero && !rows[i].due.Equal(rows[j].due) {
+			return rows[i].due.Before(rows[j].due)
+		}
+		return rows[i].mt.After(rows[j].mt)
+	})
+	for i, r := range rows {
+		items[i] = r.it
+	}
+}
+
+// itemDueAndMtime returns (due, mtime) for the item. For a task both
+// come from the plan struct. For a worktree, due is read from
+// plan.toml (zero if missing/broken) and mtime is the worktree mtime.
+// Batched so sortByDue avoids two plan.toml reads per worktree.
+func itemDueAndMtime(it inventoryItem) (time.Time, time.Time) {
+	if it.Task != nil {
+		return it.Task.Due, it.Task.mtime
+	}
+	if it.Worktree != nil {
+		if p, err := readPlan(path.Join(it.Worktree.Path, planFileName)); err == nil {
+			return p.Due, it.Worktree.Mtime
+		}
+		return time.Time{}, it.Worktree.Mtime
+	}
+	return time.Time{}, time.Time{}
 }
 
 // runList renders a unified table of worktrees + tasks.
@@ -206,17 +301,41 @@ func runList(c *listCmd) error {
 	if err != nil {
 		return err
 	}
-	items = filterByStatus(items, c.statusFilter())
+	set, explicit := c.statusFilter()
+	items = filterInventory(items, set, explicit)
 	if len(items) == 0 {
 		pterm.Info.Println("nothing found")
 		return nil
 	}
 
-	rows := pterm.TableData{{"", "name", "", "age"}}
+	rows := pterm.TableData{{"", "name", "", "due"}}
 	for _, it := range items {
 		rows = append(rows, it.row())
 	}
+	truncateTableNames(rows)
 	return pterm.DefaultTable.WithHasHeader().WithData(rows).Render()
+}
+
+// truncateTableNames clips the name column (index 1) of each row so the
+// table fits the current terminal width. Fixed overhead is icons + " | "
+// separators + due (up to 4 chars, e.g. "+1mo") + a right-edge margin.
+// The header row is included in the width scan so the "name" header
+// itself doesn't get squeezed.
+func truncateTableNames(rows pterm.TableData) {
+	term := pterm.GetTerminalWidth()
+	const fixed = 1 + 3 + 3 + 1 + 3 + 4 + 1
+	maxName := term - fixed
+	if maxName < 10 {
+		maxName = 10
+	}
+	for i := range rows {
+		if len(rows[i]) < 2 {
+			continue
+		}
+		if runeLen(rows[i][1]) > maxName {
+			rows[i][1] = truncateRunes(rows[i][1], maxName)
+		}
+	}
 }
 
 // row schema: [type_icon, name, status_icon, age]
@@ -227,15 +346,36 @@ func runList(c *listCmd) error {
 
 func worktreeRow(wt worktree) []string {
 	status := iconStatusUnknown
+	name := wt.String()
+	var due time.Time
 	pp := path.Join(wt.Path, planFileName)
 	if _, err := os.Stat(pp); err == nil {
 		if p, err := readPlan(pp); err == nil {
 			status = statusIcon(p.Status)
+			due = p.Due
+			// Append the first linked issue's title so the picker's
+			// filter matches on it (branch slug alone won't hit
+			// searches for the underlying issue name).
+			if title := firstIssueTitle(p); title != "" {
+				name = fmt.Sprintf("%s · %s", name, title)
+			}
 		} else {
 			status = iconStatusBroken
 		}
 	}
-	return []string{iconWorktree, wt.String(), status, timeAgo(wt.Mtime)}
+	return []string{iconWorktree, name, status, dueOffset(due)}
+}
+
+// firstIssueTitle returns the first non-empty [[issue]].title from p, or
+// "" if none. Used to make picker labels searchable by issue name in
+// addition to branch/repo slug.
+func firstIssueTitle(p plan) string {
+	for _, i := range p.Issues {
+		if i.Title != "" {
+			return i.Title
+		}
+	}
+	return ""
 }
 
 func taskRow(ch plan) []string {
@@ -249,11 +389,16 @@ func taskRow(ch plan) []string {
 		status = iconStatusBroken
 		title = name + " (broken)"
 	}
-	return []string{iconTask, title, status, timeAgo(ch.mtime)}
+	return []string{iconTask, title, status, dueOffset(ch.Due)}
 }
 
-// listTasksAll walks open/waiting/working/closed and returns every task plan.
+// listTasksAll walks open/waiting/working/closed and returns every task
+// plan. Runs reconcileTaskLocations first so any file whose status field
+// disagrees with its parent directory (hand-edit via `work edit` or yq)
+// is relocated before the walk — otherwise a moved file could appear
+// twice in the result.
 func listTasksAll() ([]plan, error) {
+	reconcileTaskLocations()
 	var all []plan
 	for _, s := range []statusKind{statusOpen, statusWaiting, statusWorking, statusClosed} {
 		tasks, err := listTasks(s)

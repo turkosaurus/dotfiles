@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/pterm/pterm"
@@ -196,7 +197,7 @@ func planSprint(r sprintFetchResult) (sprintOutput, []sprintAction, error) {
 				continue
 			}
 			note := fmt.Sprintf("%s → %s", p.Status, target)
-			out.success("would update %s (%s)", label, note)
+			out.info("would update %s (%s)", label, note)
 			pRef, tgt := p, target
 			actions = append(actions, sprintAction{
 				label: label,
@@ -213,12 +214,12 @@ func planSprint(r sprintFetchResult) (sprintOutput, []sprintAction, error) {
 			continue
 		}
 		createNote := fmt.Sprintf("new → %s", target)
-		out.success("would update %s (%s)", title, createNote)
+		out.info("would update %s (%s)", title, createNote)
 		urlCopy, titleCopy, tgt, projURL, itStatus := it.Content.URL, title, target, c.Sprint.ProjectURL, it.Status
 		actions = append(actions, sprintAction{
 			label: titleCopy,
 			do: func() error {
-				np, err := newTask(titleCopy, tgt)
+				np, err := newTask(titleCopy, tgt, time.Time{})
 				if err != nil {
 					return err
 				}

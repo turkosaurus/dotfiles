@@ -11,9 +11,9 @@ import (
 )
 
 type installCmd struct {
-	Print    bool   `arg:"--print" help:"print the shim to stdout and exit; no build, no rc edit"`
-	ShimOnly bool   `arg:"--shim-only" help:"install/refresh the rc shim only; skip building the binary"`
-	From     string `arg:"--from" help:"source directory to build from (contains cmd/work). Persisted for future runs."`
+	Print    bool   `arg:"--print" help:"print shim to stdout; no build, no rc edit"`
+	ShimOnly bool   `arg:"--shim-only" help:"refresh rc shim only; skip build"`
+	From     string `arg:"--from" help:"source dir to build from (persisted for reuse)"`
 }
 
 // resolveBinaryTarget returns the path where `go install` would write the
@@ -53,12 +53,16 @@ const shellBinaryMarker = "# work-binary: "
 // The tool writes its next cd-target to $HOME/w/.next; stdout stays free for
 // pipes and grep. The shim clears .next before the run (so a crash from a
 // previous invocation doesn't leak into this one), then cd's iff .next was
-// written with a valid directory.
+// written with a valid directory. Before running, the shim positions the
+// cursor on row 3 and clears from there to the bottom — the top two rows
+// (usually your prompt + the `work` command you typed) stay visible, and
+// scrollback is untouched.
 const shellFuncTemplate = shellFuncHeader + `
 ` + shellBinaryMarker + `%[1]s
 work() {
   local next="$HOME/w/.next"
   rm -f "$next"
+  printf '\033[3;1H\033[J'
   %[1]q "$@"
   local rc=$?
   if [[ -s "$next" ]]; then

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/pterm/pterm"
 )
@@ -124,7 +125,8 @@ func nextTaskNum() (int, error) {
 
 // newTask allocates the next task number and writes a default plan file
 // to the subdirectory for the given status. Returns the populated plan.
-func newTask(title string, status statusKind) (plan, error) {
+// due overrides the default (tomorrow-at-midnight) when non-zero.
+func newTask(title string, status statusKind, due time.Time) (plan, error) {
 	n, err := nextTaskNum()
 	if err != nil {
 		return plan{}, fmt.Errorf("new task: %w", err)
@@ -135,6 +137,9 @@ func newTask(title string, status statusKind) (plan, error) {
 	}
 	p := defaultPlan(title)
 	p.Status = status
+	if !due.IsZero() {
+		p.Due = due
+	}
 	p.Path = path.Join(dir, fmt.Sprintf("%d.toml", n))
 	if err := writePlan(p); err != nil {
 		return plan{}, fmt.Errorf("write task %d: %w", n, err)

@@ -42,6 +42,28 @@ For other TOML files (e.g. `mise.toml`, config files), use `yq -p toml -o toml -
 - If the same permission needs to be requested repeatedly, write a script with narrow permissions that I can review and approve for the session.
 - All config or learned behavior should be exclusively in ~/dotfiles
 
+## prose & text blocks
+
+- Wrap text at ~80 characters. Applies to markdown, comments, docstrings,
+  and any prose you write into files or skill instructions. Longer lines
+  are hard to diff and hard to read side-by-side.
+- For multi-line strings in TOML (e.g. long entries in `tasks[]`), use
+  triple single quotes so newlines stay literal and the field remains
+  legible when you `cat` the file:
+
+  ```toml
+  tasks = [
+      '''
+      short heading
+      - line two
+      - line three
+      ''',
+  ]
+  ```
+
+- Prefer one topic per paragraph. Break lists onto their own lines rather
+  than packing bullets into a single line.
+
 ## tool use
 Prefer classic unix workflows like piping and writing to files.
 Preferred tools in `~/.mise.toml`.
