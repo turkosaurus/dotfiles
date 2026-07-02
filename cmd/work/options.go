@@ -22,13 +22,27 @@ var errPrinted = errors.New("")
 var log = pterm.DefaultLogger.WithLevel(pterm.LogLevelInfo).WithTime(false)
 
 var (
-	confirmYes      bool  // set from --yes; bypasses confirmation prompts
-	quietMode       bool  // set from -q/--quiet; suppresses INFO and SUCCESS output
-	projectFilter   *bool // set from -p/--project; nil = no filter, true = must have a project link, false = must have none
-	defaultWorkDir  = path.Join(os.Getenv("HOME"), "w")
-	defaultTaskDir  = path.Join(defaultWorkDir, "t")
-	defaultDaysDue  = 3
+	confirmYes         bool   // set from --yes; bypasses confirmation prompts
+	quietMode          bool   // set from -q/--quiet; suppresses INFO and SUCCESS output
+	verboseMode        bool   // set from -v/--verbose; unlocks noisier reporting (e.g. sprint's ignored-column breakdown)
+	projectFilter      *bool  // set from -p/--project; nil = no filter, true = must have a project link, false = must have none
+	sprintFilterURL    string // set from -s/--sprint; only items linked to this project URL survive the picker filter
+	defaultWorkDir            = path.Join(os.Getenv("HOME"), "w")
+	defaultTaskDir            = path.Join(defaultWorkDir, "t")
+	defaultDaysDue             = 3
 )
+
+// setSprintFilter loads the configured sprint project URL and stores it
+// in sprintFilterURL. Applied by applySprintFilter on every loadInventory
+// call. If the config has no project_url, the filter stays inert (all
+// items pass) rather than silently hiding everything.
+func setSprintFilter() {
+	c, err := loadConfig()
+	if err != nil || c.Sprint.ProjectURL == "" {
+		return
+	}
+	sprintFilterURL = c.Sprint.ProjectURL
+}
 
 // setQuietMode routes INFO/SUCCESS pterm output to io.Discard and flips
 // the quietMode global so buffered output paths can skip low-severity
@@ -91,6 +105,44 @@ func applyProjectFilter(items []inventoryItem) []inventoryItem {
 	out := items[:0]
 	for _, it := range items {
 		if hasProjectLink(it) == want {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+// hasSprintLink reports whether the item's plan has any [[issue]] whose
+// project.url matches the configured sprint project URL. Used by
+// applySprintFilter.
+func hasSprintLink(it inventoryItem) bool {
+	var issues []Issue
+	switch {
+	case it.Task != nil:
+		issues = it.Task.Issues
+	case it.Worktree != nil:
+		p, err := readPlan(path.Join(it.Worktree.Path, planFileName))
+		if err != nil {
+			return false
+		}
+		issues = p.Issues
+	}
+	for _, i := range issues {
+		if i.Project.URL == sprintFilterURL {
+			return true
+		}
+	}
+	return false
+}
+
+// applySprintFilter narrows items to those linked to the configured
+// sprint project. No-op when -s/--sprint wasn't set (sprintFilterURL "").
+func applySprintFilter(items []inventoryItem) []inventoryItem {
+	if sprintFilterURL == "" {
+		return items
+	}
+	out := items[:0]
+	for _, it := range items {
+		if hasSprintLink(it) {
 			out = append(out, it)
 		}
 	}

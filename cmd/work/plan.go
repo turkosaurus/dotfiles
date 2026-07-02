@@ -123,7 +123,11 @@ type PR struct {
 	Title     string    `toml:"title"`
 	Mergeable string    `toml:"mergeable"`
 	URL       string    `toml:"url"`
-	Comments  []comment `toml:"comment"`
+	// State is the PR's lifecycle: OPEN / CLOSED / MERGED. Populated by
+	// syncRoot from prForBranch. diffPlans watches transitions so merged
+	// PRs surface as "pr: OPEN → MERGED" in the sync line.
+	State    string    `toml:"state"`
+	Comments []comment `toml:"comment"`
 }
 
 type comment struct {

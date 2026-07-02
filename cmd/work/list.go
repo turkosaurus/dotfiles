@@ -190,7 +190,7 @@ func loadInventory(showWT, showCh bool) ([]inventoryItem, error) {
 			items = append(items, inventoryItem{Task: &ch})
 		}
 	}
-	return applyProjectFilter(items), nil
+	return applySprintFilter(applyProjectFilter(items)), nil
 }
 
 // runList renders a unified table of worktrees + tasks.

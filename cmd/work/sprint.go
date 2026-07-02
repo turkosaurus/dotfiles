@@ -22,63 +22,6 @@ type sprintFetchResult struct {
 	disabled bool // config.sprint.project_url is empty
 }
 
-// runSprintSync is the sprint-side of `work sync`. Fetches items and
-// reconciles in one call. Prints one line per item (created / updated /
-// skipped) matching the worktree sync style. No-op when
-// config.sprint.project_url is empty.
-//
-// Reconciliation:
-//   - untracked issue URL → create a task with the mapped status
-//   - already tracked in a worktree or task plan → update that plan's status
-//     if the mapping produces a different value
-//
-// Caveat: a plan with a non-empty tasks[] is never auto-closed. Cleanup of
-// accumulated task files is a separate concern — use `work rm` with a
-// status filter (e.g. `work rm -c` to nuke closed tasks).
-func runSprintSync(dryRun bool) error {
-	// Single-worktree path: no concurrent worktree bar, so a spinner is
-	// safe. Shows "syncing sprint" while we fetch and plan.
-	spinner, _ := pterm.DefaultSpinner.WithText("syncing sprint").Start()
-	res := fetchSprint(nil)
-	out, actions, err := planSprint(res)
-	if err != nil {
-		spinner.Fail("sprint plan failed")
-		out.flush()
-		return err
-	}
-	if res.disabled {
-		if sErr := spinner.Stop(); sErr != nil {
-			log.Debug("spinner.Stop", log.Args("err", sErr))
-		}
-		return nil
-	}
-	spinner.Success(fmt.Sprintf("sprint: %d project items", len(res.items)))
-	// Preview: per-item lines + "sprint (proposed)" table.
-	out.flush()
-	if dryRun {
-		return nil
-	}
-	loud := countUserFacingActions(actions)
-	switch {
-	case loud == 0:
-		pterm.Info.Println("sprint: nothing to apply")
-		return nil
-	case !confirm(fmt.Sprintf("apply %d sprint change(s)?", loud)):
-		pterm.Info.Println("sprint sync cancelled")
-		return nil
-	}
-	preApply := len(out.lines)
-	failed := applySprint(actions, &out)
-	for _, l := range out.lines[preApply:] {
-		fmt.Print(l)
-	}
-	if failed > 0 {
-		return fmt.Errorf("sprint: %d apply(s) failed", failed)
-	}
-	pterm.Success.Printfln("applied %d sprint change(s)", loud)
-	return nil
-}
-
 // fetchSprint reads config, resolves assignees, and fetches project items.
 // Split out from reconcileSprint so runSyncAll can overlap the fetch with
 // the worktree loop. onFirstReply, when set, is invoked once the very
@@ -230,9 +173,12 @@ func planSprint(r sprintFetchResult) (sprintOutput, []sprintAction, error) {
 			stampNeeded := issueNeedsStamp(*p, it.Content.URL, c.Sprint.ProjectURL, it.Status)
 			updateIssueProject(p, it.Content.URL, c.Sprint.ProjectURL, it.Status)
 			if p.Status == target {
-				// No status change. Queue a silent stamp only if the
-				// project fields drifted; if they're already right,
-				// nothing to write.
+				// Closed items that stay closed are done — no summary
+				// noise, no stamp write. Everything else may still need
+				// a silent stamp if project fields drifted.
+				if target == statusClosed {
+					continue
+				}
 				if stampNeeded {
 					pCopy := *p
 					actions = append(actions, sprintAction{
@@ -341,13 +287,18 @@ func issueNeedsStamp(p plan, url, projectURL, status string) bool {
 	return false
 }
 
-// flush prints buffered reconcile output. Call after all progress bars
-// have stopped so the cursor is settled and lines land cleanly. Renders
-// the stats as a compact table; suppressed entirely under quiet mode.
-func (s sprintOutput) flush() {
+// flushLines prints the buffered per-item output. Callers should invoke
+// this after any concurrent progress indicator has stopped, then decide
+// separately whether to render the summary table via renderTable.
+func (s sprintOutput) flushLines() {
 	for _, l := range s.lines {
 		fmt.Print(l)
 	}
+}
+
+// renderTable prints the "sprint (proposed)" summary. No-op under quiet
+// mode or when nothing was actually processed.
+func (s sprintOutput) renderTable() {
 	if quietMode || s.stats.disabled || s.stats.total == 0 {
 		return
 	}
@@ -373,14 +324,15 @@ func renderSprintTable(s reconcileStats) {
 		{"kept open (has tasks)", strconv.Itoa(s.blocked)},
 		{"ignored", strconv.Itoa(ignored)},
 	}
-	// sortedIgnoredCols emits "Name×Count" strings; split on the "×"
-	// (a two-byte UTF-8 rune, so use LastIndex not LastIndexByte) so the
-	// count lands in the numbers column.
-	for _, name := range sortedIgnoredCols(s.ignoredByCol) {
-		if idx := strings.LastIndex(name, "×"); idx > 0 {
-			rows = append(rows, []string{"  " + name[:idx], name[idx+len("×"):]})
-		} else {
-			rows = append(rows, []string{"  " + name, ""})
+	// Per-column ignored breakdown is noise for the common case; only
+	// include it under -v. Count still shows in the "ignored" row above.
+	if verboseMode {
+		for _, name := range sortedIgnoredCols(s.ignoredByCol) {
+			if idx := strings.LastIndex(name, "×"); idx > 0 {
+				rows = append(rows, []string{"  " + name[:idx], name[idx+len("×"):]})
+			} else {
+				rows = append(rows, []string{"  " + name, ""})
+			}
 		}
 	}
 	rows = append(rows, []string{"total", strconv.Itoa(s.total)})
