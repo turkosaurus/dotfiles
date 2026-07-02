@@ -13,17 +13,79 @@ import (
 	"github.com/pterm/pterm"
 )
 
+// runSprintOnly is the fallback for `work sync` invoked from a directory
+// outside any managed worktree. It skips the worktree sync leg (there's
+// nothing to sync) and just runs the sprint fetch + reconcile + task
+// location reconcile. Useful when you're in ~/w/t/ hand-editing tasks
+// and want a resync without having to cd back to a branch.
+func runSprintOnly(dryRun bool) error {
+	spinner, _ := pterm.DefaultSpinner.WithText("syncing sprint").Start()
+	sprintRes := fetchSprint(nil)
+	sprintOut, sprintActions, serr := planSprint(sprintRes)
+	switch {
+	case sprintRes.err != nil:
+		spinner.Fail("sprint fetch failed")
+	case serr != nil:
+		spinner.Fail("sprint plan failed")
+	case sprintRes.disabled:
+		if sErr := spinner.Stop(); sErr != nil {
+			log.Debug("spinner.Stop", log.Args("err", sErr))
+		}
+	default:
+		spinner.Success(fmt.Sprintf("sprint: %d project items fetched", len(sprintRes.items)))
+	}
+	sprintOut.flushLines()
+	if serr != nil {
+		return serr
+	}
+	sprintFailed := 0
+	if !sprintRes.disabled {
+		loud := countUserFacingActions(sprintActions)
+		if loud > 0 {
+			sprintOut.renderTable()
+		}
+		if !dryRun {
+			switch {
+			case loud == 0:
+				log.Debug("sprint: nothing to apply")
+			case !confirm(fmt.Sprintf("apply %d sprint change(s)?", loud)):
+				pterm.Info.Println("sprint sync cancelled")
+			default:
+				preApply := len(sprintOut.lines)
+				sprintFailed = applySprint(sprintActions, &sprintOut)
+				for _, l := range sprintOut.lines[preApply:] {
+					fmt.Print(l)
+				}
+				if sprintFailed == 0 {
+					pterm.Success.Printfln("applied %d sprint change(s)", loud)
+				}
+			}
+		}
+	}
+	if !dryRun {
+		reconcileTaskLocations()
+	}
+	warnIfBroken()
+	if sprintFailed > 0 {
+		return fmt.Errorf("sprint: %d apply(s) failed", sprintFailed)
+	}
+	return nil
+}
+
 func runSync(args *syncCmd) error {
 	if args.All {
 		return runSyncAll(args.DryRun)
 	}
 
 	// Single-sync uses the managed worktree containing cwd (~/w/<repo>/<branch>),
-	// not `git rev-parse --show-toplevel` (which would land at an arbitrary git
-	// root outside ~/w).
-	wt, err := currentWorktree()
-	if err != nil {
-		return fmt.Errorf("sync: %w", err)
+	// not `git rev-parse --show-toplevel` (which would land at an arbitrary
+	// git root outside ~/w). When cwd isn't inside a managed worktree we
+	// still want sprint sync + task reconcile to run, so degrade to
+	// "sprint-only" instead of erroring out.
+	wt, wtErr := currentWorktree()
+	if wtErr != nil {
+		log.Debug("not inside a worktree; skipping worktree sync", log.Args("err", wtErr))
+		return runSprintOnly(args.DryRun)
 	}
 
 	planPath := path.Join(wt.Path, planFileName)
@@ -51,27 +113,119 @@ func runSync(args *syncCmd) error {
 		}
 	}
 
-	changed, note, err := syncRoot(wt.Path, args.DryRun)
-	reportWorktreeSync(wt.String(), changed, note, err, args.DryRun)
+	// Both the worktree sync and the sprint fetch share one MultiPrinter
+	// so their spinners render in distinct rows (no cursor collisions).
+	// Sprint fetch runs concurrently with syncRoot; reconcile still waits
+	// for syncRoot + auto-close so trackedPlans reads a consistent view.
+	multi := pterm.DefaultMultiPrinter
+	if _, err := multi.Start(); err != nil {
+		log.Debug("multi.Start", log.Args("err", err))
+	}
+	sprintSpinner, _ := pterm.DefaultSpinner.
+		WithText("syncing sprint").
+		WithWriter(multi.NewWriter()).
+		Start()
+	wtSpinner, _ := pterm.DefaultSpinner.
+		WithText(fmt.Sprintf("syncing %s", wt)).
+		WithWriter(multi.NewWriter()).
+		Start()
 
-	if serr := runSprintSync(args.DryRun); serr != nil {
+	sprintCh := make(chan sprintFetchResult, 1)
+	go func() { sprintCh <- fetchSprint(nil) }()
+
+	res := syncRoot(wt.Path, args.DryRun)
+	verb := "updated"
+	if args.DryRun {
+		verb = "would update"
+	}
+	switch {
+	case res.err != nil:
+		wtSpinner.Fail(fmt.Sprintf("error %s: %v", wt, res.err))
+	case !res.changed:
+		wtSpinner.Success(fmt.Sprintf("%s: PR details fetched (no-op)", wt))
+	default:
+		wtSpinner.Success(fmt.Sprintf("%s %s (%s)", verb, wt, orNote(res.note)))
+	}
+
+	// Auto-close the worktree when its PR reached a terminal state.
+	// Skipped in dry-run so `-d` is genuinely read-only. Done before
+	// planSprint so trackedPlans sees the converted task (if any).
+	if res.autoClose && !args.DryRun {
+		if err := closeMergedWorktree(wt, res.closeReason); err != nil {
+			pterm.Warning.Printfln("auto-close %s: %v", wt, err)
+		}
+	}
+
+	sprintRes := <-sprintCh
+	sprintOut, sprintActions, serr := planSprint(sprintRes)
+	switch {
+	case sprintRes.err != nil:
+		sprintSpinner.Fail("sprint fetch failed")
+	case serr != nil:
+		sprintSpinner.Fail("sprint plan failed")
+	case sprintRes.disabled:
+		if sErr := sprintSpinner.Stop(); sErr != nil {
+			log.Debug("sprintSpinner.Stop", log.Args("err", sErr))
+		}
+	default:
+		sprintSpinner.Success(fmt.Sprintf("sprint: %d project items fetched", len(sprintRes.items)))
+	}
+	if _, err := multi.Stop(); err != nil {
+		log.Debug("multi.Stop", log.Args("err", err))
+	}
+
+	sprintOut.flushLines()
+	if serr != nil {
 		return serr
 	}
+
+	sprintFailed := 0
+	if !sprintRes.disabled {
+		loud := countUserFacingActions(sprintActions)
+		if loud > 0 {
+			sprintOut.renderTable()
+		}
+		if !args.DryRun {
+			switch {
+			case loud == 0:
+				log.Debug("sprint: nothing to apply")
+			case !confirm(fmt.Sprintf("apply %d sprint change(s)?", loud)):
+				pterm.Info.Println("sprint sync cancelled")
+			default:
+				preApply := len(sprintOut.lines)
+				sprintFailed = applySprint(sprintActions, &sprintOut)
+				for _, l := range sprintOut.lines[preApply:] {
+					fmt.Print(l)
+				}
+				if sprintFailed == 0 {
+					pterm.Success.Printfln("applied %d sprint change(s)", loud)
+				}
+			}
+		}
+	}
+
+	if !args.DryRun {
+		reconcileTaskLocations()
+	}
 	warnIfBroken()
-	if err != nil {
-		// reportWorktreeSync already printed the error line — return the
-		// silent sentinel so main.dispatch doesn't reprint it.
+	switch {
+	case res.err != nil && sprintFailed > 0:
+		return fmt.Errorf("worktree error + %d sprint apply(s) failed", sprintFailed)
+	case res.err != nil:
 		return errPrinted
+	case sprintFailed > 0:
+		return fmt.Errorf("sprint: %d apply(s) failed", sprintFailed)
 	}
 	return nil
 }
 
 // reportWorktreeSync prints a single line describing what happened to one
-// worktree's plan.toml, using the same shape as sprint reconcile lines:
+// worktree's plan.toml — but only when there's something worth surfacing.
+// No-ops go to the debug log so `-v` still shows them; the default view
+// stays focused on real (or would-be) mutations and errors.
+//
+// Shape matches sprint reconcile lines:
 //   {would update|updated} <name> (<detail>)
-// where detail is "no-op" when nothing changed, the diffPlans note when
-// something changed, or an error's message. The verb comes from the
-// dryRun flag; the phrase inside parens comes from the actual outcome.
 func reportWorktreeSync(name string, changed bool, note string, err error, dryRun bool) {
 	verb := "updated"
 	if dryRun {
@@ -81,10 +235,11 @@ func reportWorktreeSync(name string, changed bool, note string, err error, dryRu
 	case err != nil:
 		pterm.Error.Printfln("%s %s (error: %v)", verb, name, err)
 	case !changed:
-		pterm.Info.Printfln("%s %s (no-op)", verb, name)
-	case dryRun:
-		pterm.Info.Printfln("%s %s (%s)", verb, name, orNote(note))
+		log.Debug("worktree sync no-op", log.Args("name", name))
 	default:
+		// Would-be and real mutations both use Success — the verb tells
+		// the user which. INFO is reserved for informational output that
+		// isn't a mutation.
 		pterm.Success.Printfln("%s %s (%s)", verb, name, orNote(note))
 	}
 }
@@ -192,10 +347,13 @@ func runSyncAll(dryRun bool) error {
 	go func() { sprintCh <- fetchSprint(nil) }()
 
 	type result struct {
-		name    string
-		changed bool
-		note    string
-		err     error
+		wt          worktree
+		name        string
+		changed     bool
+		note        string
+		autoClose   bool
+		closeReason string
+		err         error
 	}
 	results := make([]result, len(wts))
 	var wg sync.WaitGroup
@@ -204,8 +362,16 @@ func runSyncAll(dryRun bool) error {
 		go func(i int, wt worktree) {
 			defer wg.Done()
 			defer wtBar.Increment()
-			changed, note, err := syncRoot(wt.Path, dryRun)
-			results[i] = result{name: wt.String(), changed: changed, note: note, err: err}
+			out := syncRoot(wt.Path, dryRun)
+			results[i] = result{
+				wt:          wt,
+				name:        wt.String(),
+				changed:     out.changed,
+				note:        out.note,
+				autoClose:   out.autoClose,
+				closeReason: out.closeReason,
+				err:         out.err,
+			}
 		}(i, wt)
 	}
 	wg.Wait()
@@ -230,7 +396,7 @@ func runSyncAll(dryRun bool) error {
 			log.Debug("sprintSpinner.Stop", log.Args("err", sErr))
 		}
 	default:
-		sprintSpinner.Success(fmt.Sprintf("sprint: %d project items", len(sprintRes.items)))
+		sprintSpinner.Success(fmt.Sprintf("sprint: %d project items fetched", len(sprintRes.items)))
 	}
 	if _, err := multi.Stop(); err != nil {
 		log.Debug("multi.Stop", log.Args("err", err))
@@ -244,31 +410,52 @@ func runSyncAll(dryRun bool) error {
 			failed++
 		}
 	}
-	sprintOut.flush()
+	// Sequential auto-close pass: git worktree operations don't parallel
+	// well and the tool's cwd may live in one of the removed dirs.
+	if !dryRun {
+		for _, r := range results {
+			if !r.autoClose {
+				continue
+			}
+			if err := closeMergedWorktree(r.wt, r.closeReason); err != nil {
+				pterm.Warning.Printfln("auto-close %s: %v", r.wt, err)
+			}
+		}
+	}
+	sprintOut.flushLines()
 	if serr != nil {
 		return serr
 	}
 	// Confirm + apply the sprint actions (skipped in dry-run). Silent
 	// stamp writes are auto-applied without contributing to the confirm
 	// count — the user only decides about real status changes / creates.
+	// Table only shown when there's something to apply.
 	sprintFailed := 0
-	if !dryRun && !sprintRes.disabled {
+	if !sprintRes.disabled {
 		loud := countUserFacingActions(sprintActions)
-		switch {
-		case loud == 0:
-			pterm.Info.Println("sprint: nothing to apply")
-		case !confirm(fmt.Sprintf("apply %d sprint change(s)?", loud)):
-			pterm.Info.Println("sprint sync cancelled")
-		default:
-			preApply := len(sprintOut.lines)
-			sprintFailed = applySprint(sprintActions, &sprintOut)
-			for _, l := range sprintOut.lines[preApply:] {
-				fmt.Print(l)
-			}
-			if sprintFailed == 0 {
-				pterm.Success.Printfln("applied %d sprint change(s)", loud)
+		if loud > 0 {
+			sprintOut.renderTable()
+		}
+		if !dryRun {
+			switch {
+			case loud == 0:
+				log.Debug("sprint: nothing to apply")
+			case !confirm(fmt.Sprintf("apply %d sprint change(s)?", loud)):
+				pterm.Info.Println("sprint sync cancelled")
+			default:
+				preApply := len(sprintOut.lines)
+				sprintFailed = applySprint(sprintActions, &sprintOut)
+				for _, l := range sprintOut.lines[preApply:] {
+					fmt.Print(l)
+				}
+				if sprintFailed == 0 {
+					pterm.Success.Printfln("applied %d sprint change(s)", loud)
+				}
 			}
 		}
+	}
+	if !dryRun {
+		reconcileTaskLocations()
 	}
 	warnIfBroken()
 	switch {
@@ -289,20 +476,33 @@ func seedPlan(planPath, branch string) error {
 	return writePlan(p)
 }
 
+// syncOutcome carries syncRoot's result. autoClose is set when the fresh
+// fetch shows a PR that just reached a terminal state (MERGED or CLOSED)
+// and the local plan wasn't already closed. closeReason carries the
+// terminal state ("merged" / "closed") for the cleanup log line.
+type syncOutcome struct {
+	changed     bool
+	note        string
+	autoClose   bool
+	closeReason string
+	err         error
+}
+
 // syncRoot performs the sync for a single worktree root. Caller must ensure
-// plan.toml exists. Returns (changed, note, err) where changed=true means
-// the plan.toml would-be / was rewritten and note summarizes what differed.
+// plan.toml exists. `changed` reflects whether content would differ so the
+// caller can label the line "would update". `autoClose` reports the merged-
+// PR transition; the caller handles the worktree removal + task conversion.
 //
-// dryRun=true suppresses the actual write. `changed` still reflects whether
-// content would differ so the caller can label the line "would update".
-func syncRoot(root string, dryRun bool) (bool, string, error) {
+// dryRun=true suppresses the actual write. autoClose still reports true so
+// the caller can preview the intended cleanup.
+func syncRoot(root string, dryRun bool) syncOutcome {
 	branch, err := currentBranch(root)
 	if err != nil {
-		return false, "", fmt.Errorf("branch: %w", err)
+		return syncOutcome{err: fmt.Errorf("branch: %w", err)}
 	}
 	owner, repo, err := originOwnerRepo(root)
 	if err != nil {
-		return false, "", fmt.Errorf("remote: %w", err)
+		return syncOutcome{err: fmt.Errorf("remote: %w", err)}
 	}
 	log.Debug("repo state", log.Args(
 		"owner", owner,
@@ -314,34 +514,36 @@ func syncRoot(root string, dryRun bool) (bool, string, error) {
 	planPath := path.Join(root, planFileName)
 	p, err := readPlan(planPath)
 	if err != nil {
-		return false, "", fmt.Errorf("read plan: %w", err)
+		return syncOutcome{err: fmt.Errorf("read plan: %w", err)}
 	}
 	beforeBytes, err := toml.Marshal(p)
 	if err != nil {
-		return false, "", fmt.Errorf("marshal before: %w", err)
+		return syncOutcome{err: fmt.Errorf("marshal before: %w", err)}
 	}
-	// Deep copy for later diffing.
 	var before plan
 	if err := toml.Unmarshal(beforeBytes, &before); err != nil {
-		return false, "", fmt.Errorf("clone plan: %w", err)
+		return syncOutcome{err: fmt.Errorf("clone plan: %w", err)}
 	}
 
 	prInfo, err := prForBranch(owner, repo, branch)
 	if err != nil {
-		return false, "", fmt.Errorf("find pr: %w", err)
+		return syncOutcome{err: fmt.Errorf("find pr: %w", err)}
 	}
 
 	if prInfo != nil {
 		log.Debug("found pr", log.Args("url", prInfo.URL, "state", prInfo.State))
 		prData, closes, err := pr(prInfo.URL)
 		if err != nil {
-			return false, "", fmt.Errorf("fetch pr: %w", err)
+			return syncOutcome{err: fmt.Errorf("fetch pr: %w", err)}
 		}
-		// GitHub returns "unknown" for mergeable when it hasn't computed the
-		// state yet (lazy computation). Treat that as "no new data" and keep
-		// the previous value to avoid churn on every sync.
+		prData.State = prInfo.State
+		// GitHub returns "unknown" for mergeable when it hasn't computed
+		// the value yet (lazy). Preserve the previous non-empty value —
+		// but only while the PR is still OPEN, because a merged or
+		// closed PR intentionally reports "unknown" and we want the
+		// transition to be visible.
 		prevMergeable := firstPR(p).Mergeable
-		if prData.Mergeable == "unknown" && prevMergeable != "" && prevMergeable != "unknown" {
+		if prInfo.State == "OPEN" && prData.Mergeable == "unknown" && prevMergeable != "" && prevMergeable != "unknown" {
 			prData.Mergeable = prevMergeable
 		}
 		p.PRs = upsertPR(p.PRs, prData)
@@ -366,26 +568,43 @@ func syncRoot(root string, dryRun bool) (bool, string, error) {
 		p.Issues[i] = fresh
 	}
 
+	// PR reached a terminal state (MERGED or CLOSED) → flag for cleanup.
+	// We deliberately don't gate on `p.Status != statusClosed`: the
+	// worktree existing on disk is the invariant, and if it's here we
+	// want it gone. Removal is effectively idempotent because after
+	// cleanup the worktree is off the list and won't be synced again.
+	autoClose := false
+	closeReason := ""
+	if bPR := firstPR(p); bPR.State == "MERGED" || bPR.State == "CLOSED" {
+		p.Status = statusClosed
+		autoClose = true
+		closeReason = strings.ToLower(bPR.State) // "merged" / "closed"
+	}
+
 	afterBytes, err := toml.Marshal(p)
 	if err != nil {
-		return false, "", fmt.Errorf("marshal after: %w", err)
+		return syncOutcome{err: fmt.Errorf("marshal after: %w", err)}
 	}
 	if bytes.Equal(beforeBytes, afterBytes) {
-		return false, "", nil // no-op
+		return syncOutcome{} // no-op
 	}
 	if dryRun {
-		return true, diffPlans(before, p), nil
+		return syncOutcome{changed: true, note: diffPlans(before, p), autoClose: autoClose, closeReason: closeReason}
 	}
 	if err := writePlan(p); err != nil {
-		return false, "", fmt.Errorf("write plan: %w", err)
+		return syncOutcome{err: fmt.Errorf("write plan: %w", err)}
 	}
-	return true, diffPlans(before, p), nil
+	return syncOutcome{changed: true, note: diffPlans(before, p), autoClose: autoClose}
 }
 
 // diffPlans produces a short human-readable summary of what changed between
 // two plans. Used for the sync summary "note" column.
 func diffPlans(a, b plan) string {
 	var parts []string
+
+	if a.Status != b.Status {
+		parts = append(parts, fmt.Sprintf("status: %s → %s", nonEmpty(string(a.Status)), nonEmpty(string(b.Status))))
+	}
 
 	aPR, bPR := firstPR(a), firstPR(b)
 
@@ -396,8 +615,15 @@ func diffPlans(a, b plan) string {
 	case aPR.URL != "" && bPR.URL == "":
 		parts = append(parts, "pr removed")
 	}
-	// PR: state
-	if aPR.URL != "" && bPR.URL != "" && aPR.Mergeable != bPR.Mergeable {
+	// PR: lifecycle transition (OPEN → MERGED / CLOSED). Reported before
+	// mergeability so a merge shows up as "pr: OPEN → MERGED" rather than
+	// the noisier "pr: clean → unknown".
+	if aPR.URL != "" && bPR.URL != "" && aPR.State != bPR.State {
+		parts = append(parts, fmt.Sprintf("pr: %s → %s", nonEmpty(aPR.State), nonEmpty(bPR.State)))
+	}
+	// PR: mergeability (only interesting while OPEN — merged/closed PRs
+	// intentionally report "unknown", already covered by the state line).
+	if aPR.URL != "" && bPR.URL != "" && bPR.State == "OPEN" && aPR.Mergeable != bPR.Mergeable {
 		parts = append(parts, fmt.Sprintf("pr: %s→%s", nonEmpty(aPR.Mergeable), nonEmpty(bPR.Mergeable)))
 	}
 	// PR: title

@@ -20,6 +20,11 @@ type statusCmd struct {
 	// type filter for the picker
 	Tasks     bool `arg:"-t,--task" help:"offer only tasks in the picker"`
 	Worktrees bool `arg:"-b,--branch" help:"offer only worktree branches in the picker"`
+
+	// Direct target: '.' → current worktree, else resolve as a worktree
+	// name. When set, skip the picker and apply the status to just that
+	// one item.
+	Name string `arg:"positional" help:"worktree name or '.' (empty → multiselect picker)"`
 }
 
 // target returns the single target status from the flags, or an error if
@@ -63,11 +68,26 @@ func pickStatusFlag(open, waiting, working, closed bool, fallback statusKind) (s
 }
 
 // runStatus prompts multiselect over the filtered inventory and applies the
-// target status to each selected item.
+// target status to each selected item. When a name (or ".") is passed as a
+// positional, the picker is bypassed and the status is applied to just that
+// worktree.
 func runStatus(c *statusCmd) error {
 	target, err := c.target()
 	if err != nil {
 		return err
+	}
+
+	if c.Name != "" {
+		wt, err := selectWorktree(c.Name)
+		if err != nil {
+			return fmt.Errorf("status: %w", err)
+		}
+		if err := setStatus(inventoryItem{Worktree: &wt}, target); err != nil {
+			return fmt.Errorf("status: %w", err)
+		}
+		pterm.Success.Printfln("%s → %s", wt, target)
+		warnIfBroken()
+		return nil
 	}
 
 	showWT := !c.Tasks || c.Worktrees
