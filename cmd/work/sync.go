@@ -45,14 +45,15 @@ func runSprintOnly(dryRun bool) error {
 			sprintOut.renderTable()
 		}
 		if !dryRun {
+			sprintFailed += applySilentSprint(sprintActions, &sprintOut)
 			switch {
 			case loud == 0:
-				log.Debug("sprint: nothing to apply")
+				// silent stamps already applied above
 			case !confirm(fmt.Sprintf("apply %d sprint change(s)?", loud)):
 				pterm.Info.Println("sprint sync cancelled")
 			default:
 				preApply := len(sprintOut.lines)
-				sprintFailed = applySprint(sprintActions, &sprintOut)
+				sprintFailed += applySprint(loudSprintActions(sprintActions), &sprintOut)
 				for _, l := range sprintOut.lines[preApply:] {
 					fmt.Print(l)
 				}
@@ -89,18 +90,13 @@ func runSync(args *syncCmd) error {
 	}
 
 	planPath := path.Join(wt.Path, planFileName)
-	_, statErr := os.Stat(planPath)
+	created, err := ensurePlanFile(planPath, wt.String(), wt.Branch)
 	switch {
-	case os.IsNotExist(statErr):
-		if !confirm(fmt.Sprintf("no plan.toml in %s. Create one?", wt)) {
-			return fmt.Errorf("sync cancelled")
-		}
-		if err := seedPlan(planPath, wt.Branch); err != nil {
-			return fmt.Errorf("seed plan: %w", err)
-		}
+	case err != nil:
+		return fmt.Errorf("sync: %w", err)
+	case created:
 		pterm.Success.Printfln("seeded %s", wt)
-	case statErr != nil:
-		return fmt.Errorf("stat plan: %w", statErr)
+		fallthrough
 	default:
 		if _, err := readPlan(planPath); err != nil {
 			skip, herr := handleBrokenPlan(planPath, wt.String(), err)
@@ -189,14 +185,15 @@ func runSync(args *syncCmd) error {
 			sprintOut.renderTable()
 		}
 		if !args.DryRun {
+			sprintFailed += applySilentSprint(sprintActions, &sprintOut)
 			switch {
 			case loud == 0:
-				log.Debug("sprint: nothing to apply")
+				// silent stamps already applied above
 			case !confirm(fmt.Sprintf("apply %d sprint change(s)?", loud)):
 				pterm.Info.Println("sprint sync cancelled")
 			default:
 				preApply := len(sprintOut.lines)
-				sprintFailed = applySprint(sprintActions, &sprintOut)
+				sprintFailed += applySprint(loudSprintActions(sprintActions), &sprintOut)
 				for _, l := range sprintOut.lines[preApply:] {
 					fmt.Print(l)
 				}
@@ -442,14 +439,15 @@ func runSyncAll(dryRun bool) error {
 			sprintOut.renderTable()
 		}
 		if !dryRun {
+			sprintFailed += applySilentSprint(sprintActions, &sprintOut)
 			switch {
 			case loud == 0:
-				log.Debug("sprint: nothing to apply")
+				// silent stamps already applied above
 			case !confirm(fmt.Sprintf("apply %d sprint change(s)?", loud)):
 				pterm.Info.Println("sprint sync cancelled")
 			default:
 				preApply := len(sprintOut.lines)
-				sprintFailed = applySprint(sprintActions, &sprintOut)
+				sprintFailed += applySprint(loudSprintActions(sprintActions), &sprintOut)
 				for _, l := range sprintOut.lines[preApply:] {
 					fmt.Print(l)
 				}
@@ -479,6 +477,31 @@ func seedPlan(planPath, branch string) error {
 	p := defaultPlan(branch)
 	p.Path = planPath
 	return writePlan(p)
+}
+
+// ensurePlanFile creates plan.toml at planPath if missing, prompting
+// once with a consistent wording. Respects --yes (via confirm). Returns
+// (created=true) when a new file was seeded, (created=false) when the
+// file already existed. label is the human-readable worktree identifier
+// for the prompt (e.g. "dotfiles:work"). branch is passed through to
+// seedPlan.
+//
+// This is the single source of truth for the "no plan.toml, create
+// one?" prompt across sync, edit, and status — all three used to
+// phrase and bypass it differently.
+func ensurePlanFile(planPath, label, branch string) (bool, error) {
+	if _, err := os.Stat(planPath); err == nil {
+		return false, nil
+	} else if !os.IsNotExist(err) {
+		return false, fmt.Errorf("stat %s: %w", planPath, err)
+	}
+	if !confirm(fmt.Sprintf("no plan.toml in %s. Create one?", label)) {
+		return false, fmt.Errorf("skipped (no plan.toml)")
+	}
+	if err := seedPlan(planPath, branch); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // syncOutcome carries syncRoot's result. autoClose is set when the fresh
