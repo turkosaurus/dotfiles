@@ -32,7 +32,7 @@ func runSprintOnly(dryRun bool) error {
 			log.Debug("spinner.Stop", log.Args("err", sErr))
 		}
 	default:
-		spinner.Success(fmt.Sprintf("sprint: %d project items fetched", len(sprintRes.items)))
+		spinner.Info(fmt.Sprintf("sprint: %d project items fetched", len(sprintRes.items)))
 	}
 	sprintOut.flushLines()
 	if serr != nil {
@@ -142,7 +142,10 @@ func runSync(args *syncCmd) error {
 	case res.err != nil:
 		wtSpinner.Fail(fmt.Sprintf("error %s: %v", wt, res.err))
 	case !res.changed:
-		wtSpinner.Success(fmt.Sprintf("%s: PR details fetched (no-op)", wt))
+		wtSpinner.Info(fmt.Sprintf("%s: PR details fetched (no-op)", wt))
+	case args.DryRun:
+		// Proposed change → INFO. The verb already carries the tense.
+		wtSpinner.Info(fmt.Sprintf("%s %s (%s)", verb, wt, orNote(res.note)))
 	default:
 		wtSpinner.Success(fmt.Sprintf("%s %s (%s)", verb, wt, orNote(res.note)))
 	}
@@ -168,7 +171,7 @@ func runSync(args *syncCmd) error {
 			log.Debug("sprintSpinner.Stop", log.Args("err", sErr))
 		}
 	default:
-		sprintSpinner.Success(fmt.Sprintf("sprint: %d project items fetched", len(sprintRes.items)))
+		sprintSpinner.Info(fmt.Sprintf("sprint: %d project items fetched", len(sprintRes.items)))
 	}
 	if _, err := multi.Stop(); err != nil {
 		log.Debug("multi.Stop", log.Args("err", err))
@@ -236,10 +239,12 @@ func reportWorktreeSync(name string, changed bool, note string, err error, dryRu
 		pterm.Error.Printfln("%s %s (error: %v)", verb, name, err)
 	case !changed:
 		log.Debug("worktree sync no-op", log.Args("name", name))
+	case dryRun:
+		// Proposed change (dry-run) → INFO. The verb ("would update")
+		// already conveys the tense; WARN would misfile as an anomaly.
+		pterm.Info.Printfln("%s %s (%s)", verb, name, orNote(note))
 	default:
-		// Would-be and real mutations both use Success — the verb tells
-		// the user which. INFO is reserved for informational output that
-		// isn't a mutation.
+		// Actualized change (write happened) → OK / SUCCESS.
 		pterm.Success.Printfln("%s %s (%s)", verb, name, orNote(note))
 	}
 }
@@ -381,7 +386,7 @@ func runSyncAll(dryRun bool) error {
 	// Bar removed itself (WithRemoveWhenDone); print an OK line into the
 	// same MultiPrinter area so the "worktrees: N synced" line appears in
 	// the row the bar previously occupied.
-	pterm.Success.WithWriter(wtWriter).Printfln("worktrees: %d synced", len(wts))
+	pterm.Info.WithWriter(wtWriter).Printfln("worktrees: %d fetched", len(wts))
 
 	// Plan-only pass — no side effects. Actions are queued for later.
 	sprintRes := <-sprintCh
@@ -396,7 +401,7 @@ func runSyncAll(dryRun bool) error {
 			log.Debug("sprintSpinner.Stop", log.Args("err", sErr))
 		}
 	default:
-		sprintSpinner.Success(fmt.Sprintf("sprint: %d project items fetched", len(sprintRes.items)))
+		sprintSpinner.Info(fmt.Sprintf("sprint: %d project items fetched", len(sprintRes.items)))
 	}
 	if _, err := multi.Stop(); err != nil {
 		log.Debug("multi.Stop", log.Args("err", err))

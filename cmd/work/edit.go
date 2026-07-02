@@ -22,7 +22,10 @@ type editCmd struct {
 	Closed    bool `arg:"-c,--closed" help:"status=closed filter (with --all)"`
 }
 
-func (c *editCmd) statusFilter() map[statusKind]bool {
+// statusFilter returns the set of statuses to include. Second return is
+// whether any flag was set explicitly — passed to filterInventory to
+// choose intersect vs union with -s/--sprint.
+func (c *editCmd) statusFilter() (map[statusKind]bool, bool) {
 	set := map[statusKind]bool{}
 	if c.Open {
 		set[statusOpen] = true
@@ -37,9 +40,9 @@ func (c *editCmd) statusFilter() map[statusKind]bool {
 		set[statusClosed] = true
 	}
 	if len(set) == 0 {
-		return nil
+		return nil, false
 	}
-	return set
+	return set, true
 }
 
 const editHeader = `# work edit — change the first char of each line to set that item's status.
@@ -101,7 +104,8 @@ func runEditAll(c *editCmd) error {
 	if err != nil {
 		return err
 	}
-	items = filterByStatus(items, c.statusFilter())
+	set, explicit := c.statusFilter()
+	items = filterInventory(items, set, explicit)
 	if len(items) == 0 {
 		pterm.Info.Println("nothing to edit")
 		return nil

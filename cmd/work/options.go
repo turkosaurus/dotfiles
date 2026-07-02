@@ -2,11 +2,9 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path"
-	"strings"
 
 	"github.com/pterm/pterm"
 )
@@ -22,14 +20,12 @@ var errPrinted = errors.New("")
 var log = pterm.DefaultLogger.WithLevel(pterm.LogLevelInfo).WithTime(false)
 
 var (
-	confirmYes         bool   // set from --yes; bypasses confirmation prompts
-	quietMode          bool   // set from -q/--quiet; suppresses INFO and SUCCESS output
-	verboseMode        bool   // set from -v/--verbose; unlocks noisier reporting (e.g. sprint's ignored-column breakdown)
-	projectFilter      *bool  // set from -p/--project; nil = no filter, true = must have a project link, false = must have none
-	sprintFilterURL    string // set from -s/--sprint; only items linked to this project URL survive the picker filter
-	defaultWorkDir            = path.Join(os.Getenv("HOME"), "w")
-	defaultTaskDir            = path.Join(defaultWorkDir, "t")
-	defaultDaysDue             = 3
+	confirmYes      bool   // set from --yes; bypasses confirmation prompts
+	quietMode       bool   // set from -q/--quiet; suppresses INFO and SUCCESS output
+	verboseMode     bool   // set from -v/--verbose; unlocks noisier reporting (e.g. sprint's ignored-column breakdown)
+	sprintFilterURL string // set from -s/--sprint; only items linked to this project URL survive the picker filter
+	defaultWorkDir         = path.Join(os.Getenv("HOME"), "w")
+	defaultTaskDir         = path.Join(defaultWorkDir, "t")
 )
 
 // setSprintFilter loads the configured sprint project URL and stores it
@@ -51,64 +47,6 @@ func setQuietMode() {
 	quietMode = true
 	pterm.Info.Writer = io.Discard
 	pterm.Success.Writer = io.Discard
-}
-
-// setProjectFilter parses -p/--project. Accepts "" (unset), "t"/"true", or
-// "f"/"false" (case-insensitive). Anything else is a user error.
-func setProjectFilter(raw string) error {
-	if raw == "" {
-		projectFilter = nil
-		return nil
-	}
-	switch strings.ToLower(raw) {
-	case "t", "true":
-		v := true
-		projectFilter = &v
-	case "f", "false":
-		v := false
-		projectFilter = &v
-	default:
-		return fmt.Errorf("--project: expected t/true or f/false, got %q", raw)
-	}
-	return nil
-}
-
-// hasProjectLink reports whether the item's plan has any [[issue]] with a
-// non-empty project.url. Used by applyProjectFilter.
-func hasProjectLink(it inventoryItem) bool {
-	var issues []Issue
-	switch {
-	case it.Task != nil:
-		issues = it.Task.Issues
-	case it.Worktree != nil:
-		p, err := readPlan(path.Join(it.Worktree.Path, planFileName))
-		if err != nil {
-			return false
-		}
-		issues = p.Issues
-	}
-	for _, i := range issues {
-		if i.Project.URL != "" {
-			return true
-		}
-	}
-	return false
-}
-
-// applyProjectFilter filters items in place using projectFilter. No-op when
-// projectFilter is nil.
-func applyProjectFilter(items []inventoryItem) []inventoryItem {
-	if projectFilter == nil {
-		return items
-	}
-	want := *projectFilter
-	out := items[:0]
-	for _, it := range items {
-		if hasProjectLink(it) == want {
-			out = append(out, it)
-		}
-	}
-	return out
 }
 
 // hasSprintLink reports whether the item's plan has any [[issue]] whose
@@ -147,6 +85,45 @@ func applySprintFilter(items []inventoryItem) []inventoryItem {
 		}
 	}
 	return out
+}
+
+// filterInventory applies status + sprint filters. Composition rule for
+// -s/--sprint depends on whether status flags were set explicitly:
+//
+//   - statusExplicit=true, -s active  → union: status ∪ non-closed sprint
+//     (e.g. `list -wW -s` = waiting + working + everything else in sprint)
+//   - statusExplicit=false, -s active → intersect: status ∩ sprint
+//     (e.g. `list -s` = default {open,waiting,working} narrowed to sprint)
+//   - -s inactive                     → just status
+//
+// The union case skips closed sprint items unless the caller's status
+// set already included statusClosed (via `--all` or `-c`).
+func filterInventory(items []inventoryItem, statusSet map[statusKind]bool, statusExplicit bool) []inventoryItem {
+	statusFiltered := filterByStatus(items, statusSet)
+	if sprintFilterURL == "" {
+		return statusFiltered
+	}
+	if !statusExplicit {
+		return applySprintFilter(statusFiltered)
+	}
+	includeClosed := statusSet == nil || statusSet[statusClosed]
+	seen := make(map[string]bool, len(statusFiltered))
+	for _, it := range statusFiltered {
+		seen[it.key()] = true
+	}
+	for _, it := range items {
+		if seen[it.key()] {
+			continue
+		}
+		if !includeClosed && itemStatus(it) == statusClosed {
+			continue
+		}
+		if !hasSprintLink(it) {
+			continue
+		}
+		statusFiltered = append(statusFiltered, it)
+	}
+	return statusFiltered
 }
 
 func init() {

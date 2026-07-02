@@ -25,10 +25,11 @@ type pickCmd struct {
 
 // statusFilter mirrors listCmd.statusFilter(): --all disables the filter,
 // any explicit status flags union to their set, otherwise default hides
-// closed.
-func (c *pickCmd) statusFilter() map[statusKind]bool {
+// closed. The bool reports whether at least one flag was set explicitly
+// so callers can pick intersect vs union with -s (see filterInventory).
+func (c *pickCmd) statusFilter() (map[statusKind]bool, bool) {
 	if c.All {
-		return nil
+		return nil, false
 	}
 	set := map[statusKind]bool{}
 	if c.Open {
@@ -48,9 +49,9 @@ func (c *pickCmd) statusFilter() map[statusKind]bool {
 			statusOpen:    true,
 			statusWaiting: true,
 			statusWorking: true,
-		}
+		}, false
 	}
-	return set
+	return set, true
 }
 type mainCmd struct{} // work main
 type prevCmd struct{} // work -
@@ -72,7 +73,8 @@ func runPick(c *pickCmd) error {
 		if len(items) == 0 {
 			return fmt.Errorf("nothing under %s", defaultWorkDir)
 		}
-		items = filterByStatus(items, c.statusFilter())
+		set, explicit := c.statusFilter()
+		items = filterInventory(items, set, explicit)
 		if len(items) == 0 {
 			return fmt.Errorf("no items match the current filters")
 		}

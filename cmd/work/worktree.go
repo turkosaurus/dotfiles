@@ -122,6 +122,7 @@ func pickWorktree() (worktree, error) {
 	if err != nil {
 		return worktree{}, err
 	}
+	items = applySprintFilter(items)
 	if len(items) == 0 {
 		return worktree{}, fmt.Errorf("no worktrees under %s", defaultWorkDir)
 	}
@@ -155,6 +156,37 @@ func timeAgo(t time.Time) string {
 	default:
 		return fmt.Sprintf("%dmo", int(d.Hours()/(24*30)))
 	}
+}
+
+// dueOffset renders a signed duration relative to now: "-30m", "+2h",
+// "-1d", "+5d". Negative = overdue, positive = future. Zero time
+// returns "?". Same magnitude thresholds as timeAgo (m/h/d/w/mo).
+func dueOffset(due time.Time) string {
+	if due.IsZero() {
+		return "?"
+	}
+	d := time.Until(due)
+	sign := "+"
+	if d < 0 {
+		sign = "-"
+		d = -d
+	}
+	var mag string
+	switch {
+	case d < time.Minute:
+		return "now"
+	case d < time.Hour:
+		mag = fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 24*time.Hour:
+		mag = fmt.Sprintf("%dh", int(d.Hours()))
+	case d < 7*24*time.Hour:
+		mag = fmt.Sprintf("%dd", int(d.Hours()/24))
+	case d < 30*24*time.Hour:
+		mag = fmt.Sprintf("%dw", int(d.Hours()/(24*7)))
+	default:
+		mag = fmt.Sprintf("%dmo", int(d.Hours()/(24*30)))
+	}
+	return sign + mag
 }
 
 // savePrevious records dir as the "previous" worktree for `work prev`.

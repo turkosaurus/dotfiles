@@ -22,7 +22,7 @@ type rmCmd struct {
 	Open    bool `arg:"-o,--open" help:"only offer tasks in status=open"`
 	Waiting bool `arg:"-w,--waiting" help:"only offer tasks in status=waiting"`
 	Working bool `arg:"-W,--working" help:"only offer tasks in status=working"`
-	Closed  bool `arg:"-c,--closed" help:"only offer tasks in status=closed (selecting deletes permanently)"`
+	Closed  bool `arg:"-c,--closed" help:"closed tasks (selecting deletes permanently)"`
 }
 
 // rmStatusFilter returns the set of statuses the rm picker should offer, or
@@ -75,6 +75,7 @@ func runRm(c *rmCmd) error {
 	if err != nil {
 		return fmt.Errorf("rm: %w", err)
 	}
+	items = applySprintFilter(items)
 	// Apply status filter to tasks. Worktrees are only offered when no
 	// status flag narrows the pick (they don't fit into any single status).
 	filter := c.rmStatusFilter()
