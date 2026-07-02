@@ -90,6 +90,9 @@ func splitBundledShorts() {
 // `--flag=value` forms are recognized as globals — a globals list with
 // value-following tokens would need a companion skip, which we don't
 // currently have.
+//
+// -h/--help is deliberately NOT hoisted: keeping it after a subcommand
+// (e.g. `work new -h`) lets go-arg render subcommand-specific help.
 func hoistGlobals() {
 	globals := []string{os.Args[0]}
 	rest := []string{}
@@ -97,6 +100,10 @@ func hoistGlobals() {
 		key := a
 		if eq := strings.IndexByte(a, '='); eq > 0 {
 			key = a[:eq]
+		}
+		if key == "-h" || key == "--help" {
+			rest = append(rest, a)
+			continue
 		}
 		if globalFlags[key] {
 			globals = append(globals, a)
