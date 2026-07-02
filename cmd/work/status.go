@@ -25,6 +25,10 @@ type statusCmd struct {
 	Tasks     bool `arg:"-t,--task" help:"offer only tasks in the picker"`
 	Worktrees bool `arg:"-b,--branch" help:"offer only worktree branches in the picker"`
 
+	// --all lifts the default "hide closed" filter so closed items also
+	// show up in the picker. Same convention as list/pick.
+	All bool `arg:"-a,--all" help:"include closed items in the picker"`
+
 	// Direct target: '.' → current worktree, else resolve as a worktree
 	// name. When set, skip the picker and apply the change to just that
 	// one item.
@@ -113,6 +117,22 @@ func runStatus(c *statusCmd) error {
 		return err
 	}
 	items = applySprintFilter(items)
+	// Hide closed items unless --all was passed (same default as
+	// list/pick). Then hide items already at the target status — setting
+	// an item to a status it already holds is a no-op. When only --due
+	// was passed (target == ""), the target filter is a no-op.
+	out := items[:0]
+	for _, it := range items {
+		s := itemStatus(it)
+		if !c.All && s == statusClosed {
+			continue
+		}
+		if target != "" && s == target {
+			continue
+		}
+		out = append(out, it)
+	}
+	items = out
 	if len(items) == 0 {
 		pterm.Info.Println("nothing to update")
 		return nil
