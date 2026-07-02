@@ -40,9 +40,8 @@ func validateCurrent() error {
 	}
 	planPath := path.Join(wt.Path, planFileName)
 	if _, err := readPlan(planPath); err != nil {
-		pterm.Error.Printfln("%s", relPath(planPath))
-		pterm.Error.Printfln("  %v", err)
-		return fmt.Errorf("plan parse error")
+		pterm.Error.Printfln("%v", err)
+		return errPrinted
 	}
 	pterm.Success.Printfln("%s: ok", wt)
 	return nil
@@ -59,10 +58,9 @@ func validateAll() error {
 		return nil
 	}
 	for _, b := range broken {
-		pterm.Error.Printfln("%s", relPath(b.path))
-		pterm.Error.Printfln("  %v", b.err)
+		pterm.Error.Printfln("%v", b.err)
 	}
-	return fmt.Errorf("%d plan(s) have parse errors", len(broken))
+	return errPrinted
 }
 
 // findBrokenPlans scans all plan.toml files (worktrees + tasks) and returns
