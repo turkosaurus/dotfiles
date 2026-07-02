@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pterm/pterm"
@@ -15,12 +16,24 @@ import (
 // preserve these comments if the file is ever rewritten via saveConfig, so
 // treat them as install-time guidance, not durable metadata.
 const defaultConfigTemplate = `# work config — per-user settings. Edited with 'work config'.
-# Lives at $XDG_CONFIG_HOME/work/config.toml (fallback: ~/.config/work/config.toml).
+# Location precedence:
+#   $WORK_CONFIG → $XDG_CONFIG_HOME/work/config.toml → ~/.config/work/config.toml
 
-[source]
+[path]
 # Module directory (contains go.mod) that 'work install' rebuilds from.
 # Populated automatically the first time you run 'work install'.
-path = ""
+source = ""
+# Where worktrees live (created by 'work new .'). Default: ~/w.
+worktrees = "~/w"
+# Where tasks live. Default: <worktrees>/t.
+tasks = "~/w/t"
+# Where your clones live (informational, for now). Default: ~/p.
+repos = "~/p"
+
+[task]
+# Default due-date for 'work new' when -d isn't given. Accepts the same
+# forms as -d: 2h, 3d, tomorrow, today, or YYYY-MM-DD [HH:MM].
+default_due = "tomorrow"
 
 [sprint]
 # GitHub project board to pull tasks from on every 'work sync'.
@@ -68,13 +81,47 @@ func runConfig(_ *configCmd) error {
 // $XDG_CONFIG_HOME/work/config.toml so org-specific details (project URLs,
 // paths, mappings) aren't checked in.
 type config struct {
-	Source sourceConfig `toml:"source"`
+	Path   pathConfig   `toml:"path"`
+	Task   taskConfig   `toml:"task"`
 	Sprint sprintConfig `toml:"sprint"`
+
+	// LegacySource carries the old [source] section so we can migrate
+	// configs written before the rename. loadConfig lifts LegacySource.Path
+	// into Path.Source if the latter is unset.
+	LegacySource legacySourceConfig `toml:"source"`
 }
 
-type sourceConfig struct {
-	// Path is the module directory (containing go.mod) used by `work install`
-	// to rebuild the binary. Set on first install.
+// taskConfig holds task-creation defaults consulted when the equivalent
+// CLI flag isn't provided.
+type taskConfig struct {
+	// DefaultDue is the fallback for `work new`'s -d flag. Same
+	// forms as -d (2h, 3d, tomorrow, YYYY-MM-DD [HH:MM]). Empty →
+	// "tomorrow" at midnight (the built-in default).
+	DefaultDue string `toml:"default_due"`
+}
+
+// pathConfig collects the filesystem knobs. Empty fields fall back to
+// baked-in defaults resolved by applyPathConfig. Values may start with
+// `~/` — expandTilde replaces it with $HOME at load time.
+type pathConfig struct {
+	// Source is the module directory (containing go.mod) used by
+	// `work install` to rebuild the binary. Set on first install.
+	Source string `toml:"source"`
+	// Worktrees is where `work new .` moves branches into.
+	// Default: ~/w.
+	Worktrees string `toml:"worktrees"`
+	// Tasks is where per-status task files live. Default:
+	// <worktrees>/t.
+	Tasks string `toml:"tasks"`
+	// Repos is where the user's clones live. Purely informational
+	// today — reserved for future use (e.g. auto-discovery of repos
+	// to `work new .` from). Default: ~/p.
+	Repos string `toml:"repos"`
+}
+
+// legacySourceConfig matches the pre-rename `[source]` section. See
+// config.LegacySource.
+type legacySourceConfig struct {
 	Path string `toml:"path"`
 }
 
@@ -98,9 +145,14 @@ type sprintConfig struct {
 	Assignees []string `toml:"assignees"`
 }
 
-// configPath is $XDG_CONFIG_HOME/work/config.toml, falling back to
-// $HOME/.config/work/config.toml.
+// configPath returns the resolved on-disk location of the config file.
+// Precedence: $WORK_CONFIG (if set) → $XDG_CONFIG_HOME/work/config.toml
+// → $HOME/.config/work/config.toml. WORK_CONFIG is the escape hatch for
+// picking a non-XDG location without touching the surrounding schema.
 func configPath() string {
+	if p := os.Getenv("WORK_CONFIG"); p != "" {
+		return p
+	}
 	return path.Join(xdgConfigDir("work"), "config.toml")
 }
 
@@ -114,9 +166,15 @@ func xdgConfigDir(subdir string) string {
 	return path.Join(xdg, subdir)
 }
 
-// loadConfig reads the config file. Missing file returns a zero-value config
-// (no error). Also migrates the legacy source-path single-line file if it
-// still exists and config.toml doesn't yet have a source.path.
+// loadConfig reads the config file. Missing file returns a zero-value
+// config (no error). Handles two migrations:
+//   - `[source] path = ...` (renamed to `[path] source = ...`) is
+//     lifted into Path.Source when the latter is unset.
+//   - The pre-config source-path single-line file at
+//     xdgConfigDir("work")/source-path is read when nothing else has
+//     populated Path.Source.
+//
+// Fields that start with "~/" are expanded to $HOME.
 func loadConfig() (config, error) {
 	var c config
 	data, err := os.ReadFile(configPath())
@@ -128,12 +186,29 @@ func loadConfig() (config, error) {
 	case !os.IsNotExist(err):
 		return c, fmt.Errorf("read %s: %w", configPath(), err)
 	}
-	if c.Source.Path == "" {
+	if c.Path.Source == "" && c.LegacySource.Path != "" {
+		c.Path.Source = c.LegacySource.Path
+	}
+	c.LegacySource = legacySourceConfig{}
+	if c.Path.Source == "" {
 		if legacy := readLegacySourcePath(); legacy != "" {
-			c.Source.Path = legacy
+			c.Path.Source = legacy
 		}
 	}
+	c.Path.Source = expandTilde(c.Path.Source)
+	c.Path.Worktrees = expandTilde(c.Path.Worktrees)
+	c.Path.Tasks = expandTilde(c.Path.Tasks)
+	c.Path.Repos = expandTilde(c.Path.Repos)
 	return c, nil
+}
+
+// expandTilde returns s with a leading "~/" replaced by $HOME. Empty
+// input passes through. Non-tilde paths pass through unchanged.
+func expandTilde(s string) string {
+	if s == "" || !strings.HasPrefix(s, "~/") {
+		return s
+	}
+	return path.Join(os.Getenv("HOME"), s[2:])
 }
 
 // saveConfig writes the config atomically (write to temp + rename).

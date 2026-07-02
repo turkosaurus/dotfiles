@@ -16,10 +16,15 @@ import (
 
 const taskCounterFile = ".counter"
 
-// setupDirs ensures defaultWorkDir, defaultTaskDir, and the open/pending/done
-// task subdirs exist, and initializes .counter to 1 if missing. If anything
-// needs creating and assumeYes is false, prompts for confirmation first.
+// setupDirs applies the [path] config (worktrees, tasks) to the runtime
+// defaults, then ensures defaultWorkDir, defaultTaskDir, and the
+// open/waiting/working/closed task subdirs exist. Initializes .counter
+// to 1 if missing. If anything needs creating and assumeYes is false,
+// prompts for confirmation first.
 func setupDirs() error {
+	if c, err := loadConfig(); err == nil {
+		applyPathConfig(c)
+	}
 	dirs := []string{
 		defaultWorkDir,
 		defaultTaskDir,

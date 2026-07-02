@@ -24,9 +24,26 @@ var (
 	quietMode       bool   // set from -q/--quiet; suppresses INFO and SUCCESS output
 	verboseMode     bool   // set from -v/--verbose; unlocks noisier reporting (e.g. sprint's ignored-column breakdown)
 	sprintFilterURL string // set from -s/--sprint; only items linked to this project URL survive the picker filter
-	defaultWorkDir         = path.Join(os.Getenv("HOME"), "w")
-	defaultTaskDir         = path.Join(defaultWorkDir, "t")
+	// defaultWorkDir / defaultTaskDir are populated once at startup by
+	// applyPathConfig (called from setupDirs). Values here are the fallback
+	// when config.toml doesn't set path.worktrees / path.tasks.
+	defaultWorkDir = path.Join(os.Getenv("HOME"), "w")
+	defaultTaskDir = path.Join(defaultWorkDir, "t")
 )
+
+// applyPathConfig overrides defaultWorkDir/defaultTaskDir from the loaded
+// config. Called from setupDirs so all path-consuming code sees the
+// user's choices without needing to plumb config through.
+func applyPathConfig(c config) {
+	if c.Path.Worktrees != "" {
+		defaultWorkDir = c.Path.Worktrees
+	}
+	if c.Path.Tasks != "" {
+		defaultTaskDir = c.Path.Tasks
+	} else {
+		defaultTaskDir = path.Join(defaultWorkDir, "t")
+	}
+}
 
 // setSprintFilter loads the configured sprint project URL and stores it
 // in sprintFilterURL. Applied by applySprintFilter on every loadInventory

@@ -104,10 +104,9 @@ func newFromCurrent() error {
 }
 
 // parseDue interprets the -d/--due flag value and returns the resulting
-// time.Time. An empty string means "no override" and returns tomorrow at
-// midnight (the default). Recognized forms:
+// time.Time. Empty input falls back to config.Task.DefaultDue (parsed
+// recursively) and then to "tomorrow" at midnight. Recognized forms:
 //
-//   - "" (unset)                        → tomorrow at midnight (local)
 //   - "today" / "tomorrow"              → that day at midnight (local)
 //   - "Nd" / "Nw" (int + d or w)        → now + N days/weeks, midnight
 //   - go duration ("2h", "1h30m", ...)  → now + duration, precise time
@@ -118,6 +117,21 @@ func newFromCurrent() error {
 var dayWeekRe = regexp.MustCompile(`^(\d+)([dw])$`)
 
 func parseDue(raw string) (time.Time, error) {
+	if strings.TrimSpace(raw) == "" {
+		if c, err := loadConfig(); err == nil {
+			if cfgDue := strings.TrimSpace(c.Task.DefaultDue); cfgDue != "" {
+				return parseDueRaw(cfgDue)
+			}
+		}
+		return parseDueRaw("tomorrow")
+	}
+	return parseDueRaw(raw)
+}
+
+// parseDueRaw is the pure parser — no config fallback, no default. Empty
+// input is a caller error (parseDue handles empty; direct callers of
+// parseDueRaw shouldn't pass "").
+func parseDueRaw(raw string) (time.Time, error) {
 	now := time.Now()
 	midnight := func(t time.Time) time.Time {
 		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
@@ -125,7 +139,7 @@ func parseDue(raw string) (time.Time, error) {
 	s := strings.TrimSpace(raw)
 	switch strings.ToLower(s) {
 	case "":
-		return midnight(now.AddDate(0, 0, 1)), nil
+		return time.Time{}, fmt.Errorf("--due: empty value")
 	case "today":
 		return midnight(now), nil
 	case "tomorrow":
