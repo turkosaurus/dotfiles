@@ -50,12 +50,12 @@ fi
 PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 
 # work - git worktree wrapper with cd support
-# work-binary: /Users/user/.local/share/mise/installs/go/1.24.7/bin/work
+# work-binary: $HOME/.local/share/mise/installs/go/1.24.7/bin/work
 work() {
   local next="$HOME/w/.next"
   rm -f "$next"
   printf '\033[3;1H\033[J'
-  "/Users/user/.local/share/mise/installs/go/1.24.7/bin/work" "$@"
+  "$HOME/.local/share/mise/installs/go/1.24.7/bin/work" "$@"
   local rc=$?
   if [[ -s "$next" ]]; then
     local target
