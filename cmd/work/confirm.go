@@ -11,9 +11,10 @@ import (
 // Returns true when the user answers yes. Returns true unconditionally when
 // confirmYes (--yes) is set. Any read error or empty input is treated as No.
 //
-// Written to bypass pterm.DefaultInteractiveConfirm, which prints its prompt
-// text through pterm's internal stdout path — the shim captures that and the
-// user sees nothing until process exit.
+// Written directly against os.Stderr / os.Stdin to bypass
+// pterm.DefaultInteractiveConfirm, which pipes its prompt text through
+// pterm's own writers — inconvenient to route reliably when we care about
+// a clean, no-frills question the user answers in one keystroke.
 func confirm(msg string) bool {
 	if confirmYes {
 		return true

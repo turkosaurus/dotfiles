@@ -14,16 +14,24 @@ type listCmd struct {
 	Tasks     bool `arg:"-t,--task" help:"show only tasks"`
 	Worktrees bool `arg:"-b,--branch" help:"show only worktree branches"`
 
-	// status filters — combinable
+	// status filters — combinable. No flags = default (open+waiting+working;
+	// closed is hidden). --all overrides and shows every status including closed.
 	Open    bool `arg:"-o,--open" help:"status=open"`
 	Waiting bool `arg:"-w,--waiting" help:"status=waiting"`
 	Working bool `arg:"-W,--working" help:"status=working"`
 	Closed  bool `arg:"-c,--closed" help:"status=closed"`
+	All     bool `arg:"-a,--all" help:"show every status, including closed"`
 }
 
 // statusFilter returns the set of statuses to include based on the flags, or
-// nil if no filter is active (include all).
+// nil if no filter is active (include everything). Precedence:
+//   - --all           → nil (everything)
+//   - any status flag → the explicit union
+//   - no flags        → open + waiting + working (closed hidden)
 func (c *listCmd) statusFilter() map[statusKind]bool {
+	if c.All {
+		return nil
+	}
 	set := map[statusKind]bool{}
 	if c.Open {
 		set[statusOpen] = true
@@ -38,7 +46,11 @@ func (c *listCmd) statusFilter() map[statusKind]bool {
 		set[statusClosed] = true
 	}
 	if len(set) == 0 {
-		return nil
+		return map[statusKind]bool{
+			statusOpen:    true,
+			statusWaiting: true,
+			statusWorking: true,
+		}
 	}
 	return set
 }
@@ -77,6 +89,18 @@ func statusIcon(s statusKind) string {
 type inventoryItem struct {
 	Worktree *worktree
 	Task     *plan
+}
+
+// key returns a stable identifier for the item — the plan.toml path for
+// tasks, or the worktree's path for worktrees. Used to key caches.
+func (it inventoryItem) key() string {
+	if it.Task != nil {
+		return it.Task.Path
+	}
+	if it.Worktree != nil {
+		return it.Worktree.Path
+	}
+	return ""
 }
 
 // row renders an item as columns for the summary table.
@@ -141,7 +165,9 @@ func filterByStatus(items []inventoryItem, set map[statusKind]bool) []inventoryI
 	return out
 }
 
-// loadInventory returns worktrees and/or tasks per the flags.
+// loadInventory returns worktrees and/or tasks per the flags. The global
+// -p/--project filter (via applyProjectFilter) is applied at the end so
+// every caller — list, rm, promote, merge, status, edit — honors it.
 func loadInventory(showWT, showCh bool) ([]inventoryItem, error) {
 	var items []inventoryItem
 	if showWT {
@@ -164,7 +190,7 @@ func loadInventory(showWT, showCh bool) ([]inventoryItem, error) {
 			items = append(items, inventoryItem{Task: &ch})
 		}
 	}
-	return items, nil
+	return applyProjectFilter(items), nil
 }
 
 // runList renders a unified table of worktrees + tasks.
@@ -197,7 +223,7 @@ func runList(c *listCmd) error {
 //   - type_icon: git-branch (worktree) or tasks (task)
 //   - name: repo:branch (worktree) or title (task) — the filterable column
 //   - status_icon: nerd-font glyph for open/pending/done (· if unknown)
-//   - age: relative time (mtime for worktrees, due for tasks)
+//   - age: relative time — file mtime for both worktrees and tasks
 
 func worktreeRow(wt worktree) []string {
 	status := iconStatusUnknown
@@ -223,7 +249,7 @@ func taskRow(ch plan) []string {
 		status = iconStatusBroken
 		title = name + " (broken)"
 	}
-	return []string{iconTask, title, status, timeAgo(ch.Due)}
+	return []string{iconTask, title, status, timeAgo(ch.mtime)}
 }
 
 // listTasksAll walks open/waiting/working/closed and returns every task plan.

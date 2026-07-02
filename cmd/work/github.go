@@ -2,14 +2,92 @@ package main
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"net/url"
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cli/go-gh/v2/pkg/api"
 )
+
+// ErrGhRateLimit is the sentinel returned when a GitHub API call fails due
+// to rate limiting. Callers can errors.As(err, &rl) to reach ResetAt and
+// format the reset time for users.
+//
+// GitHub reports rate limit state two ways:
+//   - HTTP header X-RateLimit-Reset (Unix seconds), attached to every response
+//     that consumed budget. We can't always reach headers through the gh
+//     client's error types, so we fall back to the `/rate_limit` REST endpoint.
+//   - GET /rate_limit — a REST endpoint that does not itself count against any
+//     budget, so it's safe to call when already rate-limited. Its response
+//     includes `resources.graphql.reset` (Unix seconds) which we surface here.
+type ErrGhRateLimit struct {
+	ResetAt time.Time
+	Cause   error
+}
+
+func (e *ErrGhRateLimit) Error() string {
+	if e.ResetAt.IsZero() {
+		return fmt.Sprintf("github rate limit exceeded: %v", e.Cause)
+	}
+	d := time.Until(e.ResetAt).Round(time.Second)
+	if d <= 0 {
+		return fmt.Sprintf("github rate limit exceeded — should reset shortly (at %s)",
+			e.ResetAt.Format("15:04:05 MST"))
+	}
+	return fmt.Sprintf("github rate limit exceeded — resets in %s (at %s)",
+		d, e.ResetAt.Format("15:04:05 MST"))
+}
+
+func (e *ErrGhRateLimit) Unwrap() error { return e.Cause }
+
+// asGhRateLimit inspects a gh client error and, if it looks like a rate limit
+// failure, returns an ErrGhRateLimit populated with the reset time (fetched
+// via /rate_limit). Returns nil if err isn't a rate-limit error.
+func asGhRateLimit(err error) *ErrGhRateLimit {
+	if err == nil {
+		return nil
+	}
+	// Best signal: gh's GraphQLError has a Type == "RATE_LIMITED" entry.
+	var gql *api.GraphQLError
+	if errors.As(err, &gql) {
+		for _, e := range gql.Errors {
+			if strings.EqualFold(e.Type, "RATE_LIMITED") {
+				return &ErrGhRateLimit{ResetAt: fetchRateLimitReset(), Cause: err}
+			}
+		}
+	}
+	// Fallback: message match for both GraphQL wrappers and REST HTTPError.
+	if strings.Contains(strings.ToLower(err.Error()), "rate limit") {
+		return &ErrGhRateLimit{ResetAt: fetchRateLimitReset(), Cause: err}
+	}
+	return nil
+}
+
+// fetchRateLimitReset queries GET /rate_limit for the GraphQL bucket's reset
+// time. Returns the zero value if the call fails — the sentinel handles that
+// gracefully.
+func fetchRateLimitReset() time.Time {
+	client, err := api.DefaultRESTClient()
+	if err != nil {
+		return time.Time{}
+	}
+	var resp struct {
+		Resources struct {
+			GraphQL struct{ Reset int64 } `json:"graphql"`
+		} `json:"resources"`
+	}
+	if err := client.Get("rate_limit", &resp); err != nil {
+		return time.Time{}
+	}
+	if resp.Resources.GraphQL.Reset == 0 {
+		return time.Time{}
+	}
+	return time.Unix(resp.Resources.GraphQL.Reset, 0)
+}
 
 //go:embed queries/*.graphql
 var queries embed.FS
@@ -18,6 +96,7 @@ var (
 	issueQuery      = query("issue.graphql")
 	prQuery         = query("pr-threads.graphql")
 	prByBranchQuery = query("pr-by-branch.graphql")
+	sprintQuery     = query("sprint.graphql")
 )
 
 func query(name string) string {
@@ -73,6 +152,9 @@ func prForBranch(owner, repo, branch string) (*prBranchInfo, error) {
 		"owner": owner, "repo": repo, "branch": branch,
 	}
 	if err := client.Do(prByBranchQuery, vars, &resp); err != nil {
+		if rl := asGhRateLimit(err); rl != nil {
+			return nil, rl
+		}
 		return nil, fmt.Errorf("query pr-by-branch %s/%s@%s: %w", owner, repo, branch, err)
 	}
 	if len(resp.Repository.PullRequests.Nodes) == 0 {
@@ -132,6 +214,9 @@ func issue(rawURL string) (Issue, []ghPR, error) {
 		"owner": owner, "repo": repo, "number": number,
 	}
 	if err := client.Do(issueQuery, vars, &resp); err != nil {
+		if rl := asGhRateLimit(err); rl != nil {
+			return Issue{}, nil, rl
+		}
 		return Issue{}, nil, fmt.Errorf("query issue %s: %w", rawURL, err)
 	}
 
@@ -197,6 +282,9 @@ func pr(rawURL string) (PR, []ghIssue, error) {
 		"owner": owner, "repo": repo, "number": number,
 	}
 	if err := client.Do(prQuery, vars, &resp); err != nil {
+		if rl := asGhRateLimit(err); rl != nil {
+			return PR{}, nil, rl
+		}
 		return PR{}, nil, fmt.Errorf("query pr %s: %w", rawURL, err)
 	}
 

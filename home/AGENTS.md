@@ -6,7 +6,7 @@ Every worktree under `~/w/<repo>/<branch>/` has two plan files (both gitignored)
 - `plan.toml` — structured, tool-managed. Canonical schema: `dotfiles/cmd/work/plan.go`. Fields: `title`, `status`, `due`, `tasks[]`, `slack`, `[[issue]]`, `[pr]` with `[[pr.comment]]`. Populated by `work sync`.
 - `plan.md` — freeform scratchpad. Human notes, LLM output, outlining, temp thoughts. The `work` tool never touches this file. Top of the doc is for humans; bottom is for LLMs.
 
-The old `~/w/plan.md` aggregate is retired. The live cross-worktree view is `work list`.
+Use `work list` for the cross-worktree view.
 
 ### editing plan.toml
 
@@ -20,16 +20,16 @@ Use `work` verbs for anything that has one — never hand-edit or `sed`:
 | open in $EDITOR | `work edit` |
 | parse-check | `work validate [-a]` |
 
-For fields without a verb yet — most notably `[[pr.comment]]` entries used by `/pr-review` — use `yq -p toml -o toml -i` so structure and quoting stay sound. Example, append a comment:
+For fields without a verb yet — most notably `[[pr]].comment` entries used by `/pr-review` — use `yq -p toml -o toml -i` so structure and quoting stay sound. `[[pr]]` is an array (a worktree can carry multiple PRs), so append to a specific PR's comments by indexing:
 
 ```bash
-yq -p toml -o toml -i '.pr.comment += [{"title":"…","status":"open","source":"…","author":"…","thread":"…","fix_ref":"","comment":"…","plan":"","reply":""}]' plan.toml
+yq -p toml -o toml -i '.pr[0].comment += [{"title":"…","status":"open","source":"…","author":"…","thread":"…","fix_ref":"","comment":"…","plan":"","reply":""}]' plan.toml
 ```
 
-Update a comment's status by index:
+Update a comment's status by PR index and comment index:
 
 ```bash
-yq -p toml -o toml -i '.pr.comment[0].status = "closed"' plan.toml
+yq -p toml -o toml -i '.pr[0].comment[0].status = "closed"' plan.toml
 ```
 
 ## editing toml (non-plan)

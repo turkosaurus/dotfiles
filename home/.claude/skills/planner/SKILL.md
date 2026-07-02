@@ -133,8 +133,7 @@ Chores show up in `work list` alongside worktrees and are the durable place for 
 
 ## Notes
 
-- **Never** write `~/w/plan.md`. That aggregate document is retired.
 - If the user wants to keep freeform notes for a worktree, `<worktree>/plan.md` is available as a scratchpad. Don't touch it unless asked.
-- The `plan.toml` at each worktree is the structured, tool-managed metadata. The `tasks[]` array is the ordered backlog — respect its ordering as the user's intent. When editing `plan.toml`, use `yq -p toml -o toml -i` per the global editing-toml rule (see `~/AGENTS.md`).
+- The `plan.toml` at each worktree is the structured, tool-managed metadata. The `tasks[]` array is the ordered backlog — respect its ordering as the user's intent. Prefer `work` verbs for edits; fall back to `yq -p toml -o toml -i` only for fields without a verb (see `~/AGENTS.md`).
 - Be opinionated about what belongs on today's list. Make a call.
 - Everything gets listed — nothing silently dropped.

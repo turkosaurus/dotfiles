@@ -113,18 +113,15 @@ func runMain(_ *mainCmd) error {
 	return fmt.Errorf("main worktree not found")
 }
 
-// runPrev emits the previously-visited path saved by emitPath. Doesn't call
-// emitPath — that would overwrite the .previous file, making `work -` a loop.
+// runPrev writes the previously-visited path (saved by emitPath) as the
+// next cd-target. Uses writeNextPath, not emitPath, so we don't overwrite
+// .previous with the cwd — that would make `work -` a two-step loop.
 func runPrev(_ *prevCmd) error {
 	p, err := readPrevious()
 	if err != nil {
 		return fmt.Errorf("prev: %w", err)
 	}
-	if realStdout != nil {
-		fmt.Fprintln(realStdout, p)
-	} else {
-		fmt.Println(p)
-	}
+	writeNextPath(p)
 	return nil
 }
 

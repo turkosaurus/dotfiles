@@ -8,11 +8,43 @@ import (
 	"strings"
 	"sync"
 
+	"atomicgo.dev/keyboard/keys"
 	"github.com/pterm/pterm"
 )
 
 type rmCmd struct {
-	Name string `arg:"positional" help:"worktree name (empty → pick; . → current)"`
+	Name string `arg:"positional" help:"worktree name (empty → multiselect picker; . → current)"`
+
+	// Status filters narrow the multiselect picker. Combinable; no filters
+	// means every status is offered. Closed tasks selected in the picker are
+	// deleted permanently (`work rm` is idempotent-ish: rm once moves to
+	// closed, rm again nukes).
+	Open    bool `arg:"-o,--open" help:"only offer tasks in status=open"`
+	Waiting bool `arg:"-w,--waiting" help:"only offer tasks in status=waiting"`
+	Working bool `arg:"-W,--working" help:"only offer tasks in status=working"`
+	Closed  bool `arg:"-c,--closed" help:"only offer tasks in status=closed (selecting deletes permanently)"`
+}
+
+// rmStatusFilter returns the set of statuses the rm picker should offer, or
+// nil if no filter was requested.
+func (c *rmCmd) rmStatusFilter() map[statusKind]bool {
+	set := map[statusKind]bool{}
+	if c.Open {
+		set[statusOpen] = true
+	}
+	if c.Waiting {
+		set[statusWaiting] = true
+	}
+	if c.Working {
+		set[statusWorking] = true
+	}
+	if c.Closed {
+		set[statusClosed] = true
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	return set
 }
 
 type cleanCmd struct {
@@ -20,44 +52,103 @@ type cleanCmd struct {
 }
 
 // runRm dispatches on what was selected:
-//   - worktree → git worktree remove + emit main path if cwd is now gone
-//   - task    → mark as closed (mv to ~/w/t/closed/)
+//   - worktree                     → git worktree remove + emit main path
+//   - task in {open/waiting/working} → move to ~/w/t/closed/
+//   - task already in closed        → delete permanently
+//
+// Empty name opens a multiselect picker; status flags (-o/-w/-W/-c) narrow
+// the offered set. Named or "." → single worktree, no picker.
 func runRm(c *rmCmd) error {
-	// Empty name → unified picker (both types).
-	if c.Name == "" {
-		spinner, _ := pterm.DefaultSpinner.WithText("loading").Start()
-		items, err := loadInventory(true, true)
-		_ = spinner.Stop()
+	if c.Name != "" {
+		wt, err := selectWorktree(c.Name)
 		if err != nil {
 			return fmt.Errorf("rm: %w", err)
 		}
-		if len(items) == 0 {
-			return fmt.Errorf("rm: nothing to remove")
-		}
-		it, err := pickInventory(items)
-		if err != nil {
-			return fmt.Errorf("rm: %w", err)
-		}
-		return processRm(it)
+		return processRm(inventoryItem{Worktree: &wt})
 	}
 
-	// Named or "." → worktree only.
-	wt, err := selectWorktree(c.Name)
+	spinner, _ := pterm.DefaultSpinner.WithText("loading").Start()
+	items, err := loadInventory(true, true)
+	if sErr := spinner.Stop(); sErr != nil {
+		log.Debug("spinner.Stop", log.Args("err", sErr))
+	}
 	if err != nil {
 		return fmt.Errorf("rm: %w", err)
 	}
-	return processRm(inventoryItem{Worktree: &wt})
+	// Apply status filter to tasks. Worktrees are only offered when no
+	// status flag narrows the pick (they don't fit into any single status).
+	filter := c.rmStatusFilter()
+	if filter != nil {
+		items = filterRmItems(items, filter)
+	}
+	if len(items) == 0 {
+		return fmt.Errorf("rm: nothing matches the current filters")
+	}
+
+	labels := formatLabels(items)
+	byLabel := make(map[string]inventoryItem, len(items))
+	for i, it := range items {
+		byLabel[labels[i]] = it
+	}
+	sel, err := pterm.DefaultInteractiveMultiselect.
+		WithOptions(labels).
+		WithFilter(true).
+		WithMaxHeight(20).
+		WithKeySelect(keys.Tab).
+		WithKeyConfirm(keys.Enter).
+		Show()
+	if err != nil {
+		return fmt.Errorf("rm: %w", err)
+	}
+	if len(sel) == 0 {
+		pterm.Info.Println("rm: nothing selected")
+		return nil
+	}
+	if !confirm(fmt.Sprintf("rm %d item(s)?", len(sel))) {
+		return fmt.Errorf("rm: cancelled")
+	}
+	for _, label := range sel {
+		if err := processRm(byLabel[label]); err != nil {
+			pterm.Warning.Printfln("rm %s: %v", label, err)
+		}
+	}
+	return nil
+}
+
+// filterRmItems keeps items matching the status filter. Worktrees are
+// dropped when a filter is active — they don't map cleanly to a single
+// task status, and `work rm` on a worktree is safer as a named single
+// operation anyway.
+func filterRmItems(items []inventoryItem, filter map[statusKind]bool) []inventoryItem {
+	out := items[:0]
+	for _, it := range items {
+		if it.Task == nil {
+			continue
+		}
+		if filter[it.Task.Status] {
+			out = append(out, it)
+		}
+	}
+	return out
 }
 
 // processRm executes the removal for whichever kind of item was chosen.
+// Closed tasks are deleted permanently; other statuses move to closed.
 func processRm(it inventoryItem) error {
 	switch {
 	case it.Task != nil:
+		if it.Task.Status == statusClosed {
+			if err := os.Remove(it.Task.Path); err != nil {
+				return fmt.Errorf("delete: %w", err)
+			}
+			pterm.Success.Printfln("deleted %s", relPath(it.Task.Path))
+			return nil
+		}
 		p, err := moveTask(*it.Task, statusClosed)
 		if err != nil {
 			return fmt.Errorf("task done: %w", err)
 		}
-		pterm.Success.Printfln("done: %s", p.Title)
+		pterm.Success.Printfln("closed: %s", p.Title)
 		return nil
 
 	case it.Worktree != nil:
