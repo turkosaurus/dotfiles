@@ -76,7 +76,19 @@ work() {
 `
 
 func renderShim(binaryPath string) string {
-	return fmt.Sprintf(shellFuncTemplate, binaryPath)
+	return fmt.Sprintf(shellFuncTemplate, portablePath(binaryPath))
+}
+
+// portablePath rewrites a home-relative absolute path to use "$HOME" so
+// the rendered shim is portable across users (and doesn't leak the
+// current username into the rc file). readShimTarget's os.ExpandEnv
+// call restores $HOME at read time. Paths outside $HOME pass through.
+func portablePath(p string) string {
+	home := os.Getenv("HOME")
+	if home == "" || !strings.HasPrefix(p, home+"/") {
+		return p
+	}
+	return "$HOME" + strings.TrimPrefix(p, home)
 }
 
 // runInstall performs (in order):
