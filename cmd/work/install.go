@@ -290,7 +290,7 @@ func loadPersistedSource() string {
 	if err != nil {
 		return ""
 	}
-	return c.Source.Path
+	return c.Path.Source
 }
 
 // persistSource stores src in config.source.path. Always writes so a missing
@@ -301,7 +301,7 @@ func persistSource(src string) error {
 	if err != nil {
 		return err
 	}
-	c.Source.Path = src
+	c.Path.Source = src
 	if err := saveConfig(c); err != nil {
 		return err
 	}
