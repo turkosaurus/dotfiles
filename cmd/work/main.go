@@ -9,8 +9,10 @@ import (
 )
 
 type args struct {
-	Verbose bool `arg:"-v,--verbose" help:"verbose output"`
-	Yes     bool `arg:"-y,--yes" help:"assume yes to all prompts"`
+	Verbose bool   `arg:"-v,--verbose" help:"verbose output"`
+	Quiet   bool   `arg:"-q,--quiet" help:"suppress INFO and SUCCESS output; only WARN and ERROR appear"`
+	Yes     bool   `arg:"-y,--yes" help:"assume yes to all prompts"`
+	Project string `arg:"-p,--project" help:"filter every picker/list to items {t,true} that have a linked issue with a project, or {f,false} to items without"`
 
 	List    *listCmd    `arg:"subcommand:list" help:"list worktrees and tasks (alias: ls)"`
 	Pick    *pickCmd    `arg:"subcommand:pick" help:"pick a worktree (empty → fzf; name → navigate). same as: work [name]"`
@@ -21,15 +23,22 @@ type args struct {
 	Edit    *editCmd    `arg:"subcommand:edit" help:"edit current worktree's plan.toml (default); -a for batch status editor"`
 	Clean   *cleanCmd   `arg:"subcommand:clean" help:"remove worktrees with merged/closed PRs"`
 	Rm      *rmCmd      `arg:"subcommand:rm" help:"remove a worktree"`
-	Promote *promoteCmd `arg:"subcommand:promote" help:"promote a task (~/w/t/open/N.toml) into the current branch's worktree"`
+	Promote *promoteCmd `arg:"subcommand:promote" help:"multiselect one or more tasks; fold them into a new worktree from the current branch"`
 	Sync    *syncCmd    `arg:"subcommand:sync" help:"sync plan with github"`
 	Install *installCmd `arg:"subcommand:install" help:"append the shim to your shellrc (--print to stdout instead)"`
 	Legend   *legendCmd   `arg:"subcommand:legend" help:"print the icon legend"`
 	Validate *validateCmd `arg:"subcommand:validate" help:"parse current worktree's plan.toml (default); -a for every plan"`
+	Config   *configCmd   `arg:"subcommand:config" help:"open $XDG_CONFIG_HOME/work/config.toml in $EDITOR (seeded with defaults + comments)"`
+	Merge    *mergeCmd    `arg:"subcommand:merge" help:"merge multiple plans (worktrees + tasks) into one — auto-picks primary, unions tasks[] + [[issue]]"`
 }
 
+type configCmd struct{}
+
+type mergeCmd struct{}
+
 type syncCmd struct {
-	All bool `arg:"-a,--all" help:"sync all plans"` // TODO: use
+	All    bool `arg:"-a,--all" help:"sync every worktree plan (default: current worktree only)"`
+	DryRun bool `arg:"-d,--dry-run" help:"preview sprint changes (creates/status updates) without writing"`
 }
 
 func (args) Description() string {
@@ -41,14 +50,18 @@ func (args) Description() string {
 var knownSubcommands = map[string]bool{
 	"pick": true, "new": true, "main": true, "-": true,
 	"status": true, "set": true, "edit": true, "rm": true, "clean": true, "list": true, "sync": true,
-	"install": true, "legend": true, "validate": true, "promote": true,
+	"install": true, "legend": true, "validate": true, "promote": true, "config": true, "merge": true,
 }
 
 // globalFlags are the top-level flags that must precede a subcommand.
+// -p/--project takes a value (t/true/f/false); the picker filter is
+// applied in loadInventory via the projectFilter package-level var.
 var globalFlags = map[string]bool{
 	"-v": true, "--verbose": true,
+	"-q": true, "--quiet": true,
 	"-y": true, "--yes": true,
 	"-h": true, "--help": true,
+	"-p": true, "--project": true,
 }
 
 // splitBundledShorts turns POSIX-style bundled shorts (like -bWy) into
@@ -82,10 +95,31 @@ func splitBundledShorts() {
 //
 // `-` (bare dash) is the `prev` subcommand; left alone.
 func preprocessArgs() {
-	// Skip past global flags.
+	// Skip past global flags. Handles the three shapes go-arg accepts:
+	//   -v                 (bool)
+	//   -p=value / --project=value
+	//   -p value           (need to skip the following token too)
+	valueTaking := map[string]bool{"-p": true, "--project": true}
 	i := 1
-	for i < len(os.Args) && globalFlags[os.Args[i]] {
+	for i < len(os.Args) {
+		tok := os.Args[i]
+		// key=value form
+		if eq := strings.IndexByte(tok, '='); eq > 0 {
+			key := tok[:eq]
+			if globalFlags[key] {
+				i++
+				continue
+			}
+			break
+		}
+		if !globalFlags[tok] {
+			break
+		}
 		i++
+		// value-taking global consumes the next token as its argument
+		if valueTaking[tok] && i < len(os.Args) {
+			i++
+		}
 	}
 	if i >= len(os.Args) {
 		os.Args = append(os.Args, "pick")
@@ -133,7 +167,14 @@ func main() {
 	if a.Verbose {
 		log = log.WithLevel(pterm.LogLevelDebug)
 	}
+	if a.Quiet {
+		setQuietMode()
+	}
 	confirmYes = a.Yes
+	if err := setProjectFilter(a.Project); err != nil {
+		pterm.Error.Println(err)
+		os.Exit(1)
+	}
 	log.Debug("verbose mode enabled")
 
 	if err := setupDirs(); err != nil {
@@ -142,7 +183,11 @@ func main() {
 	}
 
 	if err := dispatch(&a); err != nil {
-		pterm.Error.Println(err)
+		// Empty message = the subcommand already printed. Non-empty = summary
+		// exit reason; print once here.
+		if err.Error() != "" {
+			pterm.Error.Println(err)
+		}
 		os.Exit(1)
 	}
 }
@@ -177,6 +222,10 @@ func dispatch(a *args) error {
 		return runLegend(a.Legend)
 	case a.Validate != nil:
 		return runValidate(a.Validate)
+	case a.Config != nil:
+		return runConfig(a.Config)
+	case a.Merge != nil:
+		return runMerge(a.Merge)
 	}
 	// Fallthrough (shouldn't happen: preprocessArgs inserts "pick" for no-args).
 	return runPick(&pickCmd{})

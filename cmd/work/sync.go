@@ -15,7 +15,7 @@ import (
 
 func runSync(args *syncCmd) error {
 	if args.All {
-		return runSyncAll()
+		return runSyncAll(args.DryRun)
 	}
 
 	// Single-sync uses the managed worktree containing cwd (~/w/<repo>/<branch>),
@@ -40,7 +40,6 @@ func runSync(args *syncCmd) error {
 	case statErr != nil:
 		return fmt.Errorf("stat plan: %w", statErr)
 	default:
-		// Exists — confirm it parses.
 		if _, err := readPlan(planPath); err != nil {
 			skip, herr := handleBrokenPlan(planPath, wt.String(), err)
 			if herr != nil {
@@ -52,21 +51,51 @@ func runSync(args *syncCmd) error {
 		}
 	}
 
-	changed, note, err := syncRoot(wt.Path)
-	if err != nil {
-		return err
-	}
-	if changed {
-		if note != "" {
-			pterm.Success.Printfln("synced %s (%s)", wt, note)
-		} else {
-			pterm.Success.Printfln("synced %s (updated)", wt)
-		}
-	} else {
-		pterm.Info.Printfln("synced %s (no-op)", wt)
+	changed, note, err := syncRoot(wt.Path, args.DryRun)
+	reportWorktreeSync(wt.String(), changed, note, err, args.DryRun)
+
+	if serr := runSprintSync(args.DryRun); serr != nil {
+		return serr
 	}
 	warnIfBroken()
+	if err != nil {
+		// reportWorktreeSync already printed the error line — return the
+		// silent sentinel so main.dispatch doesn't reprint it.
+		return errPrinted
+	}
 	return nil
+}
+
+// reportWorktreeSync prints a single line describing what happened to one
+// worktree's plan.toml, using the same shape as sprint reconcile lines:
+//   {would update|updated} <name> (<detail>)
+// where detail is "no-op" when nothing changed, the diffPlans note when
+// something changed, or an error's message. The verb comes from the
+// dryRun flag; the phrase inside parens comes from the actual outcome.
+func reportWorktreeSync(name string, changed bool, note string, err error, dryRun bool) {
+	verb := "updated"
+	if dryRun {
+		verb = "would update"
+	}
+	switch {
+	case err != nil:
+		pterm.Error.Printfln("%s %s (error: %v)", verb, name, err)
+	case !changed:
+		pterm.Info.Printfln("%s %s (no-op)", verb, name)
+	case dryRun:
+		pterm.Info.Printfln("%s %s (%s)", verb, name, orNote(note))
+	default:
+		pterm.Success.Printfln("%s %s (%s)", verb, name, orNote(note))
+	}
+}
+
+// orNote returns note when non-empty, else "updated" as a fallback detail
+// (rare: change was structural but diffPlans couldn't summarize).
+func orNote(note string) string {
+	if note == "" {
+		return "updated"
+	}
+	return note
 }
 
 // handleBrokenPlan prompts [e]dit / [s]kip / [q]uit when plan.toml at
@@ -101,7 +130,7 @@ func handleBrokenPlan(planPath, displayName string, parseErr error) (bool, error
 	}
 }
 
-func runSyncAll() error {
+func runSyncAll(dryRun bool) error {
 	// Scan every worktree, not just those with an existing plan.toml.
 	wts, err := listWorktrees()
 	if err != nil {
@@ -134,9 +163,33 @@ func runSyncAll() error {
 		}
 	}
 
-	// Parallel sync with progress bar.
-	bar, _ := pterm.DefaultProgressbar.WithTotal(len(wts)).WithTitle("syncing").Start()
-	defer func() { _, _ = bar.Stop() }()
+	// Two-bar layout via MultiPrinter so the worktree fetch and the sprint
+	// fetch progress side-by-side without stepping on each other. Sprint is
+	// a 2-tick bar: 1/2 after fetch completes (network), 2/2 after
+	// reconcile completes (disk writes). All per-item output is buffered
+	// and printed after both bars stop.
+	multi := pterm.DefaultMultiPrinter
+	if _, err := multi.Start(); err != nil {
+		log.Debug("multi.Start", log.Args("err", err))
+	}
+
+	// Sprint spinner first (top of the stacked MultiPrinter area), then the
+	// worktree progress bar below. WithRemoveWhenDone drops the bar frame
+	// on Stop so we can print an OK line in its place.
+	sprintSpinner, _ := pterm.DefaultSpinner.
+		WithText("syncing sprint").
+		WithWriter(multi.NewWriter()).
+		Start()
+	wtWriter := multi.NewWriter()
+	wtBar, _ := pterm.DefaultProgressbar.
+		WithTotal(len(wts)).
+		WithTitle("worktrees").
+		WithWriter(wtWriter).
+		WithRemoveWhenDone(true).
+		Start()
+
+	sprintCh := make(chan sprintFetchResult, 1)
+	go func() { sprintCh <- fetchSprint(nil) }()
 
 	type result struct {
 		name    string
@@ -145,37 +198,86 @@ func runSyncAll() error {
 		err     error
 	}
 	results := make([]result, len(wts))
-
 	var wg sync.WaitGroup
 	for i, wt := range wts {
 		wg.Add(1)
 		go func(i int, wt worktree) {
 			defer wg.Done()
-			defer bar.Increment()
-			changed, note, err := syncRoot(wt.Path)
+			defer wtBar.Increment()
+			changed, note, err := syncRoot(wt.Path, dryRun)
 			results[i] = result{name: wt.String(), changed: changed, note: note, err: err}
 		}(i, wt)
 	}
 	wg.Wait()
+	if _, err := wtBar.Stop(); err != nil {
+		log.Debug("wtBar.Stop", log.Args("err", err))
+	}
+	// Bar removed itself (WithRemoveWhenDone); print an OK line into the
+	// same MultiPrinter area so the "worktrees: N synced" line appears in
+	// the row the bar previously occupied.
+	pterm.Success.WithWriter(wtWriter).Printfln("worktrees: %d synced", len(wts))
 
-	rows := pterm.TableData{{"status", "plan", "note"}}
+	// Plan-only pass — no side effects. Actions are queued for later.
+	sprintRes := <-sprintCh
+	sprintOut, sprintActions, serr := planSprint(sprintRes)
+	switch {
+	case sprintRes.err != nil:
+		sprintSpinner.Fail("sprint fetch failed")
+	case serr != nil:
+		sprintSpinner.Fail("sprint plan failed")
+	case sprintRes.disabled:
+		if sErr := sprintSpinner.Stop(); sErr != nil {
+			log.Debug("sprintSpinner.Stop", log.Args("err", sErr))
+		}
+	default:
+		sprintSpinner.Success(fmt.Sprintf("sprint: %d project items", len(sprintRes.items)))
+	}
+	if _, err := multi.Stop(); err != nil {
+		log.Debug("multi.Stop", log.Args("err", err))
+	}
+
+	// Now bars are down; flush all buffered output.
 	failed := 0
 	for _, r := range results {
-		switch {
-		case r.err != nil:
-			rows = append(rows, []string{pterm.Red("err"), r.name, r.err.Error()})
+		reportWorktreeSync(r.name, r.changed, r.note, r.err, dryRun)
+		if r.err != nil {
 			failed++
-		case r.changed:
-			rows = append(rows, []string{pterm.Green("updated"), r.name, r.note})
-		default:
-			rows = append(rows, []string{pterm.Gray("no-op"), r.name, ""})
 		}
 	}
-	_ = pterm.DefaultTable.WithHasHeader().WithData(rows).Render()
-
+	sprintOut.flush()
+	if serr != nil {
+		return serr
+	}
+	// Confirm + apply the sprint actions (skipped in dry-run). Silent
+	// stamp writes are auto-applied without contributing to the confirm
+	// count — the user only decides about real status changes / creates.
+	sprintFailed := 0
+	if !dryRun && !sprintRes.disabled {
+		loud := countUserFacingActions(sprintActions)
+		switch {
+		case loud == 0:
+			pterm.Info.Println("sprint: nothing to apply")
+		case !confirm(fmt.Sprintf("apply %d sprint change(s)?", loud)):
+			pterm.Info.Println("sprint sync cancelled")
+		default:
+			preApply := len(sprintOut.lines)
+			sprintFailed = applySprint(sprintActions, &sprintOut)
+			for _, l := range sprintOut.lines[preApply:] {
+				fmt.Print(l)
+			}
+			if sprintFailed == 0 {
+				pterm.Success.Printfln("applied %d sprint change(s)", loud)
+			}
+		}
+	}
 	warnIfBroken()
-	if failed > 0 {
+	switch {
+	case failed > 0 && sprintFailed > 0:
+		return fmt.Errorf("%d worktree(s) + %d sprint apply(s) failed", failed, sprintFailed)
+	case failed > 0:
 		return fmt.Errorf("%d of %d plans failed", failed, len(wts))
+	case sprintFailed > 0:
+		return fmt.Errorf("sprint: %d apply(s) failed", sprintFailed)
 	}
 	return nil
 }
@@ -189,9 +291,11 @@ func seedPlan(planPath, branch string) error {
 
 // syncRoot performs the sync for a single worktree root. Caller must ensure
 // plan.toml exists. Returns (changed, note, err) where changed=true means
-// the plan.toml was rewritten and note is a short human-readable summary of
-// what differed.
-func syncRoot(root string) (bool, string, error) {
+// the plan.toml would-be / was rewritten and note summarizes what differed.
+//
+// dryRun=true suppresses the actual write. `changed` still reflects whether
+// content would differ so the caller can label the line "would update".
+func syncRoot(root string, dryRun bool) (bool, string, error) {
 	branch, err := currentBranch(root)
 	if err != nil {
 		return false, "", fmt.Errorf("branch: %w", err)
@@ -236,10 +340,11 @@ func syncRoot(root string) (bool, string, error) {
 		// GitHub returns "unknown" for mergeable when it hasn't computed the
 		// state yet (lazy computation). Treat that as "no new data" and keep
 		// the previous value to avoid churn on every sync.
-		if prData.Mergeable == "unknown" && p.PR.Mergeable != "" && p.PR.Mergeable != "unknown" {
-			prData.Mergeable = p.PR.Mergeable
+		prevMergeable := firstPR(p).Mergeable
+		if prData.Mergeable == "unknown" && prevMergeable != "" && prevMergeable != "unknown" {
+			prData.Mergeable = prevMergeable
 		}
-		p.PR = prData
+		p.PRs = upsertPR(p.PRs, prData)
 		for _, ref := range closes {
 			if !hasIssueURL(p.Issues, ref.URL) {
 				p.Issues = append(p.Issues, Issue{URL: ref.URL})
@@ -268,6 +373,9 @@ func syncRoot(root string) (bool, string, error) {
 	if bytes.Equal(beforeBytes, afterBytes) {
 		return false, "", nil // no-op
 	}
+	if dryRun {
+		return true, diffPlans(before, p), nil
+	}
 	if err := writePlan(p); err != nil {
 		return false, "", fmt.Errorf("write plan: %w", err)
 	}
@@ -279,32 +387,34 @@ func syncRoot(root string) (bool, string, error) {
 func diffPlans(a, b plan) string {
 	var parts []string
 
+	aPR, bPR := firstPR(a), firstPR(b)
+
 	// PR: appearance
 	switch {
-	case a.PR.URL == "" && b.PR.URL != "":
+	case aPR.URL == "" && bPR.URL != "":
 		parts = append(parts, "new pr")
-	case a.PR.URL != "" && b.PR.URL == "":
+	case aPR.URL != "" && bPR.URL == "":
 		parts = append(parts, "pr removed")
 	}
 	// PR: state
-	if a.PR.URL != "" && b.PR.URL != "" && a.PR.Mergeable != b.PR.Mergeable {
-		parts = append(parts, fmt.Sprintf("pr: %s→%s", nonEmpty(a.PR.Mergeable), nonEmpty(b.PR.Mergeable)))
+	if aPR.URL != "" && bPR.URL != "" && aPR.Mergeable != bPR.Mergeable {
+		parts = append(parts, fmt.Sprintf("pr: %s→%s", nonEmpty(aPR.Mergeable), nonEmpty(bPR.Mergeable)))
 	}
 	// PR: title
-	if a.PR.URL != "" && b.PR.URL != "" && a.PR.Title != b.PR.Title {
+	if aPR.URL != "" && bPR.URL != "" && aPR.Title != bPR.Title {
 		parts = append(parts, "pr title changed")
 	}
 	// PR: comments (count delta + body edits on matching entries)
-	if d := len(b.PR.Comments) - len(a.PR.Comments); d != 0 {
+	if d := len(bPR.Comments) - len(aPR.Comments); d != 0 {
 		parts = append(parts, fmt.Sprintf("%+d comments", d))
 	}
 	// Detect edits: match by (thread, author, source); if body changed → edit.
-	beforeBodies := make(map[string]string, len(a.PR.Comments))
-	for _, c := range a.PR.Comments {
+	beforeBodies := make(map[string]string, len(aPR.Comments))
+	for _, c := range aPR.Comments {
 		beforeBodies[c.Thread+"|"+c.Author+"|"+c.Source] = c.Comment
 	}
 	edited := 0
-	for _, c := range b.PR.Comments {
+	for _, c := range bPR.Comments {
 		if prev, ok := beforeBodies[c.Thread+"|"+c.Author+"|"+c.Source]; ok && prev != c.Comment {
 			edited++
 		}

@@ -25,26 +25,40 @@ type statusCmd struct {
 // target returns the single target status from the flags, or an error if
 // zero or more than one flag is set.
 func (c *statusCmd) target() (statusKind, error) {
+	s, err := pickStatusFlag(c.Open, c.Waiting, c.Working, c.Closed, "")
+	if err != nil {
+		return "", fmt.Errorf("status: %w", err)
+	}
+	if s == "" {
+		return "", fmt.Errorf("status: need exactly one of -o/-w/-W/-c")
+	}
+	return s, nil
+}
+
+// pickStatusFlag resolves at most one of the four status booleans into a
+// statusKind. Zero flags returns fallback (the caller's default). More than
+// one flag returns an error.
+func pickStatusFlag(open, waiting, working, closed bool, fallback statusKind) (statusKind, error) {
 	var picks []statusKind
-	if c.Open {
+	if open {
 		picks = append(picks, statusOpen)
 	}
-	if c.Waiting {
+	if waiting {
 		picks = append(picks, statusWaiting)
 	}
-	if c.Working {
+	if working {
 		picks = append(picks, statusWorking)
 	}
-	if c.Closed {
+	if closed {
 		picks = append(picks, statusClosed)
 	}
 	switch len(picks) {
 	case 0:
-		return "", fmt.Errorf("status: need exactly one of -o/-w/-W/-c")
+		return fallback, nil
 	case 1:
 		return picks[0], nil
 	default:
-		return "", fmt.Errorf("status: only one target may be set")
+		return "", fmt.Errorf("only one of -o/-w/-W/-c may be set")
 	}
 }
 

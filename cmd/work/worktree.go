@@ -175,37 +175,32 @@ func readPrevious() (string, error) {
 	return p, nil
 }
 
-// emitPath writes target to the real stdout (captured at boot into realStdout)
-// so the shell wrapper's $() picks it up for cd. All other output stays on the
-// terminal via the fd-1 → fd-2 dup2 done in stdout.go's init.
+// nextFile is where the shell shim reads the next cd-target from. Written
+// by writeNextPath at the end of any command that navigates. Using a file
+// (not stdout) keeps `work`'s stdout free for pipes and grep.
+const nextFile = ".next"
+
+// emitPath records target as the next cd-target for the shell shim to
+// consume. Also stashes the current cwd as `previous` so `work -` can
+// return to it.
 func emitPath(target string) {
 	if cwd, err := os.Getwd(); err == nil {
 		if _, err := os.Stat(cwd); err == nil && cwd != target {
-			_ = savePrevious(cwd)
+			if err := savePrevious(cwd); err != nil {
+				log.Debug("savePrevious", log.Args("err", err))
+			}
 		}
 	}
-	if realStdout == nil || realStdoutIsTerminal() {
-		fmt.Fprintln(os.Stderr, "shim not installed; nothing is capturing stdout to cd for you.")
-		fmt.Fprintln(os.Stderr, "install with: work install  (path emitted below)")
-	}
-	if realStdout != nil {
-		fmt.Fprintln(realStdout, target)
-	} else {
-		fmt.Println(target)
-	}
+	writeNextPath(target)
 }
 
-// realStdoutIsTerminal reports whether the real (pre-dup2) stdout is attached
-// to a TTY. If it is, no wrapper is capturing it.
-func realStdoutIsTerminal() bool {
-	if realStdout == nil {
-		return false
+// writeNextPath writes target to ~/w/.next without touching .previous. Used
+// by runPrev (which is jumping back and shouldn't overwrite its own history).
+func writeNextPath(target string) {
+	p := path.Join(defaultWorkDir, nextFile)
+	if err := os.WriteFile(p, []byte(target+"\n"), planFileMode); err != nil {
+		pterm.Warning.Printfln("writeNextPath: could not write %s: %v", p, err)
 	}
-	fi, err := realStdout.Stat()
-	if err != nil {
-		return false
-	}
-	return fi.Mode()&os.ModeCharDevice != 0
 }
 
 // currentRepoRoot returns the repo name for the current worktree by

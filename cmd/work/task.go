@@ -123,17 +123,18 @@ func nextTaskNum() (int, error) {
 }
 
 // newTask allocates the next task number and writes a default plan file
-// to the `open` subdirectory. Returns the populated plan.
-func newTask(title string) (plan, error) {
+// to the subdirectory for the given status. Returns the populated plan.
+func newTask(title string, status statusKind) (plan, error) {
 	n, err := nextTaskNum()
 	if err != nil {
 		return plan{}, fmt.Errorf("new task: %w", err)
 	}
-	dir := taskDir(statusOpen)
+	dir := taskDir(status)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return plan{}, fmt.Errorf("mkdir %s: %w", dir, err)
 	}
 	p := defaultPlan(title)
+	p.Status = status
 	p.Path = path.Join(dir, fmt.Sprintf("%d.toml", n))
 	if err := writePlan(p); err != nil {
 		return plan{}, fmt.Errorf("write task %d: %w", n, err)

@@ -5,31 +5,64 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
-	"strconv"
 
+	"atomicgo.dev/keyboard/keys"
 	"github.com/pterm/pterm"
 )
 
-type promoteCmd struct {
-	Num int `arg:"positional,required" help:"task number (as shown in ~/w/t/open/N.toml or via 'work list')"`
-}
+type promoteCmd struct{}
 
-// runPromote is the inverse of the plan-promotion in `work rm`:
-// given a task under ~/w/t/open/<N>.toml, create a worktree from the current
-// branch (like `work new .`) and move the task's plan.toml into it as the
-// worktree's plan. The task file is deleted on success.
+// runPromote presents a tasks-only multiselect picker and folds all selected
+// tasks into a new worktree from the current branch (like `work new .`). The
+// first selection's plan.toml becomes the worktree's plan; remaining
+// selections merge in (tasks[], [[issue]], [[pr]]) and get moved to closed.
 //
-// Run this from the target repo's main worktree, checked out on the branch you
-// want the task to live on. main/master is refused (same rule as `work new .`).
-func runPromote(c *promoteCmd) error {
-	src, err := findOpenTask(c.Num)
+// Run from the target repo's main worktree, checked out on the branch you
+// want the promoted work to live on. main/master is refused.
+func runPromote(_ *promoteCmd) error {
+	tasks, err := listTasksAll()
 	if err != nil {
 		return fmt.Errorf("promote: %w", err)
 	}
-	p, err := readPlan(src)
+	items := make([]inventoryItem, 0, len(tasks))
+	for i := range tasks {
+		if tasks[i].Status == statusClosed {
+			continue
+		}
+		t := tasks[i]
+		items = append(items, inventoryItem{Task: &t})
+	}
+	if len(items) == 0 {
+		pterm.Info.Println("promote: no open tasks")
+		return nil
+	}
+
+	labels := formatLabels(items)
+	byLabel := make(map[string]inventoryItem, len(items))
+	for i, it := range items {
+		byLabel[labels[i]] = it
+	}
+	sel, err := pterm.DefaultInteractiveMultiselect.
+		WithOptions(labels).
+		WithFilter(true).
+		WithMaxHeight(20).
+		WithKeySelect(keys.Tab).
+		WithKeyConfirm(keys.Enter).
+		Show()
 	if err != nil {
-		return fmt.Errorf("promote: read task: %w", err)
+		return fmt.Errorf("promote: %w", err)
+	}
+	if len(sel) == 0 {
+		pterm.Info.Println("promote: nothing selected")
+		return nil
+	}
+	picks := make([]plan, 0, len(sel))
+	for _, label := range sel {
+		it := byLabel[label]
+		if it.Task == nil {
+			continue
+		}
+		picks = append(picks, *it.Task)
 	}
 
 	branch, err := currentBranch(".")
@@ -63,37 +96,33 @@ func runPromote(c *promoteCmd) error {
 		return fmt.Errorf("promote: git worktree add: %w", err)
 	}
 
-	// Move (don't delete) the task file into the new worktree, then rewrite
-	// it in place with status=working and the new path. Rename keeps the file
-	// lineage intact — no os.Remove.
+	// First pick becomes the worktree's plan.toml (rename → keep file lineage).
+	primary := picks[0]
 	dst := path.Join(dir, planFileName)
-	if err := os.Rename(src, dst); err != nil {
+	if err := os.Rename(primary.Path, dst); err != nil {
 		return fmt.Errorf("promote: move task → plan: %w", err)
 	}
-	p.Status = statusWorking
-	p.Path = dst
-	if err := writePlan(p); err != nil {
+	primary.Status = statusWorking
+	primary.Path = dst
+
+	// Fold remaining picks in, then close them.
+	for _, other := range picks[1:] {
+		src, err := readPlan(other.Path)
+		if err != nil {
+			pterm.Warning.Printfln("skip %s: %v", relPath(other.Path), err)
+			continue
+		}
+		mergePlanFields(&primary, src)
+		if _, err := moveTask(other, statusClosed); err != nil {
+			pterm.Warning.Printfln("close %s: %v", relPath(other.Path), err)
+			continue
+		}
+		pterm.Success.Printfln("folded in %s", relPath(other.Path))
+	}
+	if err := writePlan(primary); err != nil {
 		return fmt.Errorf("promote: write plan: %w", err)
 	}
-
-	pterm.Success.Printfln("promoted #%d → %s", c.Num, relPath(dir))
+	pterm.Success.Printfln("promoted %d task(s) → %s", len(picks), relPath(dir))
 	emitPath(dir)
 	return nil
-}
-
-// findOpenTask locates an open task by number. Only ~/w/t/open/ is searched —
-// closed/waiting/working tasks are not promoted.
-func findOpenTask(n int) (string, error) {
-	p := path.Join(taskDir(statusOpen), strconv.Itoa(n)+".toml")
-	if _, err := os.Stat(p); err == nil {
-		return p, nil
-	}
-	// Fall back to a glob in case the file is padded/named oddly.
-	matches, _ := filepath.Glob(path.Join(taskDir(statusOpen), "*.toml"))
-	for _, m := range matches {
-		if path.Base(m) == strconv.Itoa(n)+".toml" {
-			return m, nil
-		}
-	}
-	return "", fmt.Errorf("no open task #%d (looked in %s)", n, taskDir(statusOpen))
 }

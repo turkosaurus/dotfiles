@@ -84,8 +84,8 @@ func editCurrentPlan() error {
 		return err
 	}
 	if _, err := readPlan(planPath); err != nil {
-		pterm.Warning.Printfln("plan.toml has parse errors — run `work validate` for details")
-		pterm.Warning.Printfln("  %v", err)
+		pterm.Error.Printfln("%v", err)
+		return errPrinted
 	}
 	return nil
 }
