@@ -3,10 +3,38 @@
 ## plans
 Every worktree under `~/w/<repo>/<branch>/` has two plan files (both gitignored):
 
-- `plan.toml` — structured, tool-managed. Canonical schema: `dotfiles/cmd/work/plan.go`. Fields: `title`, `status`, `due`, `tasks[]`, `slack`, `[[issue]]`, `[pr]` with `[[pr.comment]]`. Populated by `work sync`.
-- `plan.md` — freeform scratchpad. Human notes, LLM output, outlining, temp thoughts. The `work` tool never touches this file. Top of the doc is for humans; bottom is for LLMs.
+- `plan.toml` — structured, tool-managed. Canonical schema:
+  `dotfiles/cmd/work/plan.go`. Fields: `title`, `status`, `due`,
+  `tasks[]`, `slack`, `[[issue]]`, `[[pr]]` with `[[pr.comment]]`.
+  Populated by `work sync`.
+- `plan.md` — freeform scratchpad. Human notes, LLM output, outlining,
+  temp thoughts. The `work` tool never touches this file. Top of the
+  doc is for humans; bottom is for LLMs.
 
 Use `work list` for the cross-worktree view.
+
+### what goes where in plan.toml
+
+Two fields look similar but hold different things — keep them straight:
+
+- **`tasks[]`** — the ordered backlog of things **I** need to do to
+  resolve what this plan represents. Anything actionable belongs here:
+  outgoing review comments I need to author, fixes I need to make,
+  follow-ups to open on other PRs, deploys to run, decisions I owe
+  someone. Position matters; the top of the list is what's next.
+- **`[[pr]].comment`** — incoming review comments on **code I own**
+  (my PR) that I need to respond to. Written by `/pr-review` from
+  fetched GitHub review comments. Each entry has `status`, `reply`,
+  `fix_ref`, etc. to track my response.
+
+**Rule of thumb**: if it's a thing I need to *do*, it goes in
+`tasks[]`. If it's a review comment someone left on my code that I
+need to reply to or address, it goes in the matching `[[pr]].comment`.
+When in doubt (e.g. "author a comment on someone else's PR"), it's a
+task — the destination is outbound.
+
+Anything queued for later — even inside a code-review flow — should
+land in `tasks[]` so `work list` and `work sync` surface it.
 
 ### editing plan.toml
 

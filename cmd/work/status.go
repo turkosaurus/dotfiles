@@ -12,22 +12,13 @@ import (
 )
 
 type statusCmd struct {
-	// target status — at most one; may be omitted when --due is set
-	Open    bool `arg:"-o,--open" help:"set selected → status=open"`
-	Waiting bool `arg:"-w,--waiting" help:"set selected → status=waiting"`
-	Working bool `arg:"-W,--working" help:"set selected → status=working"`
-	Closed  bool `arg:"-c,--closed" help:"set selected → status=closed"`
+	// filterSpec provides -o/-w/-W/-c (dual-use: target status *and*
+	// implicit self-exclusion input), -t/-b (picker type filter), and
+	// -a/--all (include closed items in the picker).
+	filterSpec
 
 	// due-date override; empty → no change
 	Due string `arg:"-d,--due" help:"set selected → due (2h, 3d, tomorrow, ...)"`
-
-	// type filter for the picker
-	Tasks     bool `arg:"-t,--task" help:"offer only tasks in the picker"`
-	Worktrees bool `arg:"-b,--branch" help:"offer only worktree branches in the picker"`
-
-	// --all lifts the default "hide closed" filter so closed items also
-	// show up in the picker. Same convention as list/pick.
-	All bool `arg:"-a,--all" help:"include closed items in the picker"`
 
 	// Direct target: '.' → current worktree, else resolve as a worktree
 	// name. When set, skip the picker and apply the change to just that
@@ -107,8 +98,7 @@ func runStatus(c *statusCmd) error {
 		return nil
 	}
 
-	showWT := !c.Tasks || c.Worktrees
-	showCh := !c.Worktrees || c.Tasks
+	showWT, showCh := c.showKinds()
 
 	spinner, _ := pterm.DefaultSpinner.WithText("loading").Start()
 	items, err := loadInventory(showWT, showCh)
@@ -117,22 +107,13 @@ func runStatus(c *statusCmd) error {
 		return err
 	}
 	items = applySprintFilter(items)
-	// Hide closed items unless --all was passed (same default as
-	// list/pick). Then hide items already at the target status — setting
-	// an item to a status it already holds is a no-op. When only --due
-	// was passed (target == ""), the target filter is a no-op.
-	out := items[:0]
-	for _, it := range items {
-		s := itemStatus(it)
-		if !c.All && s == statusClosed {
-			continue
-		}
-		if target != "" && s == target {
-			continue
-		}
-		out = append(out, it)
+	// Hide closed unless --all (same default as list/pick), then exclude
+	// items already at target (a set-to-self no-op). Both filters degrade
+	// gracefully: --all leaves closed in; target=="" leaves everything in.
+	if !c.All {
+		items = excludeStatus(items, statusClosed)
 	}
-	items = out
+	items = excludeAtStatus(items, target)
 	if len(items) == 0 {
 		pterm.Info.Println("nothing to update")
 		return nil
@@ -225,13 +206,8 @@ func setDue(it inventoryItem, movedTo statusKind, due time.Time) error {
 		}
 	case it.Worktree != nil:
 		planPath = path.Join(it.Worktree.Path, planFileName)
-		if _, err := os.Stat(planPath); os.IsNotExist(err) {
-			if !confirmAlways(fmt.Sprintf("no plan.toml in %s. Seed one?", it.Worktree)) {
-				return fmt.Errorf("skipped (no plan.toml)")
-			}
-			if err := seedPlan(planPath, it.Worktree.Branch); err != nil {
-				return fmt.Errorf("seed: %w", err)
-			}
+		if _, err := ensurePlanFile(planPath, it.Worktree.String(), it.Worktree.Branch); err != nil {
+			return err
 		}
 	default:
 		return fmt.Errorf("unknown item type")
@@ -251,7 +227,7 @@ func setDue(it inventoryItem, movedTo statusKind, due time.Time) error {
 // setStatus applies target to one item.
 //   - task: moveTask (renames file into ~/w/t/<target>/)
 //   - worktree: yq-edit plan.toml's status; if missing, prompt to seed
-//     (always prompts, even with --yes, since seeding is a file-creating action)
+//     via ensurePlanFile (respects --yes)
 func setStatus(it inventoryItem, target statusKind) error {
 	switch {
 	case it.Task != nil:
@@ -260,13 +236,8 @@ func setStatus(it inventoryItem, target statusKind) error {
 
 	case it.Worktree != nil:
 		planPath := path.Join(it.Worktree.Path, planFileName)
-		if _, err := os.Stat(planPath); os.IsNotExist(err) {
-			if !confirmAlways(fmt.Sprintf("no plan.toml in %s. Seed one?", it.Worktree)) {
-				return fmt.Errorf("skipped (no plan.toml)")
-			}
-			if err := seedPlan(planPath, it.Worktree.Branch); err != nil {
-				return fmt.Errorf("seed: %w", err)
-			}
+		if _, err := ensurePlanFile(planPath, it.Worktree.String(), it.Worktree.Branch); err != nil {
+			return err
 		}
 		cmd := exec.Command("yq", "-p", "toml", "-o", "toml", "-i",
 			fmt.Sprintf(`.status = "%s"`, target), planPath)

@@ -9,50 +9,9 @@ import (
 
 type pickCmd struct {
 	Name string `arg:"positional" help:"branch name to navigate to; empty → fuzzy-pick"`
-
-	// type filters
-	Tasks     bool `arg:"-t,--task" help:"offer only tasks in the picker"`
-	Worktrees bool `arg:"-b,--branch" help:"offer only worktree branches in the picker"`
-
-	// status filters — combinable. No flags = default (open+waiting+working;
-	// closed hidden). --all shows every status including closed.
-	Open    bool `arg:"-o,--open" help:"only offer items with status=open"`
-	Waiting bool `arg:"-w,--waiting" help:"only offer items with status=waiting"`
-	Working bool `arg:"-W,--working" help:"only offer items with status=working"`
-	Closed  bool `arg:"-c,--closed" help:"only offer items with status=closed"`
-	All     bool `arg:"-a,--all" help:"show every status, including closed"`
+	filterSpec
 }
 
-// statusFilter mirrors listCmd.statusFilter(): --all disables the filter,
-// any explicit status flags union to their set, otherwise default hides
-// closed. The bool reports whether at least one flag was set explicitly
-// so callers can pick intersect vs union with -s (see filterInventory).
-func (c *pickCmd) statusFilter() (map[statusKind]bool, bool) {
-	if c.All {
-		return nil, false
-	}
-	set := map[statusKind]bool{}
-	if c.Open {
-		set[statusOpen] = true
-	}
-	if c.Waiting {
-		set[statusWaiting] = true
-	}
-	if c.Working {
-		set[statusWorking] = true
-	}
-	if c.Closed {
-		set[statusClosed] = true
-	}
-	if len(set) == 0 {
-		return map[statusKind]bool{
-			statusOpen:    true,
-			statusWaiting: true,
-			statusWorking: true,
-		}, false
-	}
-	return set, true
-}
 type mainCmd struct{} // work main
 type prevCmd struct{} // work -
 

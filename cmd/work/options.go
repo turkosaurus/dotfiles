@@ -104,6 +104,30 @@ func applySprintFilter(items []inventoryItem) []inventoryItem {
 	return out
 }
 
+// excludeAtStatus drops items whose current status equals target — the
+// "no-op set" filter. Only meaningful for commands with a target status
+// (like `set`/`status`); pass "" to disable.
+func excludeAtStatus(items []inventoryItem, target statusKind) []inventoryItem {
+	if target == "" {
+		return items
+	}
+	return excludeStatus(items, target)
+}
+
+// excludeStatus drops items whose current status equals kind. Distinct
+// from excludeAtStatus in that the caller has already decided to filter
+// (no empty-string escape hatch). Used by `set` to hide closed items by
+// default without leaning on filterInventory's status set.
+func excludeStatus(items []inventoryItem, kind statusKind) []inventoryItem {
+	out := items[:0]
+	for _, it := range items {
+		if itemStatus(it) != kind {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
 // filterInventory applies status + sprint filters. Composition rule for
 // -s/--sprint depends on whether status flags were set explicitly:
 //
