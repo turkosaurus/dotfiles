@@ -400,6 +400,85 @@ func convertPlanToTaskIfPending(wt worktree) (string, error) {
 	return newPath, nil
 }
 
+// closeMergedWorktree is the sync-side counterpart to `work rm` for
+// worktrees whose PR reached a terminal state (merged or closed): it
+// preserves any pending tasks[] by converting them to a task file
+// (status=working), removes the git worktree, and — when the tool's cwd
+// was inside the removed tree — writes the repo's main worktree as the
+// next cd-target so the shim can jump the user out cleanly.
+//
+// reason is "merged" or "closed" — used only for the log line.
+//
+// This runs from post-sync, sequentially, so parallel git operations
+// don't step on each other.
+func closeMergedWorktree(wt worktree, reason string) error {
+	if reason == "" {
+		reason = "closed"
+	}
+	mainDir := mainWorktreePath(wt.Path)
+	converted, err := convertMergedPlanToTask(wt)
+	if err != nil {
+		return fmt.Errorf("convert plan: %w", err)
+	}
+	if err := removeWorktree(wt); err != nil {
+		// Roll back the conversion so we don't orphan a task copy.
+		if converted != "" {
+			_ = os.Remove(converted)
+		}
+		return fmt.Errorf("remove worktree: %w", err)
+	}
+	if converted != "" {
+		pterm.Success.Printfln("closed %s (PR %s; pending tasks → %s)", wt, reason, relPath(converted))
+	} else {
+		pterm.Success.Printfln("closed %s (PR %s)", wt, reason)
+	}
+	// Pick a cd-target for the shell wrapper: if we preserved pending
+	// tasks, jump to the task's directory so the user lands on the new
+	// file. Otherwise fall back to the repo's main worktree.
+	if cwd, err := os.Getwd(); err == nil {
+		if _, statErr := os.Stat(cwd); statErr != nil {
+			target := mainDir
+			if converted != "" {
+				target = path.Dir(converted)
+			}
+			if target != "" {
+				emitPath(target)
+			}
+		}
+	}
+	return nil
+}
+
+// convertMergedPlanToTask is like convertPlanToTaskIfPending but tailored
+// to the auto-close case: tasks[] are preserved as a task file in status
+// `working` (never closed), no prompt. Returns the new task path or ""
+// when the worktree had no pending tasks.
+func convertMergedPlanToTask(wt worktree) (string, error) {
+	planPath := path.Join(wt.Path, planFileName)
+	p, err := readPlan(planPath)
+	if err != nil {
+		return "", nil // missing / broken plan — nothing to preserve
+	}
+	if len(p.Tasks) == 0 {
+		return "", nil
+	}
+	n, err := nextTaskNum()
+	if err != nil {
+		return "", fmt.Errorf("alloc task num: %w", err)
+	}
+	dir := taskDir(statusWorking)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("mkdir %s: %w", dir, err)
+	}
+	newPath := path.Join(dir, fmt.Sprintf("%d.toml", n))
+	p.Status = statusWorking
+	p.Path = newPath
+	if err := writePlan(p); err != nil {
+		return "", fmt.Errorf("write task: %w", err)
+	}
+	return newPath, nil
+}
+
 // removeWorktree runs `git worktree remove` and cleans up an empty repo parent.
 func removeWorktree(wt worktree) error {
 	cmd := exec.Command("git", "-C", wt.Path, "worktree", "remove", wt.Path)

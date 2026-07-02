@@ -13,6 +13,7 @@ type args struct {
 	Quiet   bool   `arg:"-q,--quiet" help:"suppress INFO and SUCCESS output; only WARN and ERROR appear"`
 	Yes     bool   `arg:"-y,--yes" help:"assume yes to all prompts"`
 	Project string `arg:"-p,--project" help:"filter every picker/list to items {t,true} that have a linked issue with a project, or {f,false} to items without"`
+	Sprint  bool   `arg:"-s,--sprint" help:"filter every picker/list to items linked to the configured sprint project (config.sprint.project_url)"`
 
 	List    *listCmd    `arg:"subcommand:list" help:"list worktrees and tasks (alias: ls)"`
 	Pick    *pickCmd    `arg:"subcommand:pick" help:"pick a worktree (empty → fzf; name → navigate). same as: work [name]"`
@@ -62,6 +63,7 @@ var globalFlags = map[string]bool{
 	"-y": true, "--yes": true,
 	"-h": true, "--help": true,
 	"-p": true, "--project": true,
+	"-s": true, "--sprint": true,
 }
 
 // splitBundledShorts turns POSIX-style bundled shorts (like -bWy) into
@@ -166,6 +168,7 @@ func main() {
 
 	if a.Verbose {
 		log = log.WithLevel(pterm.LogLevelDebug)
+		verboseMode = true
 	}
 	if a.Quiet {
 		setQuietMode()
@@ -174,6 +177,9 @@ func main() {
 	if err := setProjectFilter(a.Project); err != nil {
 		pterm.Error.Println(err)
 		os.Exit(1)
+	}
+	if a.Sprint {
+		setSprintFilter()
 	}
 	log.Debug("verbose mode enabled")
 

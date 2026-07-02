@@ -14,15 +14,22 @@ type pickCmd struct {
 	Tasks     bool `arg:"-t,--task" help:"offer only tasks in the picker"`
 	Worktrees bool `arg:"-b,--branch" help:"offer only worktree branches in the picker"`
 
-	// status filters — combinable
+	// status filters — combinable. No flags = default (open+waiting+working;
+	// closed hidden). --all shows every status including closed.
 	Open    bool `arg:"-o,--open" help:"only offer items with status=open"`
 	Waiting bool `arg:"-w,--waiting" help:"only offer items with status=waiting"`
 	Working bool `arg:"-W,--working" help:"only offer items with status=working"`
 	Closed  bool `arg:"-c,--closed" help:"only offer items with status=closed"`
+	All     bool `arg:"-a,--all" help:"show every status, including closed"`
 }
 
-// statusFilter mirrors listCmd.statusFilter().
+// statusFilter mirrors listCmd.statusFilter(): --all disables the filter,
+// any explicit status flags union to their set, otherwise default hides
+// closed.
 func (c *pickCmd) statusFilter() map[statusKind]bool {
+	if c.All {
+		return nil
+	}
 	set := map[statusKind]bool{}
 	if c.Open {
 		set[statusOpen] = true
@@ -37,7 +44,11 @@ func (c *pickCmd) statusFilter() map[statusKind]bool {
 		set[statusClosed] = true
 	}
 	if len(set) == 0 {
-		return nil
+		return map[statusKind]bool{
+			statusOpen:    true,
+			statusWaiting: true,
+			statusWorking: true,
+		}
 	}
 	return set
 }

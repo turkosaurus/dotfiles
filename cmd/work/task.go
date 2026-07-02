@@ -163,6 +163,38 @@ func listTasks(s statusKind) ([]plan, error) {
 	return tasks, nil
 }
 
+// reconcileTaskLocations walks every task file and moves any whose stored
+// `status` no longer matches its on-disk directory (e.g. a hand-edited
+// status field). Returns the count of files relocated.
+func reconcileTaskLocations() int {
+	matches, err := filepath.Glob(filepath.Join(defaultTaskDir, "*", "*.toml"))
+	if err != nil {
+		return 0
+	}
+	fixed := 0
+	for _, m := range matches {
+		p, err := readPlan(m)
+		if err != nil {
+			continue
+		}
+		if p.Status == "" {
+			continue // legacy or truncated; leave alone
+		}
+		expectedDir := taskDir(p.Status)
+		actualDir := filepath.Dir(m)
+		if expectedDir == actualDir {
+			continue
+		}
+		if _, err := moveTask(p, p.Status); err != nil {
+			pterm.Warning.Printfln("reconcile %s: %v", relPath(m), err)
+			continue
+		}
+		pterm.Success.Printfln("relocated %s → t/%s/", planLabel(p), p.Status)
+		fixed++
+	}
+	return fixed
+}
+
 // moveTask relocates the task file to the directory for newStatus, updates
 // its status field, and rewrites it.
 func moveTask(p plan, newStatus statusKind) (plan, error) {
