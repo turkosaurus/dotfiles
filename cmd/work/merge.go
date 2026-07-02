@@ -39,6 +39,7 @@ func runMerge(_ *mergeCmd) error {
 	if err != nil {
 		return fmt.Errorf("merge: %w", err)
 	}
+	items = applySprintFilter(items)
 	if len(items) < 2 {
 		pterm.Info.Println("merge: need at least 2 items in inventory")
 		return nil

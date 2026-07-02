@@ -143,7 +143,7 @@ type comment struct {
 }
 
 func defaultPlan(title string) plan {
-	due := time.Now().AddDate(0, 0, defaultDaysDue)
+	due := time.Now().AddDate(0, 0, 1)
 	return plan{
 		Title:  title,
 		Status: statusOpen,
