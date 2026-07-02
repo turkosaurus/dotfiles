@@ -50,16 +50,20 @@ fi
 PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 
 # work - git worktree wrapper with cd support
-# (Go binary at ~/go/bin/work; UI goes to stderr, cd-target paths to stdout.
-# Non-directory stdout — help, --print, errors — is echoed back.)
+# work-binary: /Users/scrubjay/.local/share/mise/installs/go/1.24.7/bin/work
 work() {
-  local out
-  out=$("$HOME/go/bin/work" "$@")
-  if [[ -d "$out" ]]; then
-    cd "$out"
-  elif [[ -n "$out" ]]; then
-    printf '%s\n' "$out"
+  local next="$HOME/w/.next"
+  rm -f "$next"
+  printf '\033[3;1H\033[J'
+  "/Users/scrubjay/.local/share/mise/installs/go/1.24.7/bin/work" "$@"
+  local rc=$?
+  if [[ -s "$next" ]]; then
+    local target
+    target=$(cat "$next")
+    rm -f "$next"
+    [[ -d "$target" ]] && cd "$target"
   fi
+  return $rc
 }
 
 export GOFLAGS=-buildvcs=false # fix worktree wonkiness
