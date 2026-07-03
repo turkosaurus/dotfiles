@@ -74,7 +74,8 @@
     "command": "~/bin/claude-status"
   },
   "enabledPlugins": {
-    "gopls-lsp@claude-plugins-official": true
+    "gopls-lsp@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true
   },
   "spinnerVerbs": {
     "mode": "replace",
@@ -83,6 +84,7 @@
     ]
   },
   "effortLevel": "high",
+  "tui": "fullscreen",
   "theme": "dark-ansi",
   "mcpServers": {
     "slack": {
@@ -92,6 +94,5 @@
         "mcp-server-slack"
       ]
     }
-  },
-  "tui": "fullscreen"
+  }
 }
