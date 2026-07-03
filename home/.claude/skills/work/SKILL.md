@@ -33,8 +33,8 @@ stdout so callers can parse the result without regex.
   - `new-task` — create a top-level task via `work new "<title>"`.
   - `pr-comment=<thread-id>` — write to a `[[pr.comment]]` entry
     matching the given thread ID.
-- `--status <open|waiting|working|closed|done>` — set status on the
-  target (mostly for pr-comment updates).
+- `--status <status>` — set status on the target. Valid values differ
+  by target type (see [Status semantics](#status-semantics) below).
 - `--fix-ref <ref>` — set `fix_ref` on a pr-comment target.
 - `--reply <text>` — set `reply` on a pr-comment target.
 
@@ -137,6 +137,32 @@ Hinted, from `/pr-review`:
 /work update "add nil-check to Fetch caller" --to pr-comment=T_ABC1
 /work update --to pr-comment=T_ABC1 --status done --fix-ref abc1234
 ```
+
+## Status semantics
+
+Two different vocabularies — don't mix them.
+
+**Worktree / top-level task** (`plan.status`, task status):
+
+| Value | Meaning | Handling in `/work plan` |
+|---|---|---|
+| `open` | Backlog. Not started. | Bulk of items. Surface only if it's the natural next step. |
+| `working` | Actively in progress. | Should be a small handful. If overloaded, move overflow back to `open`. |
+| `waiting` | In progress but blocked on someone else. | **Review first.** Clear out anything almost-done; ping collaborators on the rest. |
+| `closed` | Completed. | Ignore. |
+
+**PR comment** (`[[pr.comment]].status`) — mirrors `/pr-review`'s
+three phases:
+
+| Value | Meaning | Phase transition |
+|---|---|---|
+| `open` | Synced from GitHub; no plan yet. | initial (from `work sync`) |
+| `pending` | Plan (and usually reply) drafted — proposal, user may dissent. | set at end of Phase 1 (Plan) |
+| `done` | Fix in code (or confirmed nothing to fix), reply finalized. | set at end of Phase 2 (Implement); dropped on Phase 3 sync |
+
+The worktree vocabulary (`working`/`waiting`/`closed`) does **not**
+apply to PR comments. `pending` does **not** apply to worktrees or
+tasks.
 
 ## `/work plan`
 
