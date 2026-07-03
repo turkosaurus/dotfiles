@@ -1,0 +1,16 @@
+# Global taplo formatter config.
+# https://taplo.tamasfe.dev/configuration/formatter-options.html
+#
+# Local overrides: drop a `.taplo.toml` in a project root; it wins over
+# this file. See the "rule" section below for per-key or per-file tweaks.
+
+[formatting]
+column_width = 80
+indent_string = "    "
+array_trailing_comma = true
+
+# Always one-element-per-line arrays, globally. `plan.toml`'s `tasks[]`
+# is the driving case, but we want the same for every TOML file so the
+# style is predictable.
+array_auto_collapse = false
+array_auto_expand = true
