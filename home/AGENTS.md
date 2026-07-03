@@ -38,17 +38,28 @@ land in `tasks[]` so `work list` and `work sync` surface it.
 
 ### editing plan.toml
 
-Use `work` verbs for anything that has one — never hand-edit or `sed`:
+Prefer, in order:
+
+1. **`/work update`** — the skill that owns plan.toml mutations.
+   Callable directly (`/work update "..."`) or from another skill.
+   Handles routing (worktree tasks vs top-level task vs
+   `[[pr.comment]]`) and the multi-line formatting rules.
+2. **`work` CLI verbs** for things with a verb:
 
 | Change | Command |
 |---|---|
 | new worktree/task | `work new [title]` |
-| set status | `work set -o\|-w\|-W\|-c` (open, waiting, working, closed) |
+| set status | `work status -o\|-w\|-W\|-c` (open, waiting, working, closed) |
 | refresh from GitHub | `work sync` |
 | open in $EDITOR | `work edit` |
 | parse-check | `work validate [-a]` |
+| fold task into worktree | `work promote` |
 
-For fields without a verb yet — most notably `[[pr]].comment` entries used by `/pr-review` — use `yq -p toml -o toml -i` so structure and quoting stay sound. `[[pr]]` is an array (a worktree can carry multiple PRs), so append to a specific PR's comments by indexing:
+3. **`yq -p toml -o toml -i`** as a last resort for fields without a
+   verb — most notably `[[pr.comment]]` entries. `/work update` uses
+   this under the hood; call it directly only when the skill layer
+   isn't a fit. Never hand-edit or `sed`. `[[pr]]` is an array, so
+   index into it explicitly:
 
 ```bash
 yq -p toml -o toml -i '.pr[0].comment += [{"title":"…","status":"open","source":"…","author":"…","thread":"…","fix_ref":"","comment":"…","plan":"","reply":""}]' plan.toml
@@ -72,25 +83,70 @@ For other TOML files (e.g. `mise.toml`, config files), use `yq -p toml -o toml -
 
 ## prose & text blocks
 
-- Wrap text at ~80 characters. Applies to markdown, comments, docstrings,
-  and any prose you write into files or skill instructions. Longer lines
-  are hard to diff and hard to read side-by-side.
-- For multi-line strings in TOML (e.g. long entries in `tasks[]`), use
-  triple single quotes so newlines stay literal and the field remains
-  legible when you `cat` the file:
+- Wrap markdown, comments, docstrings, and skill-instruction prose at
+  ~80 characters. Longer lines are hard to diff and hard to read
+  side-by-side.
+- Prefer one topic per paragraph. Break lists onto their own lines
+  rather than packing bullets into a single line.
 
-  ```toml
-  tasks = [
-      '''
-      short heading
-      - line two
-      - line three
-      ''',
-  ]
-  ```
+### TOML multi-line strings
 
-- Prefer one topic per paragraph. Break lists onto their own lines rather
-  than packing bullets into a single line.
+For any TOML string field long enough to warrant a multi-line literal
+(`tasks[]`, `[[pr.comment]].plan`, `.reply`, `.comment`, etc.):
+
+- Triple single quotes on their own lines.
+- Every content line ≤ 70 characters, hand-wrapped. Never rely on
+  terminal soft-wrap — a `cat plan.toml` on a 70-char terminal must
+  render every line without breaking.
+- First content line ≤ 40 characters. It acts as a dense heading; no
+  mandatory blank line after it.
+
+```toml
+tasks = [
+    '''
+    rename x -> count
+    Update Store.Add so the loop counter is named
+    clearly and matches the rest of the file's
+    conventions.
+    ''',
+]
+```
+
+`/work update` enforces this when it writes multi-line fields.
+
+## structured output
+
+Mechanical actions — proposing a fix, adding a task, updating a PR
+comment's status — must land in `plan.toml` (or in a `work` task
+file), not in chat prose. Chat is a **receipt**, not a re-statement.
+`/work update` is the composition surface: every skill that mutates
+plan state should route writes through it.
+
+Two receipt formats:
+
+**Human receipt.** Any skill after a mutation shows a compact table
+in chat naming the target paths and what landed. No prose describing
+the change — the write *is* the description.
+
+```
+wrote:
+  pr[0].comment[2].plan   ← 42 chars
+  pr[0].comment[2].status ← done
+  tasks[+]                ← 'follow up on #4412'
+```
+
+**Machine receipt.** `/work update` returns `key=value` lines other
+skills can parse without regex tricks.
+
+```
+target=pr[0].comment[2].plan
+action=set
+status=ok
+```
+
+On ambiguity `/work update` returns `status=ambiguous`, plus `reason=`
+and `suggest=` fields. The caller decides whether to prompt or fall
+back.
 
 ## tool use
 Prefer classic unix workflows like piping and writing to files.
