@@ -1,0 +1,12 @@
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    issue(number: $number) {
+      title
+      url
+      closed
+      closedByPullRequestsReferences(first: 10) {
+        nodes { number title url isDraft }
+      }
+    }
+  }
+}
