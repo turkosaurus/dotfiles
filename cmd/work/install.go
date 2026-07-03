@@ -53,16 +53,12 @@ const shellBinaryMarker = "# work-binary: "
 // The tool writes its next cd-target to $HOME/w/.next; stdout stays free for
 // pipes and grep. The shim clears .next before the run (so a crash from a
 // previous invocation doesn't leak into this one), then cd's iff .next was
-// written with a valid directory. Before running, the shim positions the
-// cursor on row 3 and clears from there to the bottom — the top two rows
-// (usually your prompt + the `work` command you typed) stay visible, and
-// scrollback is untouched.
+// written with a valid directory.
 const shellFuncTemplate = shellFuncHeader + `
 ` + shellBinaryMarker + `%[1]s
 work() {
   local next="$HOME/w/.next"
   rm -f "$next"
-  printf '\033[3;1H\033[J'
   %[1]q "$@"
   local rc=$?
   if [[ -s "$next" ]]; then
