@@ -3,7 +3,7 @@ name: pr-review
 description: Address unresolved PR review comments — reads plan.toml (populated by `work sync`), plans fixes, implements them, and resolves threads
 user-invocable: true
 disable-model-invocation: true
-allowed-tools: Bash(work *), Bash(yq *), Bash(gh pr view:*), Bash(gh-pr-thread-resolve:*), Read, Grep, Glob, Edit, Write, AskUserQuestion
+allowed-tools: Bash(work *), Bash(gh pr view:*), Bash(gh-pr-thread-resolve:*), Read, Grep, Glob, Edit, Write, AskUserQuestion
 argument-hint: [pr-number]
 ---
 
@@ -44,27 +44,40 @@ common case:
 1. Read the worktree's `plan.toml`. Iterate `[[pr.comment]]` entries.
 
 2. For each comment with empty `plan`, draft one:
-   - Read the file at `source` (file:line) and understand the surrounding code.
-   - Write a specific fix — name functions, variables, and the exact change.
-   - No em dashes, no filler. One or two short sentences.
-   - **Persist the plan to `plan.toml` immediately.** Use `yq -i` to set the
-     `plan` field on the matching `[[pr.comment]]` entry (see "Editing
-     plan.toml" below). Write it before moving to the next comment so a
-     mid-run interruption doesn't lose work, and so the user can edit the
-     same file you're reading from. If the comment is already addressed in
-     the branch code (nothing to change), also set `status = "done"` and
-     populate `reply` — Phase 3 will still resolve it.
+   - Read the file at `source` (file:line) and understand the
+     surrounding code.
+   - Write a specific fix — name functions, variables, and the exact
+     change. No em dashes, no filler.
+   - **Persist by calling `/work update`** so structure and
+     formatting are handled centrally:
 
-3. Present the plan in the conversation as a table sourced from what you just
-   wrote to `plan.toml`:
+     ```
+     /work update "<plan text>" --to pr-comment=<thread-id>
+     ```
+
+     Parse the machine receipt (`status=ok` or `status=ambiguous`).
+     On `ok`, move to the next comment; on `ambiguous`, surface the
+     `suggest=` line to the user and stop.
+   - If the comment is already addressed in the branch code (nothing
+     to change), instead:
+
+     ```
+     /work update "<short reply>" --to pr-comment=<thread-id> --status done --reply "<short reply>"
+     ```
+
+     Phase 3 will still resolve it.
+
+3. Present the plan in the conversation as a **human receipt** table
+   (per AGENTS.md "structured output"):
 
    ```
-   thread | source                   | plan
-   -------|--------------------------|-------------------------------
-   T_ABC1 | src/handler.go:42        | add nil check on Fetch() result
-   T_DEF2 | src/store.go:88          | rename local `x` → `count`
-   ...
+   wrote:
+     pr[0].comment[0].plan  ← 'add nil check on Fetch()...'
+     pr[0].comment[1].plan  ← 'rename local x → count'
    ```
+
+   Don't restate what each comment says — the write is the
+   description. The user can `cat plan.toml` for full detail.
 
 4. **Stop.** Tell the user how many items are pending. The user reviews the
    proposed plans (and may open `plan.toml` in their editor to tweak them or
@@ -80,9 +93,14 @@ Reached when the user says "go" or "implement".
    - `status = "done"` — already addressed, skip.
    - `status = "open"` — implement the fix described in `plan`.
      - Read the file, make the edit. **Never commit or push.**
-     - After the edit succeeds, update the comment's `status` to `"done"` in
-       `plan.toml` and set `fix_ref` to a short description (e.g., "nil-check
-       in Fetch caller"). Actual commit hash is filled in during Phase 3.
+     - After the edit succeeds, mark the comment done via
+       `/work update`:
+
+       ```
+       /work update --to pr-comment=<thread-id> --status done --fix-ref "<short description>"
+       ```
+
+       Actual commit hash is filled in during Phase 3.
 
 3. Print a summary table:
    ```
@@ -107,8 +125,9 @@ Reached when the user says "resolved" or "posted".
    changes were force-pushed.)
 
 2. For every `[[pr.comment]]` with `status = "done"`:
-   - Build the reply: `<short description> (<hash>)`. Update the `reply` field
-     in `plan.toml`.
+   - Build the reply: `<short description> (<hash>)`. Persist via
+     `/work update --to pr-comment=<thread-id>` with
+     `--reply "<text> (<hash>)"`.
    - Resolve the thread:
      ```
      gh-pr-thread-resolve "<thread-id>" "<reply text> (<hash>)"
@@ -133,71 +152,12 @@ Reached when the user says "resolved" or "posted".
    drop the resolved comments from `plan.toml` (sync only surfaces unresolved
    threads).
 
-## Editing plan.toml
-
-**Always use `yq` for TOML edits — never hand-edit or use `sed`.** `yq -p toml
--o toml` round-trips the file, keeping structure sound.
-
-`[[pr]]` is an array (a worktree can carry multiple PRs), so paths are
-`.pr[<pr-index>].comment[<comment-index>]`. In the common single-PR case,
-`<pr-index>` is `0`. Examples below assume PR index 0 and comment index 2 —
-adjust both.
-
-```bash
-# read the current plan/status of a comment
-yq -p toml '.pr[0].comment[2].status' plan.toml
-
-# set status/plan/reply/fix_ref on a comment (by 0-based array index)
-yq -p toml -o toml -i '.pr[0].comment[2].status = "done"' plan.toml
-yq -p toml -o toml -i '.pr[0].comment[2].plan   = "add nil-check to Fetch caller"' plan.toml
-yq -p toml -o toml -i '.pr[0].comment[2].reply  = "add nil-check in Fetch caller (abc1234)"' plan.toml
-yq -p toml -o toml -i '.pr[0].comment[2].fix_ref = "abc1234"' plan.toml
-
-# find the index of a comment by thread id (assuming pr[0])
-yq -p toml '.pr[0].comment | to_entries | map(select(.value.thread == "T_ABC1")) | .[0].key' plan.toml
-```
-
-### Length and multi-line values
-
-Keep `plan` and `reply` concise — one or two short sentences, ideally under
-~100 chars total. Write them as a single-line TOML string:
-
-```bash
-yq -p toml -o toml -i '.pr[0].comment[2].plan = "rename local x → count in Store.Add"' plan.toml
-```
-
-If a value genuinely needs multiple lines (rare — usually a sign the plan
-should be split), first write it via `yq` with `strenv` (which will
-produce a double-quoted string with `\n` escapes — `yq`'s TOML encoder
-cannot emit triple-quoted literals):
-
-```bash
-PLAN=$(cat <<'EOF'
-switch inputs.* → github.event.inputs.* with '||' string defaults
-so the workflow evaluates cleanly on scheduled runs.
-EOF
-) yq -p toml -o toml -i '.pr[0].comment[2].plan = strenv(PLAN)' plan.toml
-```
-
-Then, if the escaped `\n`s make the file hard to read, run `work edit`
-to open `plan.toml` in `$EDITOR` and reformat the affected values to
-triple-single-quoted literals by hand. Both forms parse identically —
-this is purely cosmetic.
-
 ## Notes
 
-- **Never write to `plan.md`.** That's the freeform scratchpad — pr-review's
-  data lives in `plan.toml`'s `[[pr.comment]]` array.
-- Editing `plan.toml` from the skill is fine, but only through `yq -i`.
-  Preserve unrelated fields; only touch the `[[pr.comment]]` entries you're
-  processing.
-- Keep `plan` and `reply` short — one or two sentences that fit on a
-  single TOML line (~100 chars). If a plan is too long to fit, that's
-  usually a signal to split the fix into steps, not to write a paragraph.
-  See "Length and multi-line values" above for the rare genuinely-long
-  case.
-- Replies must be terse. No em dashes, no filler. One short sentence plus
-  commit hash.
-- If a comment is already addressed in the branch code (nothing to change),
-  set `status = "done"` and write an appropriate `reply` in Phase 1 — it'll
-  still get resolved in Phase 3.
+- **Never write to `plan.md`.** That's the freeform scratchpad —
+  pr-review's data lives in `plan.toml`'s `[[pr.comment]]` array.
+- Replies must be terse. No em dashes, no filler. One short sentence
+  plus commit hash.
+- If a comment is already addressed in the branch code (nothing to
+  change), set `status = "done"` and write an appropriate `reply` in
+  Phase 1 — it'll still get resolved in Phase 3.
