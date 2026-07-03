@@ -168,8 +168,8 @@ return {
 
 			-- TOML: taplo surfaces parse errors as diagnostics, catching the
 			-- missing-comma-in-array class of bugs live rather than at `work
-			-- validate` time. No auto-format — plan.toml's multi-line strings
-			-- (tasks[]) are hand-authored and shouldn't be reflowed.
+			-- validate` time. Formatting is handled by conform.nvim (see
+			-- plugins/conform.lua) driven by ~/.config/taplo/taplo.toml.
 			vim.lsp.config("taplo", {})
 
 			vim.lsp.enable({ "gopls", "pyright", "bashls", "lua_ls", "yamlls", "taplo" })

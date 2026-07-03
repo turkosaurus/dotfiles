@@ -47,8 +47,16 @@ common case:
    - Read the file at `source` (file:line) and understand the surrounding code.
    - Write a specific fix — name functions, variables, and the exact change.
    - No em dashes, no filler. One or two short sentences.
+   - **Persist the plan to `plan.toml` immediately.** Use `yq -i` to set the
+     `plan` field on the matching `[[pr.comment]]` entry (see "Editing
+     plan.toml" below). Write it before moving to the next comment so a
+     mid-run interruption doesn't lose work, and so the user can edit the
+     same file you're reading from. If the comment is already addressed in
+     the branch code (nothing to change), also set `status = "done"` and
+     populate `reply` — Phase 3 will still resolve it.
 
-3. Present the plan in the conversation as a table:
+3. Present the plan in the conversation as a table sourced from what you just
+   wrote to `plan.toml`:
 
    ```
    thread | source                   | plan
@@ -130,21 +138,51 @@ Reached when the user says "resolved" or "posted".
 **Always use `yq` for TOML edits — never hand-edit or use `sed`.** `yq -p toml
 -o toml` round-trips the file, keeping structure sound.
 
-Examples (adjust the index):
+`[[pr]]` is an array (a worktree can carry multiple PRs), so paths are
+`.pr[<pr-index>].comment[<comment-index>]`. In the common single-PR case,
+`<pr-index>` is `0`. Examples below assume PR index 0 and comment index 2 —
+adjust both.
 
 ```bash
 # read the current plan/status of a comment
-yq -p toml '.pr.comment[2].status' plan.toml
+yq -p toml '.pr[0].comment[2].status' plan.toml
 
 # set status/plan/reply/fix_ref on a comment (by 0-based array index)
-yq -p toml -o toml -i '.pr.comment[2].status = "done"' plan.toml
-yq -p toml -o toml -i '.pr.comment[2].plan   = "add nil-check to Fetch caller"' plan.toml
-yq -p toml -o toml -i '.pr.comment[2].reply  = "add nil-check in Fetch caller (abc1234)"' plan.toml
-yq -p toml -o toml -i '.pr.comment[2].fix_ref = "abc1234"' plan.toml
+yq -p toml -o toml -i '.pr[0].comment[2].status = "done"' plan.toml
+yq -p toml -o toml -i '.pr[0].comment[2].plan   = "add nil-check to Fetch caller"' plan.toml
+yq -p toml -o toml -i '.pr[0].comment[2].reply  = "add nil-check in Fetch caller (abc1234)"' plan.toml
+yq -p toml -o toml -i '.pr[0].comment[2].fix_ref = "abc1234"' plan.toml
 
-# find the index of a comment by thread id
-yq -p toml '.pr.comment | to_entries | map(select(.value.thread == "T_ABC1")) | .[0].key' plan.toml
+# find the index of a comment by thread id (assuming pr[0])
+yq -p toml '.pr[0].comment | to_entries | map(select(.value.thread == "T_ABC1")) | .[0].key' plan.toml
 ```
+
+### Length and multi-line values
+
+Keep `plan` and `reply` concise — one or two short sentences, ideally under
+~100 chars total. Write them as a single-line TOML string:
+
+```bash
+yq -p toml -o toml -i '.pr[0].comment[2].plan = "rename local x → count in Store.Add"' plan.toml
+```
+
+If a value genuinely needs multiple lines (rare — usually a sign the plan
+should be split), first write it via `yq` with `strenv` (which will
+produce a double-quoted string with `\n` escapes — `yq`'s TOML encoder
+cannot emit triple-quoted literals):
+
+```bash
+PLAN=$(cat <<'EOF'
+switch inputs.* → github.event.inputs.* with '||' string defaults
+so the workflow evaluates cleanly on scheduled runs.
+EOF
+) yq -p toml -o toml -i '.pr[0].comment[2].plan = strenv(PLAN)' plan.toml
+```
+
+Then, if the escaped `\n`s make the file hard to read, run `work edit`
+to open `plan.toml` in `$EDITOR` and reformat the affected values to
+triple-single-quoted literals by hand. Both forms parse identically —
+this is purely cosmetic.
 
 ## Notes
 
@@ -153,6 +191,11 @@ yq -p toml '.pr.comment | to_entries | map(select(.value.thread == "T_ABC1")) | 
 - Editing `plan.toml` from the skill is fine, but only through `yq -i`.
   Preserve unrelated fields; only touch the `[[pr.comment]]` entries you're
   processing.
+- Keep `plan` and `reply` short — one or two sentences that fit on a
+  single TOML line (~100 chars). If a plan is too long to fit, that's
+  usually a signal to split the fix into steps, not to write a paragraph.
+  See "Length and multi-line values" above for the rare genuinely-long
+  case.
 - Replies must be terse. No em dashes, no filler. One short sentence plus
   commit hash.
 - If a comment is already addressed in the branch code (nothing to change),
