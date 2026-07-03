@@ -1,0 +1,38 @@
+query($q: String!, $after: String) {
+  search(query: $q, type: ISSUE, first: 100, after: $after) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ... on Issue {
+        url
+        title
+        closed
+        assignees(first: 10) { nodes { login } }
+        projectItems(first: 20) {
+          nodes {
+            project { number }
+            fieldValueByName(name: "Status") {
+              ... on ProjectV2ItemFieldSingleSelectValue { name }
+            }
+          }
+        }
+      }
+      ... on PullRequest {
+        url
+        title
+        closed
+        assignees(first: 10) { nodes { login } }
+        projectItems(first: 20) {
+          nodes {
+            project { number }
+            fieldValueByName(name: "Status") {
+              ... on ProjectV2ItemFieldSingleSelectValue { name }
+            }
+          }
+        }
+      }
+    }
+  }
+}
