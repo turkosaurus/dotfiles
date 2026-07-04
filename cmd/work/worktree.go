@@ -116,9 +116,7 @@ func pickInventory(items []inventoryItem) (inventoryItem, error) {
 
 // pickWorktree is a convenience wrapper: shows worktrees only.
 func pickWorktree() (worktree, error) {
-	spinner, _ := pterm.DefaultSpinner.WithText("loading").Start()
 	items, err := loadInventory(true, false)
-	_ = spinner.Stop()
 	if err != nil {
 		return worktree{}, err
 	}

@@ -185,11 +185,29 @@ Review and prioritize. Never writes. Two modes:
    Surface any `work validate -a` errors first — broken plan files
    need attention before prioritization is meaningful.
 
-2. **Slack context** — via `mcp__slack__*`:
-   - saved items / bookmarks
-   - recent DMs and @-mentions
-   - threads with new replies for me
-   Fall back gracefully if the MCP is unavailable.
+2. **Slack sweep** — via `mcp__slack__*`. Fetch, diff against
+   plan.toml inventory, and propose captures for anything that
+   slipped through. Fall back gracefully if the MCP is unavailable.
+
+   1. **Fetch**:
+      - saved items / bookmarks
+      - recent DMs and @-mentions
+      - threads with new replies for me
+   2. **Diff against inventory** — for every worktree plan under
+      `~/w/` and every task plan under `~/w/t/`, collect the
+      `[slack].url` and any Slack URLs embedded in `tasks[]` /
+      `[[pr.comment]]`. A Slack item counts as *already tracked*
+      if its thread URL matches one of these. Everything else is
+      a candidate.
+   3. **Filter for actionable** — a candidate is actionable when
+      it's addressed to me and I haven't replied yet, or it names
+      a deadline. Read the thread (`slack_read_thread`) before
+      classifying — search snippets alone over-fire. Batch the
+      thread reads to keep the API cost bounded.
+   4. **Propose, don't execute** — for each actionable candidate,
+      emit a `work new` suggestion with status and due, plus a
+      matching follow-up task. See [Capturing new
+      work](#capturing-new-work) for the exact format.
 
 3. **Sprint context** — `gh-sprint-fetch` for active sprint name,
    dates, days remaining. If the invocation includes a GitHub project
@@ -237,11 +255,30 @@ Keep Slack summaries vague enough to avoid leaking sensitive content.
 ### Capturing new work
 
 When the plan surfaces work that isn't tracked anywhere (a Slack ask,
-a sprint item without a worktree), don't write it — suggest a
-`/work update` invocation instead:
+a sprint item without a worktree), don't write it — suggest an
+invocation the user can accept. For a generic capture:
 
 ```
 Suggested: /work update "look at X for so-and-so"
+```
+
+For a Slack-sourced capture, suggest the concrete `work new` line
+with status and due extracted from the thread, plus a follow-up so
+the ask doesn't fall off the back:
+
+```
+Slack: alfonso asked for xyz by friday (not tracked)
+Suggested: work new -W --due "2d" "do xyz for alfonso"
+Follow-up: /work update "confirm with @alf that xyz done"
+```
+
+After the user runs `work new`, backlink the source Slack thread in
+the new plan.toml's `[slack]` block so the next sweep won't re-suggest
+it:
+
+```bash
+yq -p toml -o toml -i '.slack.url = "<thread-url>"' plan.toml
+yq -p toml -o toml -i '.slack.title = "<short summary>"' plan.toml
 ```
 
 ## Notes
