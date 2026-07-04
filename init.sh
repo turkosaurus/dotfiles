@@ -137,9 +137,14 @@ echo "init complete."
 # shellcheck disable=SC1090,SC1091
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
 	echo "sourcing shell config..."
-	source "$HOME/.zshrc" 2>/dev/null ||
-		source "$HOME/.bashrc" 2>/dev/null ||
-		true
+	# Source the rc for the shell we are actually in, not by exit code: an rc
+	# whose last line returns non-zero (e.g. a missing ~/.secrets) must not fall
+	# through to the other shell's config.
+	if [ -n "${ZSH_VERSION:-}" ]; then
+		source "$HOME/.zshrc"
+	elif [ -n "${BASH_VERSION:-}" ]; then
+		source "$HOME/.bashrc"
+	fi
 else
 	echo "restart your shell or run: source ${BASH_SOURCE[0]}"
 fi
