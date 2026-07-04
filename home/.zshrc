@@ -54,6 +54,7 @@ PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 work() {
   local next="$HOME/w/.next"
   rm -f "$next"
+  printf '\033[3;1H\033[J'
   "$HOME/.local/share/mise/installs/go/1.24.7/bin/work" "$@"
   local rc=$?
   if [[ -s "$next" ]]; then
