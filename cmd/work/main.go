@@ -19,7 +19,8 @@ type args struct {
 	Main    *mainCmd    `arg:"subcommand:main" help:"switch to the main worktree"`
 	Prev    *prevCmd    `arg:"subcommand:-" help:"previous worktree"`
 	New     *newCmd     `arg:"subcommand:new" help:"create worktree ('.') or task ('title')"`
-	Status  *statusCmd  `arg:"subcommand:status" help:"multiselect + set status/due (alias: set)"`
+	Status  *statusCmd  `arg:"subcommand:status" help:"show plan.toml (no plan.toml here → work ls -wW)"`
+	Set     *setCmd     `arg:"subcommand:set" help:"multiselect + set status/due"`
 	Edit    *editCmd    `arg:"subcommand:edit" help:"edit plan.toml (-a for batch status editor)"`
 	Clean   *cleanCmd   `arg:"subcommand:clean" help:"remove worktrees with merged/closed PRs"`
 	Rm      *rmCmd      `arg:"subcommand:rm" help:"remove a worktree"`
@@ -156,9 +157,6 @@ func preprocessArgs() {
 	case "ls":
 		os.Args[i] = "list"
 		return
-	case "set":
-		os.Args[i] = "status"
-		return
 	case ".":
 		out := append([]string(nil), os.Args[:i]...)
 		out = append(out, "new", ".")
@@ -227,6 +225,8 @@ func dispatch(a *args) error {
 		return runPrev(a.Prev)
 	case a.Status != nil:
 		return runStatus(a.Status)
+	case a.Set != nil:
+		return runSet(a.Set)
 	case a.Edit != nil:
 		return runEdit(a.Edit)
 	case a.Rm != nil:
