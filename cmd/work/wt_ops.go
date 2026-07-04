@@ -67,11 +67,7 @@ func runRm(c *rmCmd) error {
 		return processRm(inventoryItem{Worktree: &wt})
 	}
 
-	spinner, _ := pterm.DefaultSpinner.WithText("loading").Start()
 	items, err := loadInventory(true, true)
-	if sErr := spinner.Stop(); sErr != nil {
-		log.Debug("spinner.Stop", log.Args("err", sErr))
-	}
 	if err != nil {
 		return fmt.Errorf("rm: %w", err)
 	}
@@ -155,9 +151,19 @@ func processRm(it inventoryItem) error {
 	case it.Worktree != nil:
 		wt := *it.Worktree
 		mainDir := mainWorktreePath(wt.Path)
-		converted, err := convertPlanToTaskIfPending(wt)
+		action, err := decideWorktreeRm(wt)
 		if err != nil {
-			return fmt.Errorf("convert plan: %w", err)
+			return err
+		}
+		if action == rmCancel {
+			return fmt.Errorf("cancelled")
+		}
+		var converted string
+		if action == rmConvert {
+			converted, err = convertPlanToTaskIfPending(wt)
+			if err != nil {
+				return fmt.Errorf("convert plan: %w", err)
+			}
 		}
 		if err := removeWorktree(wt); err != nil {
 			// Roll back the conversion so we don't orphan a task copy.
@@ -351,19 +357,70 @@ func resolveWorktree(name string) (worktree, error) {
 	return worktree{}, fmt.Errorf("no worktree matching %q", name)
 }
 
-// convertPlanToTaskIfPending checks whether the worktree's plan.toml has any
-// tasks[] entries; if so, it writes a copy into ~/w/t/<status>/<N>.toml
-// preserving the plan's current status. Branches are the highest form of
-// work, tasks are underdeveloped follow-up, so this is called a conversion
-// (not a promotion — that word is reserved for the inverse direction). If the plan
-// is absent, unparseable, or has no tasks, returns "" and nil (nothing to
-// do). The original plan.toml stays put; the caller is expected to remove
-// the worktree next, which deletes the original along with the rest of the
-// tree.
+// rmAction is the caller-selected outcome for a `work rm` on a worktree
+// that still has open tasks in tasks[].
+type rmAction int
+
+const (
+	rmConvert   rmAction = iota // preserve tasks into a task file, then remove
+	rmCloseWith                 // remove worktree, drop tasks with it
+	rmCancel                    // don't remove
+)
+
+// decideWorktreeRm inspects wt's plan for pending tasks. If any exist,
+// it prints the tasks and prompts the user to pick between converting
+// to a task file, closing anyway (tasks lost), or cancelling. When
+// there are no tasks (or no readable plan), returns rmConvert — the
+// caller's conversion step will no-op in that case. Honors --yes by
+// defaulting to rmConvert without prompting.
+func decideWorktreeRm(wt worktree) (rmAction, error) {
+	planPath := path.Join(wt.Path, planFileName)
+	p, err := readPlan(planPath)
+	if err != nil || len(p.Tasks) == 0 {
+		return rmConvert, nil
+	}
+	pterm.Warning.Printfln("%d task(s) left open on %s:", len(p.Tasks), relPath(wt.Path))
+	for _, t := range p.Tasks {
+		line := strings.SplitN(strings.TrimSpace(t), "\n", 2)[0]
+		if line == "" {
+			continue
+		}
+		pterm.Println("  • " + line)
+	}
+	if confirmYes {
+		return rmConvert, nil
+	}
+	const (
+		optConvert = "convert to task (default)"
+		optClose   = "close with tasks"
+		optCancel  = "cancel"
+	)
+	opt, err := pterm.DefaultInteractiveSelect.
+		WithOptions([]string{optConvert, optClose, optCancel}).
+		WithDefaultOption(optConvert).
+		Show()
+	if err != nil {
+		return rmCancel, fmt.Errorf("prompt: %w", err)
+	}
+	switch opt {
+	case optClose:
+		return rmCloseWith, nil
+	case optCancel:
+		return rmCancel, nil
+	}
+	return rmConvert, nil
+}
+
+// convertPlanToTaskIfPending writes a copy of the worktree's plan into
+// ~/w/t/<status>/<N>.toml when tasks[] is non-empty, preserving the
+// plan's current status. If the plan is absent, unparseable, or has
+// no tasks, returns "" and nil (nothing to do). The original plan.toml
+// stays put; the caller is expected to remove the worktree next, which
+// deletes the original along with the rest of the tree.
 //
-// A worktree with status=closed but tasks[] still populated is treated as an
-// anomaly: we warn and, on confirmation, land the converted task in `working`
-// so it surfaces in `work list` and doesn't orphan.
+// A worktree with status=closed but tasks[] still populated is upgraded
+// to `working` so the converted task surfaces in `work list` instead
+// of vanishing into the closed pile.
 func convertPlanToTaskIfPending(wt worktree) (string, error) {
 	planPath := path.Join(wt.Path, planFileName)
 	p, err := readPlan(planPath)
@@ -375,11 +432,6 @@ func convertPlanToTaskIfPending(wt worktree) (string, error) {
 		return "", nil
 	}
 	if p.Status == statusClosed {
-		pterm.Warning.Printfln("worktree %s is closed but has %d open task(s)",
-			relPath(wt.Path), len(p.Tasks))
-		if !confirm("convert to a working task instead?") {
-			return "", fmt.Errorf("convert cancelled")
-		}
 		p.Status = statusWorking
 	}
 	if p.Status == "" {

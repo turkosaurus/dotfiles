@@ -100,9 +100,7 @@ func runSet(c *setCmd) error {
 
 	showWT, showCh := c.showKinds()
 
-	spinner, _ := pterm.DefaultSpinner.WithText("loading").Start()
 	items, err := loadInventory(showWT, showCh)
-	_ = spinner.Stop()
 	if err != nil {
 		return err
 	}
