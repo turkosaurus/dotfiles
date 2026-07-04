@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"strings"
-
-	"github.com/pterm/pterm"
 )
 
 type pickCmd struct {
@@ -23,9 +21,7 @@ func runPick(c *pickCmd) error {
 	if c.Name == "" {
 		showWT := !c.Tasks || c.Worktrees
 		showCh := !c.Worktrees || c.Tasks
-		spinner, _ := pterm.DefaultSpinner.WithText("loading").Start()
 		items, err := loadInventory(showWT, showCh)
-		_ = spinner.Stop()
 		if err != nil {
 			return err
 		}

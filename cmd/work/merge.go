@@ -28,14 +28,7 @@ import (
 //     print a warning and leave the worktree on disk for the user to
 //     resolve (the primary is already written, so no data is lost).
 func runMerge(_ *mergeCmd) error {
-	spinner, err := pterm.DefaultSpinner.WithText("loading").Start()
-	if err != nil {
-		return fmt.Errorf("merge: spinner: %w", err)
-	}
 	items, err := loadInventory(true, true)
-	if sErr := spinner.Stop(); sErr != nil {
-		return fmt.Errorf("merge: spinner stop: %w", sErr)
-	}
 	if err != nil {
 		return fmt.Errorf("merge: %w", err)
 	}
