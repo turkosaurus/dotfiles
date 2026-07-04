@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+"""
+plan-toml-unfurl: rewrite `"...\\n..."` single-line TOML strings that
+carry literal `\\n` escapes into `'''...'''` multi-line literals.
+
+Reads stdin, writes stdout. Intended to run in conform.nvim after
+taplo, guarded to `plan.toml` only. Idempotent — lines without a `\\n`
+escape (and any already-triple-quoted content) pass through untouched.
+
+Handles two shapes:
+
+  1. `<key> = "value with \\n newlines"`
+  2. `"value with \\n newlines",`  (bare string inside an array)
+
+Everything else is passed through untouched. The transform only ever
+converts double-quoted single-line strings — triple-quoted blocks,
+literal single-quoted strings, and inline arrays without `\\n` are
+never rewritten.
+"""
+from __future__ import annotations
+
+import re
+import sys
+
+# key = "..." style. Captures leading indent, the "key = " prefix
+# (must end at the opening quote), the string content, and any
+# trailing whitespace / comma.
+KV_RE = re.compile(
+    r'^(?P<indent>\s*)'
+    r'(?P<prefix>[^"\r\n]*?=\s*)'
+    r'"(?P<content>(?:[^"\\]|\\.)*)"'
+    r'(?P<trailing>\s*,?\s*)$'
+)
+
+# Bare string inside an array. Same idea, without a key.
+ARR_RE = re.compile(
+    r'^(?P<indent>\s*)'
+    r'"(?P<content>(?:[^"\\]|\\.)*)"'
+    r'(?P<trailing>\s*,?)\s*$'
+)
+
+
+def unescape(s: str) -> str:
+    # TOML basic string escapes overlap with Python's, so unicode_escape
+    # is close enough for our use. Anything exotic falls through unchanged.
+    return s.encode("utf-8").decode("unicode_escape")
+
+
+def unfurl_content(indent: str, content: str) -> str:
+    body = unescape(content)
+    lines = body.split("\n")
+    return "\n".join(indent + line for line in lines)
+
+
+def convert(line: str) -> str:
+    m = KV_RE.match(line)
+    if m and r"\n" in m.group("content"):
+        indent = m.group("indent")
+        prefix = m.group("prefix")
+        body = unfurl_content(indent, m.group("content"))
+        trailing = m.group("trailing").rstrip()
+        return f"{indent}{prefix}'''\n{body}\n{indent}'''{trailing}"
+
+    m = ARR_RE.match(line)
+    if m and r"\n" in m.group("content"):
+        indent = m.group("indent")
+        body = unfurl_content(indent, m.group("content"))
+        trailing = m.group("trailing").rstrip()
+        return f"{indent}'''\n{body}\n{indent}'''{trailing}"
+
+    return line
+
+
+def main() -> int:
+    text = sys.stdin.read()
+    out = "\n".join(convert(line) for line in text.split("\n"))
+    sys.stdout.write(out)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
