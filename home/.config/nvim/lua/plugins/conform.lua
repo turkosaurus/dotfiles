@@ -13,7 +13,7 @@ return {
 		},
 	},
 	opts = {
-		notify_on_error = false,
+		notify_on_error = true,
 		format_on_save = function(bufnr)
 			local disable_filetypes = { c = true, cpp = true, markdown = true }
 			if disable_filetypes[vim.bo[bufnr].filetype] then
@@ -27,7 +27,7 @@ return {
 			sh = { "shfmt" },
 			bash = { "shfmt" },
 			zsh = { "shfmt" },
-			toml = { "taplo" },
+			toml = { "taplo", "plan_toml_unfurl" },
 		},
 		formatters = {
 			shfmt = {
@@ -36,8 +36,32 @@ return {
 			-- taplo's config auto-search only walks up from cwd; it never
 			-- looks in ~/.config/taplo/. Pass -c explicitly so global
 			-- defaults apply even when no local .taplo.toml exists.
+			-- Override args (not prepend_args) because -c is a `format`
+			-- subcommand flag — prepending would place it before `format`
+			-- and taplo would reject it as an unknown root option.
 			taplo = {
-				prepend_args = { "-c", vim.fn.expand("~/.config/taplo/taplo.toml") },
+				args = {
+					"format",
+					"-c",
+					vim.fn.expand("~/.config/taplo/taplo.toml"),
+					"--stdin-filepath",
+					"$FILENAME",
+					"-",
+				},
+			},
+			-- Post-process only plan-shaped TOML: rewrite "..."/\n strings
+			-- emitted by yq into '''...''' multi-line literals per the
+			-- plan-file style guide. Scoped to files under ~/w/ (worktree
+			-- plans at ~/w/<repo>/<branch>/plan.toml and task plans at
+			-- ~/w/t/<status>/<N>.toml) so ordinary TOML never runs it.
+			plan_toml_unfurl = {
+				command = vim.fn.expand("~/bin/plan-toml-unfurl"),
+				stdin = true,
+				condition = function(_, ctx)
+					local prefix = vim.fn.expand("~/w/")
+					local path = ctx.filename or ""
+					return path:sub(1, #prefix) == prefix
+				end,
 			},
 		},
 	},
