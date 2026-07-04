@@ -4,11 +4,14 @@ export ZSH_THEME="agnoster"
 export AGNOSTER_CONTEXT_BG=magenta
 export AGNOSTER_CONTEXT_FG=black
 plugins=(git mise)
+
+# PATH before oh-my-zsh so its mise plugin can find the mise binary
+export PATH=$PATH:~/bin:~/.local/bin
+export PATH=$PATH:~/.pulumi/bin
+
 #shellcheck disable=SC1091
 source "$ZSH/oh-my-zsh.sh"
 
-export PATH=$PATH:~/.local/bin:~/bin
-export PATH=$PATH:~/.pulumi/bin
 export EDITOR=nvim
 
 # --- shared aliases ---
