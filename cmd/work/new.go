@@ -16,6 +16,11 @@ import (
 type newCmd struct {
 	Arg string `arg:"positional" help:"'.' for worktree, or 'title' for a task"`
 
+	// -r/-b: create a fresh worktree by branching off an updated main.
+	// -b requires a branch name; -r defaults to the current repo.
+	Repo   string `arg:"-r,--repo" help:"repo name under <path.repos> (defaults to current)"`
+	Branch string `arg:"-b,--branch" help:"create new branch off current main and set up its worktree"`
+
 	// initial status for a new task — at most one; default is open
 	Open    bool `arg:"-o,--open" help:"new task in open status (default)"`
 	Waiting bool `arg:"-w,--waiting" help:"new task in waiting status"`
@@ -26,17 +31,24 @@ type newCmd struct {
 	Due string `arg:"-d,--due" help:"due: 2h, 3d, tomorrow, or YYYY-MM-DD [HH:MM]"`
 }
 
-// runNew dispatches on the shape of Arg:
-//   - ""    → print usage
-//   - "."   → worktree from the current branch
-//   - else  → task with that title (status defaults to open, due to
-//             tomorrow-at-midnight unless -o/-w/-W/-c or --due override)
+// runNew dispatches on the shape of Arg / flags:
+//   - -b <branch>          → branch off updated main and set up worktree
+//   - Arg == ""            → print usage
+//   - Arg == "."           → worktree from the current branch
+//   - else                 → task with that title (status defaults to open,
+//     due to tomorrow-at-midnight unless -o/-w/-W/-c or --due override)
 func runNew(c *newCmd) error {
+	if c.Branch != "" {
+		return newFromBranch(c.Repo, c.Branch)
+	}
 	switch c.Arg {
 	case "":
 		pterm.Info.Println(`usage: work new [-o|-w|-W|-c] [-d <spec>] <arg>
+       work new [-r <repo>] -b <branch>
 
   work new .                       create worktree from the current branch
+  work new -b feat/x               branch off main in current repo, worktree it
+  work new -r foo -b feat/x        same, but in <path.repos>/foo
   work new "title"                 create a task (opens $EDITOR)
   work new -W "title"              create a task in working status
   work new -d 2h "title"           create a task due in 2 hours
@@ -65,6 +77,73 @@ run 'work new .'. To navigate an existing worktree, use 'work' or
 		path.Base(strings.TrimSuffix(p.Path, ".toml")), status,
 		p.Due.Format("2006-01-02 15:04"), p.Title)
 	return openInEditor(p.Path)
+}
+
+// newFromBranch creates a fresh worktree by branching off origin's default
+// branch (main, else master) in the repo clone. repo defaults to the current
+// repo when empty; the clone is looked up under <path.repos>/<repo>. Fetches
+// origin first so the new branch is based on current upstream.
+func newFromBranch(repo, branch string) error {
+	if branch == "" {
+		return fmt.Errorf("new: -b <branch> required")
+	}
+	if repo == "" {
+		r, err := currentRepoName()
+		if err != nil {
+			return fmt.Errorf("new -b: no -r and not inside a repo: %w", err)
+		}
+		repo = r
+	}
+
+	cfg, _ := loadConfig()
+	reposDir := cfg.Path.Repos
+	if reposDir == "" {
+		reposDir = path.Join(os.Getenv("HOME"), "p")
+	}
+	repoDir := path.Join(reposDir, repo)
+	if fi, err := os.Stat(repoDir); err != nil || !fi.IsDir() {
+		return fmt.Errorf("new -b: repo %q not found under %s", repo, reposDir)
+	}
+
+	wtDir := path.Join(defaultWorkDir, repo, branchSlug(branch))
+	if _, err := os.Stat(wtDir); err == nil {
+		return fmt.Errorf("worktree already exists: %s", wtDir)
+	}
+	if err := os.MkdirAll(path.Dir(wtDir), 0o755); err != nil {
+		return fmt.Errorf("mkdir: %w", err)
+	}
+
+	fetch := exec.Command("git", "-C", repoDir, "fetch", "origin")
+	fetch.Stdout = os.Stderr
+	fetch.Stderr = os.Stderr
+	if err := fetch.Run(); err != nil {
+		return fmt.Errorf("git fetch origin (in %s): %w", repoDir, err)
+	}
+
+	base := "origin/main"
+	if err := exec.Command("git", "-C", repoDir, "rev-parse", "--verify", base).Run(); err != nil {
+		base = "origin/master"
+		if err := exec.Command("git", "-C", repoDir, "rev-parse", "--verify", base).Run(); err != nil {
+			return fmt.Errorf("neither origin/main nor origin/master exists in %s", repoDir)
+		}
+	}
+
+	add := exec.Command("git", "-C", repoDir,
+		"worktree", "add", "-b", branch, wtDir, base)
+	add.Stdout = os.Stderr
+	add.Stderr = os.Stderr
+	if err := add.Run(); err != nil {
+		return fmt.Errorf("git worktree add: %w", err)
+	}
+
+	planPath := path.Join(wtDir, planFileName)
+	if err := seedPlan(planPath, branch); err != nil {
+		pterm.Warning.Printfln("seed %s: %v", planPath, err)
+	}
+
+	pterm.Success.Printfln("branched %s off %s → %s", branch, base, wtDir)
+	emitPath(wtDir)
+	return nil
 }
 
 // newFromCurrent moves the current branch to ~/w/<repo>/<slug>/ via git worktree.

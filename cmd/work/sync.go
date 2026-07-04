@@ -306,18 +306,12 @@ func runSyncAll(dryRun bool) error {
 		}
 	}
 
-	if len(missing) > 0 {
-		for _, wt := range missing {
-			pterm.Info.Printfln("no plan.toml in %s", wt)
+	for _, wt := range missing {
+		if err := seedPlan(path.Join(wt.Path, planFileName), wt.Branch); err != nil {
+			pterm.Warning.Printfln("seed %s: %v", wt, err)
+			continue
 		}
-		if !confirm(fmt.Sprintf("Create %d plan.toml files?", len(missing))) {
-			return fmt.Errorf("sync cancelled")
-		}
-		for _, wt := range missing {
-			if err := seedPlan(path.Join(wt.Path, planFileName), wt.Branch); err != nil {
-				pterm.Warning.Printfln("seed %s: %v", wt, err)
-			}
-		}
+		pterm.Info.Printfln("seeded plan.toml in %s", wt)
 	}
 
 	// Two-bar layout via MultiPrinter so the worktree fetch and the sprint
@@ -479,24 +473,15 @@ func seedPlan(planPath, branch string) error {
 	return writePlan(p)
 }
 
-// ensurePlanFile creates plan.toml at planPath if missing, prompting
-// once with a consistent wording. Respects --yes (via confirm). Returns
+// ensurePlanFile creates plan.toml at planPath if missing. Returns
 // (created=true) when a new file was seeded, (created=false) when the
-// file already existed. label is the human-readable worktree identifier
-// for the prompt (e.g. "dotfiles:work"). branch is passed through to
-// seedPlan.
-//
-// This is the single source of truth for the "no plan.toml, create
-// one?" prompt across sync, edit, and status — all three used to
-// phrase and bypass it differently.
+// file already existed. label is retained for callers that log context.
+// branch is passed through to seedPlan.
 func ensurePlanFile(planPath, label, branch string) (bool, error) {
 	if _, err := os.Stat(planPath); err == nil {
 		return false, nil
 	} else if !os.IsNotExist(err) {
 		return false, fmt.Errorf("stat %s: %w", planPath, err)
-	}
-	if !confirm(fmt.Sprintf("no plan.toml in %s. Create one?", label)) {
-		return false, fmt.Errorf("skipped (no plan.toml)")
 	}
 	if err := seedPlan(planPath, branch); err != nil {
 		return false, err
