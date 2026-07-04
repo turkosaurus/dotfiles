@@ -119,7 +119,7 @@ fi
 
 export EDITOR=nvim
 
-export PATH=$PATH:~/.local/bin
+export PATH=$PATH:~/bin:~/.local/bin
 
 # mise
 if command -v mise &>/dev/null; then
