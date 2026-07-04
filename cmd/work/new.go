@@ -129,7 +129,7 @@ func newFromBranch(repo, branch string) error {
 	}
 
 	add := exec.Command("git", "-C", repoDir,
-		"worktree", "add", "-b", branch, wtDir, base)
+		"worktree", "add", "--no-track", "-b", branch, wtDir, base)
 	add.Stdout = os.Stderr
 	add.Stderr = os.Stderr
 	if err := add.Run(); err != nil {
