@@ -1,6 +1,9 @@
 # Style Guilde
 
 ## plans
+
+Always read `plan.toml` in the cwd as a first step.
+
 Every worktree under `~/w/<repo>/<branch>/` has two plan files (both gitignored):
 
 - `plan.toml` — structured, tool-managed. Canonical schema:
