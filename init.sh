@@ -108,11 +108,11 @@ fi
 # 7. Install work (Go CLI for worktrees/tasks/plans)
 if ! command -v go &>/dev/null; then
 	warn "go not on PATH; skipping work install"
-elif [[ ! -d "$dot_dir/work/cmd/work" ]]; then
-	warn "work source missing at $dot_dir/work/cmd/work; skipping"
+elif [[ ! -d "$dot_dir/cmd/work" ]]; then
+	warn "work source missing at $dot_dir/cmd/work; skipping"
 else
 	echo "installing work..."
-	if ! (cd "$dot_dir/work/cmd/work" && GOBIN="$HOME/go/bin" go install .); then
+	if ! (cd "$dot_dir/cmd/work" && GOBIN="$HOME/.local/bin" go install .); then
 		error "failed to install work"
 	fi
 fi
