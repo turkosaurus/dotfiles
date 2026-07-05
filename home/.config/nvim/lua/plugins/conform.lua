@@ -71,18 +71,33 @@ return {
 		-- Format-on-open for filetypes with an entry in formatters_by_ft.
 		-- Pairs with format_on_save so the buffer is canonical when a file
 		-- is opened *and* when it's written.
+		local function format_on_open(buf)
+			if not vim.bo[buf].modifiable or vim.bo[buf].readonly then
+				return
+			end
+			if opts.formatters_by_ft[vim.bo[buf].filetype] == nil then
+				return
+			end
+			require("conform").format({ bufnr = buf, timeout_ms = 500, lsp_format = "fallback" })
+		end
+
 		vim.api.nvim_create_autocmd("BufReadPost", {
 			group = vim.api.nvim_create_augroup("conform-format-on-open", { clear = true }),
 			callback = function(args)
-				if not vim.bo[args.buf].modifiable or vim.bo[args.buf].readonly then
-					return
-				end
-				local ft = vim.bo[args.buf].filetype
-				if opts.formatters_by_ft[ft] == nil then
-					return
-				end
-				require("conform").format({ bufnr = args.buf, timeout_ms = 500, lsp_format = "fallback" })
+				format_on_open(args.buf)
 			end,
 		})
+
+		-- The BufReadPost that lazy-loaded conform already fired before the
+		-- autocmd above existed, so the file that triggered the load never
+		-- gets formatted (typically the first — and often only — plan.toml
+		-- opened in a session). Format it explicitly. Deferred via schedule
+		-- so filetype detection has run by the time we read the buffer's ft.
+		local buf = vim.api.nvim_get_current_buf()
+		vim.schedule(function()
+			if vim.api.nvim_buf_is_valid(buf) then
+				format_on_open(buf)
+			end
+		end)
 	end,
 }
