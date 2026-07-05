@@ -22,7 +22,8 @@ if [[ -z "$CLAUDE_SETTINGS_MERGED" ]]; then
         enabledPlugins: .[1].enabledPlugins,
         spinnerVerbs:   .[1].spinnerVerbs,
         effortLevel:    .[1].effortLevel,
-        statusLine:     .[1].statusLine
+        statusLine:     .[1].statusLine,
+        sandbox:        .[1].sandbox
     }' "$SETTINGS" "$BASE" > "$SETTINGS.tmp"; then
         rm -f "$SETTINGS.tmp"
         echo "claude: failed to merge settings, continuing with existing" >&2
