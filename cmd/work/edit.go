@@ -10,16 +10,16 @@ import (
 )
 
 type editCmd struct {
-	Arg string `arg:"positional" help:"'.' for current worktree's plan.toml (default)"`
+	Arg string `arg:"positional" help:"'.' for current worktree; empty → picker"`
 	All bool   `arg:"-a,--all" help:"batch-edit statuses across filtered items"`
 
-	// type + status filters (only meaningful with --all)
-	Tasks     bool `arg:"-t,--task" help:"only edit tasks (with --all)"`
-	Worktrees bool `arg:"-b,--branch" help:"only edit worktree branches (with --all)"`
-	Open      bool `arg:"-o,--open" help:"status=open filter (with --all)"`
-	Waiting   bool `arg:"-w,--waiting" help:"status=waiting filter (with --all)"`
-	Working   bool `arg:"-W,--working" help:"status=working filter (with --all)"`
-	Closed    bool `arg:"-c,--closed" help:"status=closed filter (with --all)"`
+	// type + status filters (apply to --all batch mode and picker mode)
+	Tasks     bool `arg:"-t,--task" help:"only tasks"`
+	Worktrees bool `arg:"-b,--branch" help:"only worktree branches"`
+	Open      bool `arg:"-o,--open" help:"status=open filter"`
+	Waiting   bool `arg:"-w,--waiting" help:"status=waiting filter"`
+	Working   bool `arg:"-W,--working" help:"status=working filter"`
+	Closed    bool `arg:"-c,--closed" help:"status=closed filter"`
 }
 
 // statusFilter returns the set of statuses to include. Second return is
@@ -53,18 +53,64 @@ const editHeader = `# work edit — change the first char of each line to set th
 
 `
 
-// runEdit has two modes:
-//   - default / "." → open the current worktree's plan.toml in $EDITOR
-//   - --all         → open a scratch file listing all filtered items, one
-//                     status letter per line; on close, diff + apply per-item
+// runEdit has three modes:
+//   - "."       → open the current worktree's plan.toml in $EDITOR
+//   - empty     → picker over filtered items → open chosen plan.toml
+//   - --all     → open a scratch file listing all filtered items, one
+//                 status letter per line; on close, diff + apply per-item
 func runEdit(c *editCmd) error {
-	if !c.All {
-		if c.Arg != "" && c.Arg != "." {
-			return fmt.Errorf(`edit: expected "." or --all; got %q`, c.Arg)
-		}
+	if c.All {
+		return runEditAll(c)
+	}
+	if c.Arg == "." {
 		return editCurrentPlan()
 	}
-	return runEditAll(c)
+	if c.Arg != "" {
+		return fmt.Errorf(`edit: expected "." or --all; got %q`, c.Arg)
+	}
+	return editPickedPlan(c)
+}
+
+// editPickedPlan shows a picker over the filtered inventory and opens
+// the selected item's plan.toml in $EDITOR. Worktree plan.toml files
+// are created on demand if missing; task files always already exist.
+func editPickedPlan(c *editCmd) error {
+	showWT := !c.Tasks || c.Worktrees
+	showCh := !c.Worktrees || c.Tasks
+	items, err := loadInventory(showWT, showCh)
+	if err != nil {
+		return err
+	}
+	set, explicit := c.statusFilter()
+	items = filterInventory(items, set, explicit)
+	if len(items) == 0 {
+		pterm.Info.Println("nothing to edit")
+		return nil
+	}
+	it, err := pickInventory(items)
+	if err != nil {
+		return err
+	}
+	var planPath string
+	switch {
+	case it.Worktree != nil:
+		planPath = path.Join(it.Worktree.Path, planFileName)
+		if _, err := ensurePlanFile(planPath, it.Worktree.String(), it.Worktree.Branch); err != nil {
+			return fmt.Errorf("edit: %w", err)
+		}
+	case it.Task != nil:
+		planPath = it.Task.Path
+	default:
+		return fmt.Errorf("edit: unknown item")
+	}
+	if err := openInEditor(planPath); err != nil {
+		return err
+	}
+	if _, err := readPlan(planPath); err != nil {
+		pterm.Error.Printfln("%v", err)
+		return errPrinted
+	}
+	return nil
 }
 
 // editCurrentPlan opens the plan.toml of the current worktree in $EDITOR,
