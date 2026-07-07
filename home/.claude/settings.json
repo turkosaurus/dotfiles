@@ -28,6 +28,21 @@
       "Bash(ls:*)",
       "Bash(fzf:*)",
       "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(jq:*)",
+      "Bash(go doc:*)",
+      "Bash(command -v:*)",
+      "Bash(which:*)",
+      "Bash(file:*)",
+      "Bash(tree:*)",
+      "Bash(git show:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git ls-files:*)",
       "Read(**)",
       "mcp__signoz__signoz_search_logs",
       "mcp__signoz__signoz_get_field_keys",
@@ -42,6 +57,12 @@
       "Read(**/id_rsa*)",
       "Read(**/*.pem)",
       "Read(* terraform*)"
+    ],
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(rm:*)"
     ]
   },
   "model": "opus",
@@ -76,6 +97,19 @@
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "network": {
+      "allowedDomains": [
+        "github.com",
+        "api.github.com",
+        "*.githubusercontent.com",
+        "proxy.golang.org",
+        "sum.golang.org"
+      ]
+    }
   },
   "spinnerVerbs": {
     "mode": "replace",
