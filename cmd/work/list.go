@@ -86,6 +86,36 @@ const (
 	iconStatusUnknown = "" // nf-fa-question_circle
 )
 
+// typeStyle colors the type-icon column: cyan for worktrees (they map
+// to git branches), magenta for tasks (free-floating work items).
+func typeStyle(it inventoryItem) *pterm.Style {
+	if it.Task != nil {
+		return pterm.NewStyle(pterm.FgMagenta)
+	}
+	return pterm.NewStyle(pterm.FgCyan)
+}
+
+// dueStyle colors the due-date cell by urgency. Returns nil when the
+// due date is missing or comfortably far out, so the caller can fall
+// back to the row's status color.
+//
+//	overdue (past)       → red bold
+//	due today / tomorrow → yellow
+//	≥ 2 days out         → nil (caller's default)
+func dueStyle(due time.Time) *pterm.Style {
+	if due.IsZero() {
+		return nil
+	}
+	d := time.Until(due)
+	if d < 0 {
+		return pterm.NewStyle(pterm.FgRed, pterm.Bold)
+	}
+	if d < 48*time.Hour {
+		return pterm.NewStyle(pterm.FgYellow)
+	}
+	return nil
+}
+
 // statusIcon maps a statusKind to a nerd-font glyph. Unknown → · placeholder.
 func statusIcon(s statusKind) string {
 	switch s {
@@ -134,9 +164,10 @@ func (it inventoryItem) label() string {
 }
 
 // formatLabels renders picker labels with the name column padded to the widest
-// value. Layout: [type] [name] [status] [age] — name is the filterable column.
+// value. Layout: [type] [status] [name] [age] — name is the filterable column.
 // Long name columns are truncated with an ellipsis so labels fit within the
-// terminal width (no wrapping into an ugly second line).
+// terminal width (no wrapping into an ugly second line). Each label is
+// colored per the item's status.
 func formatLabels(items []inventoryItem) []string {
 	if len(items) == 0 {
 		return nil
@@ -145,16 +176,22 @@ func formatLabels(items []inventoryItem) []string {
 	nameW := 0
 	for i, it := range items {
 		rows[i] = it.row()
-		if l := runeLen(rows[i][1]); l > nameW {
+		if l := runeLen(rows[i][2]); l > nameW {
 			nameW = l
 		}
 	}
-	// Reserve the fixed columns: icon (1) + 2sp + name + 2sp + status (1) +
-	// 2sp + due (up to 4, e.g. "+1mo") — plus a right-edge safety margin.
-	// Multiselect prefixes each line with `[ ]` and a space (4 chars) so
-	// account for that too.
+	// Space claimed by everything except the name column.
+	// Layout: `[ ] icon  status  <name>  due` with 2-space separators.
+	const (
+		multiselectPrefix = 4 // "[ ] "
+		icon              = 1
+		status            = 1
+		due               = 4 // e.g. "+1mo"
+		sep               = 2 // between each of the 4 columns → 3 seps
+		margin            = 3 // right-edge safety
+		fixed             = multiselectPrefix + icon + status + due + 3*sep + margin
+	)
 	term := pterm.GetTerminalWidth()
-	const fixed = 1 + 2 + 2 + 1 + 2 + 4 + 4 + 3
 	maxName := term - fixed
 	if maxName < 10 { // paranoid floor for very narrow terminals
 		maxName = 10
@@ -164,9 +201,16 @@ func formatLabels(items []inventoryItem) []string {
 	}
 	labels := make([]string, len(items))
 	for i, r := range rows {
-		name := truncateRunes(r[1], nameW)
-		labels[i] = fmt.Sprintf("%s  %-*s  %s  %s",
-			r[0], nameW, name, r[2], r[3])
+		cells := []string{r[0], r[1], truncateRunes(r[2], nameW), r[3]}
+		colorRow(cells, items[i])
+		// Pad the name in a second pass — coloring wraps it in ANSI
+		// codes that %-*s would count against the width.
+		pad := nameW - runeLen(truncateRunes(r[2], nameW))
+		if pad < 0 {
+			pad = 0
+		}
+		labels[i] = fmt.Sprintf("%s  %s  %s%s  %s",
+			cells[0], cells[1], cells[2], strings.Repeat(" ", pad), cells[3])
 	}
 	return labels
 }
@@ -315,40 +359,73 @@ func runList(c *listCmd) error {
 		return nil
 	}
 
-	rows := pterm.TableData{{"", "name", "", "due"}}
+	rows := pterm.TableData{{"", "", "name", "due"}}
 	for _, it := range items {
 		rows = append(rows, it.row())
 	}
 	truncateTableNames(rows)
+	// Color cells after truncation so runeLen sees plain runes. Per
+	// column: type = typeStyle, status/name = row's status color, due
+	// = dueStyle (urgency) or status color if not urgent.
+	for i, it := range items {
+		colorRow(rows[i+1], it)
+	}
 	return pterm.DefaultTable.WithHasHeader().WithData(rows).Render()
 }
 
-// truncateTableNames clips the name column (index 1) of each row so the
-// table fits the current terminal width. Fixed overhead is icons + " | "
-// separators + due (up to 4 chars, e.g. "+1mo") + a right-edge margin.
+// colorRow applies per-cell coloring to a 4-column row in place. Cell
+// indexes: 0 type, 1 status, 2 name, 3 due.
+func colorRow(r []string, it inventoryItem) {
+	if len(r) < 4 {
+		return
+	}
+	status := statusStyle(itemStatus(it))
+	r[0] = typeStyle(it).Sprint(r[0])
+	r[1] = status.Sprint(r[1])
+	r[2] = status.Sprint(r[2])
+	due, _ := itemDueAndMtime(it)
+	if ds := dueStyle(due); ds != nil {
+		r[3] = ds.Sprint(r[3])
+	} else {
+		r[3] = status.Sprint(r[3])
+	}
+}
+
+// truncateTableNames clips the name column (index 2) of each row so the
+// table fits the current terminal width. See the fixed-column breakdown
+// in formatLabels; the table uses " | " (3 chars) between columns
+// instead of the picker's 2-space gap, and has no multiselect prefix.
 // The header row is included in the width scan so the "name" header
 // itself doesn't get squeezed.
 func truncateTableNames(rows pterm.TableData) {
+	const (
+		icon    = 1
+		status  = 1
+		due     = 4 // e.g. "+1mo"
+		sep     = 3 // " | " between each of the 4 columns → 3 seps
+		margin  = 1
+		fixed   = icon + status + due + 3*sep + margin
+		nameCol = 2
+	)
 	term := pterm.GetTerminalWidth()
-	const fixed = 1 + 3 + 3 + 1 + 3 + 4 + 1
 	maxName := term - fixed
 	if maxName < 10 {
 		maxName = 10
 	}
 	for i := range rows {
-		if len(rows[i]) < 2 {
+		if len(rows[i]) <= nameCol {
 			continue
 		}
-		if runeLen(rows[i][1]) > maxName {
-			rows[i][1] = truncateRunes(rows[i][1], maxName)
+		if runeLen(rows[i][nameCol]) > maxName {
+			rows[i][nameCol] = truncateRunes(rows[i][nameCol], maxName)
 		}
 	}
 }
 
-// row schema: [type_icon, name, status_icon, age]
+// row schema: [type_icon, status_icon, name, age]
 //   - type_icon: git-branch (worktree) or tasks (task)
-//   - name: repo:branch (worktree) or title (task) — the filterable column
 //   - status_icon: nerd-font glyph for open/pending/done (· if unknown)
+//   - name: repo:branch (worktree) or title (task) — the filterable column
 //   - age: relative time — file mtime for both worktrees and tasks
 
 func worktreeRow(wt worktree) []string {
@@ -370,7 +447,7 @@ func worktreeRow(wt worktree) []string {
 			status = iconStatusBroken
 		}
 	}
-	return []string{iconWorktree, name, status, dueOffset(due)}
+	return []string{iconWorktree, status, name, dueOffset(due)}
 }
 
 // firstIssueTitle returns the first non-empty [[issue]].title from p, or
@@ -396,7 +473,7 @@ func taskRow(ch plan) []string {
 		status = iconStatusBroken
 		title = name + " (broken)"
 	}
-	return []string{iconTask, title, status, dueOffset(ch.Due)}
+	return []string{iconTask, status, title, dueOffset(ch.Due)}
 }
 
 // listTasksAll walks open/waiting/working/closed and returns every task
