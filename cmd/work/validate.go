@@ -54,7 +54,7 @@ func validateAll() error {
 		return fmt.Errorf("validate: %w", err)
 	}
 	if len(broken) == 0 {
-		pterm.Success.Println("all plans parse ok")
+		pterm.Info.Println("all plans parse ok")
 		return nil
 	}
 	for _, b := range broken {
