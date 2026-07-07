@@ -20,7 +20,7 @@ above exactly.
 ## Input
 
 `$ARGUMENTS` is the task brief — a question, investigation, or implementation
-ask. May reference paths outside cwd (e.g. "look at ~/p/lantern and …").
+ask. May reference paths outside cwd (e.g. "look at ~/p/some-repo and …").
 
 ## Steps
 
