@@ -52,11 +52,12 @@ fi
 # embed cursor reset in prompt (use terminal default)
 PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 
-# work - git worktree wrapper with cd support (binary in ~/.local/bin)
+# work - git worktree wrapper with cd support
+# work-binary: $HOME/.local/share/mise/installs/go/1.24.7/bin/work
 work() {
   local next="$HOME/w/.next"
   rm -f "$next"
-  "$HOME/.local/bin/work" "$@"
+  "$HOME/.local/share/mise/installs/go/1.24.7/bin/work" "$@"
   local rc=$?
   if [[ -s "$next" ]]; then
     local target
