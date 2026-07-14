@@ -96,7 +96,16 @@
   },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true,
-    "superpowers@claude-plugins-official": true
+    "superpowers@claude-plugins-official": true,
+    "skills@lantern": true
+  },
+  "extraKnownMarketplaces": {
+    "lantern": {
+      "source": {
+        "source": "github",
+        "repo": "getlantern/skills"
+      }
+    }
   },
   "sandbox": {
     "enabled": true,
@@ -120,6 +129,7 @@
   "effortLevel": "high",
   "tui": "fullscreen",
   "theme": "dark-ansi",
+  "skipAutoPermissionPrompt": true,
   "mcpServers": {
     "slack": {
       "command": "npx",

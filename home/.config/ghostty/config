@@ -7,6 +7,7 @@ font-family = RobotoMono Nerd Font Mono
 font-size = 16
 
 # Window
+macos-option-as-alt = true
 macos-titlebar-style = transparent
 macos-non-native-fullscreen = false
 window-padding-x = 0
