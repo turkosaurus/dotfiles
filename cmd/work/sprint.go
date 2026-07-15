@@ -117,8 +117,10 @@ type sprintAction struct {
 
 // planSprint walks the fetched items, builds preview output + stats, and
 // returns the actions that would carry out the reconcile. No disk writes
-// happen inside — callers gate execution behind a confirm.
-func planSprint(r sprintFetchResult) (sprintOutput, []sprintAction, error) {
+// happen inside — callers gate execution behind a confirm. dryRun only
+// affects the verb tense in preview lines ("would update" vs "update");
+// the queued actions themselves are identical either way.
+func planSprint(r sprintFetchResult, dryRun bool) (sprintOutput, []sprintAction, error) {
 	var out sprintOutput
 	if r.err != nil {
 		return out, nil, r.err
@@ -129,6 +131,10 @@ func planSprint(r sprintFetchResult) (sprintOutput, []sprintAction, error) {
 	}
 	c := r.config
 	items := r.items
+	updateVerb, createVerb := "update", "create"
+	if dryRun {
+		updateVerb, createVerb = "would update", "would create"
+	}
 	lookup := buildStatusLookup(c.Sprint.StatusFields)
 	tracked, err := trackedPlans()
 	if err != nil {
@@ -192,12 +198,12 @@ func planSprint(r sprintFetchResult) (sprintOutput, []sprintAction, error) {
 				continue
 			}
 			if target == statusClosed && len(p.Tasks) > 0 {
-				out.warn("would update %s (kept open: %d task(s) remain)", label, len(p.Tasks))
+				out.warn("keeping open %s (%d task(s) remain)", label, len(p.Tasks))
 				blocked++
 				continue
 			}
 			note := fmt.Sprintf("%s → %s", p.Status, target)
-			out.info("would update %s (%s)", label, note)
+			out.info("%s %s (%s)", updateVerb, label, note)
 			pRef, tgt := p, target
 			actions = append(actions, sprintAction{
 				label: label,
@@ -214,7 +220,7 @@ func planSprint(r sprintFetchResult) (sprintOutput, []sprintAction, error) {
 			continue
 		}
 		createNote := fmt.Sprintf("new → %s", target)
-		out.info("would update %s (%s)", title, createNote)
+		out.info("%s %s (%s)", createVerb, title, createNote)
 		urlCopy, titleCopy, tgt, projURL, itStatus := it.Content.URL, title, target, c.Sprint.ProjectURL, it.Status
 		actions = append(actions, sprintAction{
 			label: titleCopy,

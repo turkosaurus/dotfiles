@@ -21,7 +21,7 @@ import (
 func runSprintOnly(dryRun bool) error {
 	spinner, _ := pterm.DefaultSpinner.WithText("syncing sprint").Start()
 	sprintRes := fetchSprint(nil)
-	sprintOut, sprintActions, serr := planSprint(sprintRes)
+	sprintOut, sprintActions, serr := planSprint(sprintRes, dryRun)
 	switch {
 	case sprintRes.err != nil:
 		spinner.Fail("sprint fetch failed")
@@ -156,7 +156,7 @@ func runSync(args *syncCmd) error {
 	}
 
 	sprintRes := <-sprintCh
-	sprintOut, sprintActions, serr := planSprint(sprintRes)
+	sprintOut, sprintActions, serr := planSprint(sprintRes, args.DryRun)
 	switch {
 	case sprintRes.err != nil:
 		sprintSpinner.Fail("sprint fetch failed")
@@ -381,7 +381,7 @@ func runSyncAll(dryRun bool) error {
 
 	// Plan-only pass — no side effects. Actions are queued for later.
 	sprintRes := <-sprintCh
-	sprintOut, sprintActions, serr := planSprint(sprintRes)
+	sprintOut, sprintActions, serr := planSprint(sprintRes, dryRun)
 	switch {
 	case sprintRes.err != nil:
 		sprintSpinner.Fail("sprint fetch failed")
