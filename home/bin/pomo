@@ -20,7 +20,7 @@ usage() {
 Usage: $0 [options] <task-name>
 
 Options:
-  -d, --duration MINS    timer length in minutes (default: 25)
+  -d, --duration MINS    timer length in minutes (default: 25; x: count up)
   -n, --notification M,M warning at M minutes remaining (default: 1,5)
   -l, --log FILE         log file path (default: ~/.pomo.log)
 
@@ -97,26 +97,39 @@ notify() {
 
 main() {
   local duration="$POMO_LEN"
-  local total_seconds=$((duration * 60))
+  local countup=0
+  local total_seconds=0
+  if [[ "$duration" == "x" ]]; then
+    countup=1
+  else
+    total_seconds=$((duration * 60))
+  fi
   local interval=1
   local elapsed=0
 
-  while [ $elapsed -lt $total_seconds ]; do
+  while (( countup )) || [ $elapsed -lt $total_seconds ]; do
     elapsed=$((elapsed + interval))
     remaining=$((total_seconds - elapsed))
     completed=$(( elapsed / 60 ))
+
+    local display
+    if (( countup )); then
+      display=$(format_time "$elapsed")
+    else
+      display=$(format_time "$remaining")
+      warn "$remaining"
+    fi
 
     if [[ -n "$TMUX" ]]; then
       # Rename the tmux window to show the task name and remaining time.
       tmux rename-window -t \
         "$TMUX_INDEX" \
-        "$TASK $(format_time "$remaining")"
+        "$TASK $display"
     else
       # Update the terminal with the task name and remaining time.
-      echo -ne "\r$1: $(format_time $remaining)"
+      echo -ne "\r$1: $display"
     fi
 
-    warn $remaining
     sleep $interval
   done
 
@@ -125,7 +138,11 @@ main() {
 
 cleanup() {
   # Record the end of every pomodoro into log.
-  echo "$(timestamp) ${completed}/${POMO_LEN}m $TASK" >> "$POMO_LOG"
+  if [[ "$POMO_LEN" == "x" ]]; then
+    echo "$(timestamp) ${completed}m $TASK" >> "$POMO_LOG"
+  else
+    echo "$(timestamp) ${completed}/${POMO_LEN}m $TASK" >> "$POMO_LOG"
+  fi
 
   # Reset the window name to the original.
   if [[ -n "$TMUX" ]]; then
