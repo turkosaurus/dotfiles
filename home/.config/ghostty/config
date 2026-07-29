@@ -33,3 +33,10 @@ keybind = f11=toggle_fullscreen
 keybind = ctrl+shift+f=toggle_fullscreen
 keybind = shift+enter=text:\x1b\x0d
 keybind = ctrl+shift+v=paste_from_clipboard
+
+# Option+arrows → Alt+arrows (ESC-prefixed), so tmux sees M-Left etc.
+# Overrides Ghostty's default Option+Left/Right = word motion (^[b/^[f).
+keybind = alt+left=text:\x1b\x1b[D
+keybind = alt+right=text:\x1b\x1b[C
+keybind = alt+up=text:\x1b\x1b[A
+keybind = alt+down=text:\x1b\x1b[B

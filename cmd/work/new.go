@@ -21,13 +21,14 @@ type newCmd struct {
 	Repo   string `arg:"-r,--repo" help:"repo name under <path.repos> (defaults to current)"`
 	Branch string `arg:"-b,--branch" help:"create new branch off current main and set up its worktree"`
 
-	// initial status for a new task — at most one; default is open
-	Open    bool `arg:"-o,--open" help:"new task in open status (default)"`
-	Waiting bool `arg:"-w,--waiting" help:"new task in waiting status"`
+	// initial status for a new task — at most one; default is waiting
+	// (new tasks are waiting on prioritization until promoted)
+	Open    bool `arg:"-o,--open" help:"new task in open status"`
+	Waiting bool `arg:"-w,--waiting" help:"new task in waiting status (default)"`
 	Working bool `arg:"-W,--working" help:"new task in working status"`
 	Closed  bool `arg:"-c,--closed" help:"new task in closed status"`
 
-	// due date override; empty → tomorrow at midnight
+	// due date override; empty → no due date set
 	Due string `arg:"-d,--due" help:"due: 2h, 3d, tomorrow, or YYYY-MM-DD [HH:MM]"`
 }
 
@@ -35,8 +36,9 @@ type newCmd struct {
 //   - -b <branch>          → branch off updated main and set up worktree
 //   - Arg == ""            → print usage
 //   - Arg == "."           → worktree from the current branch
-//   - else                 → task with that title (status defaults to open,
-//     due to tomorrow-at-midnight unless -o/-w/-W/-c or --due override)
+//   - else                 → task with that title (status defaults to
+//     waiting — waiting on prioritization; due is unset unless --due
+//     is passed)
 func runNew(c *newCmd) error {
 	if c.Branch != "" {
 		return newFromBranch(c.Repo, c.Branch)
@@ -61,7 +63,7 @@ run 'work new .'. To navigate an existing worktree, use 'work' or
 	case ".":
 		return newFromCurrent()
 	}
-	status, err := pickStatusFlag(c.Open, c.Waiting, c.Working, c.Closed, statusOpen)
+	status, err := pickStatusFlag(c.Open, c.Waiting, c.Working, c.Closed, statusWaiting)
 	if err != nil {
 		return fmt.Errorf("new: %w", err)
 	}
@@ -73,9 +75,13 @@ run 'work new .'. To navigate an existing worktree, use 'work' or
 	if err != nil {
 		return err
 	}
-	pterm.Success.Printfln("task #%s (%s, due %s): %s",
-		path.Base(strings.TrimSuffix(p.Path, ".toml")), status,
-		p.Due.Format("2006-01-02 15:04"), p.Title)
+	num := path.Base(strings.TrimSuffix(p.Path, ".toml"))
+	if p.Due.IsZero() {
+		pterm.Success.Printfln("task #%s (%s): %s", num, status, p.Title)
+	} else {
+		pterm.Success.Printfln("task #%s (%s, due %s): %s",
+			num, status, p.Due.Format("2006-01-02 15:04"), p.Title)
+	}
 	return openInEditor(p.Path)
 }
 
@@ -183,8 +189,9 @@ func newFromCurrent() error {
 }
 
 // parseDue interprets the -d/--due flag value and returns the resulting
-// time.Time. Empty input falls back to config.Task.DefaultDue (parsed
-// recursively) and then to "tomorrow" at midnight. Recognized forms:
+// time.Time. Empty input returns the zero Time (no default is applied —
+// callers that want a fallback must supply it themselves). Recognized
+// forms:
 //
 //   - "today" / "tomorrow"              → that day at midnight (local)
 //   - "Nd" / "Nw" (int + d or w)        → now + N days/weeks, midnight
@@ -197,19 +204,14 @@ var dayWeekRe = regexp.MustCompile(`^(\d+)([dw])$`)
 
 func parseDue(raw string) (time.Time, error) {
 	if strings.TrimSpace(raw) == "" {
-		if c, err := loadConfig(); err == nil {
-			if cfgDue := strings.TrimSpace(c.Task.DefaultDue); cfgDue != "" {
-				return parseDueRaw(cfgDue)
-			}
-		}
-		return parseDueRaw("tomorrow")
+		return time.Time{}, nil
 	}
 	return parseDueRaw(raw)
 }
 
-// parseDueRaw is the pure parser — no config fallback, no default. Empty
-// input is a caller error (parseDue handles empty; direct callers of
-// parseDueRaw shouldn't pass "").
+// parseDueRaw is the pure parser — no empty-string handling. Callers that
+// need "empty means no due" should go through parseDue, which returns the
+// zero Time for empty input.
 func parseDueRaw(raw string) (time.Time, error) {
 	now := time.Now()
 	midnight := func(t time.Time) time.Time {

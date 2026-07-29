@@ -30,11 +30,6 @@ tasks = "~/w/t"
 # Where your clones live (informational, for now). Default: ~/p.
 repos = "~/p"
 
-[task]
-# Default due-date for 'work new' when -d isn't given. Accepts the same
-# forms as -d: 2h, 3d, tomorrow, today, or YYYY-MM-DD [HH:MM].
-default_due = "tomorrow"
-
 [sprint]
 # GitHub project board to pull tasks from on every 'work sync'.
 # Leave empty to disable sprint sync.
@@ -82,22 +77,12 @@ func runConfig(_ *configCmd) error {
 // paths, mappings) aren't checked in.
 type config struct {
 	Path   pathConfig   `toml:"path"`
-	Task   taskConfig   `toml:"task"`
 	Sprint sprintConfig `toml:"sprint"`
 
 	// LegacySource carries the old [source] section so we can migrate
 	// configs written before the rename. loadConfig lifts LegacySource.Path
 	// into Path.Source if the latter is unset.
 	LegacySource legacySourceConfig `toml:"source"`
-}
-
-// taskConfig holds task-creation defaults consulted when the equivalent
-// CLI flag isn't provided.
-type taskConfig struct {
-	// DefaultDue is the fallback for `work new`'s -d flag. Same
-	// forms as -d (2h, 3d, tomorrow, YYYY-MM-DD [HH:MM]). Empty →
-	// "tomorrow" at midnight (the built-in default).
-	DefaultDue string `toml:"default_due"`
 }
 
 // pathConfig collects the filesystem knobs. Empty fields fall back to
