@@ -13,8 +13,11 @@ query($q: String!, $after: String) {
         projectItems(first: 20) {
           nodes {
             project { number }
-            fieldValueByName(name: "Status") {
+            status: fieldValueByName(name: "Status") {
               ... on ProjectV2ItemFieldSingleSelectValue { name }
+            }
+            sprint: fieldValueByName(name: "Sprint") {
+              ... on ProjectV2ItemFieldIterationValue { startDate duration }
             }
           }
         }
@@ -27,8 +30,11 @@ query($q: String!, $after: String) {
         projectItems(first: 20) {
           nodes {
             project { number }
-            fieldValueByName(name: "Status") {
+            status: fieldValueByName(name: "Status") {
               ... on ProjectV2ItemFieldSingleSelectValue { name }
+            }
+            sprint: fieldValueByName(name: "Sprint") {
+              ... on ProjectV2ItemFieldIterationValue { startDate duration }
             }
           }
         }

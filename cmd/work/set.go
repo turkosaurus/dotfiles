@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"time"
 
 	"atomicgo.dev/keyboard/keys"
@@ -17,8 +18,9 @@ type setCmd struct {
 	// -a/--all (include closed items in the picker).
 	filterSpec
 
-	// due-date override; empty → no change
-	Due string `arg:"-d,--due" help:"set selected → due (2h, 3d, tomorrow, ...)"`
+	// due-date override; empty (flag not passed) → no change,
+	// "none"/"-"/"clear" → clear the due field, else parseDue
+	Due string `arg:"-d,--due" help:"set selected → due (2h, 3d, tomorrow, ...; 'none' clears)"`
 
 	// Direct target: '.' → current worktree, else resolve as a worktree
 	// name. When set, skip the picker and apply the change to just that
@@ -27,24 +29,32 @@ type setCmd struct {
 }
 
 // target resolves the status flag (may be empty statusKind if none set)
-// and the due-date override (zero time.Time if --due not set). Returns
-// an error when neither is set or when parsing fails.
-func (c *setCmd) target() (statusKind, time.Time, error) {
+// and the due-date override. The bool return signals a clear-due
+// request: when true, the caller should delete the .due field on each
+// item rather than setting it. Returns an error when nothing was
+// requested or when parsing fails.
+func (c *setCmd) target() (statusKind, time.Time, bool, error) {
 	s, err := pickStatusFlag(c.Open, c.Waiting, c.Working, c.Closed, "")
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("set: %w", err)
+		return "", time.Time{}, false, fmt.Errorf("set: %w", err)
 	}
 	var due time.Time
-	if c.Due != "" {
-		due, err = parseDue(c.Due)
+	var clear bool
+	switch strings.ToLower(strings.TrimSpace(c.Due)) {
+	case "":
+		// flag not passed — no due change
+	case "none", "-", "clear":
+		clear = true
+	default:
+		due, err = parseDueRaw(c.Due)
 		if err != nil {
-			return "", time.Time{}, fmt.Errorf("set: %w", err)
+			return "", time.Time{}, false, fmt.Errorf("set: %w", err)
 		}
 	}
-	if s == "" && due.IsZero() {
-		return "", time.Time{}, fmt.Errorf("set: need one of -o/-w/-W/-c or --due")
+	if s == "" && due.IsZero() && !clear {
+		return "", time.Time{}, false, fmt.Errorf("set: need one of -o/-w/-W/-c or --due")
 	}
-	return s, due, nil
+	return s, due, clear, nil
 }
 
 // pickStatusFlag resolves at most one of the four status booleans into a
@@ -79,7 +89,7 @@ func pickStatusFlag(open, waiting, working, closed bool, fallback statusKind) (s
 // (or ".") is passed as a positional, the picker is bypassed and the
 // changes are applied to just that worktree.
 func runSet(c *setCmd) error {
-	target, due, err := c.target()
+	target, due, clear, err := c.target()
 	if err != nil {
 		return err
 	}
@@ -90,10 +100,10 @@ func runSet(c *setCmd) error {
 			return fmt.Errorf("set: %w", err)
 		}
 		it := inventoryItem{Worktree: &wt}
-		if err := applyStatusDue(it, target, due); err != nil {
+		if err := applyStatusDue(it, target, due, clear); err != nil {
 			return fmt.Errorf("set: %w", err)
 		}
-		pterm.Success.Printfln("%s → %s", wt, describeChange(target, due))
+		pterm.Success.Printfln("%s → %s", wt, describeChange(target, due, clear))
 		warnIfBroken()
 		return nil
 	}
@@ -141,14 +151,14 @@ func runSet(c *setCmd) error {
 		return nil
 	}
 
-	change := describeChange(target, due)
+	change := describeChange(target, due, clear)
 	if !confirm(fmt.Sprintf("apply to %d items → %s?", len(sel), change)) {
 		return fmt.Errorf("set: cancelled")
 	}
 
 	for _, label := range sel {
 		it := byLabel[label]
-		if err := applyStatusDue(it, target, due); err != nil {
+		if err := applyStatusDue(it, target, due, clear); err != nil {
 			pterm.Warning.Printfln("FAIL %s: %v", label, err)
 			continue
 		}
@@ -159,41 +169,52 @@ func runSet(c *setCmd) error {
 }
 
 // describeChange formats the "→ ..." tail for status/due output. Emits
-// "status=<s>", "due=<t>", or both joined by a comma.
-func describeChange(target statusKind, due time.Time) string {
-	switch {
-	case target != "" && !due.IsZero():
-		return fmt.Sprintf("status=%s, due=%s", target, due.Format("2006-01-02 15:04"))
-	case target != "":
-		return string(target)
-	case !due.IsZero():
-		return fmt.Sprintf("due=%s", due.Format("2006-01-02 15:04"))
+// "status=<s>", "due=<t>", "due=cleared", or a combination joined by a
+// comma.
+func describeChange(target statusKind, due time.Time, clear bool) string {
+	var parts []string
+	if target != "" {
+		parts = append(parts, string(target))
 	}
-	return "(no change)"
+	switch {
+	case clear:
+		parts = append(parts, "due=cleared")
+	case !due.IsZero():
+		parts = append(parts, fmt.Sprintf("due=%s", due.Format("2006-01-02 15:04")))
+	}
+	if len(parts) == 0 {
+		return "(no change)"
+	}
+	return strings.Join(parts, ", ")
 }
 
 // applyStatusDue applies whichever of status/due is set to the item.
 // Status changes go through setStatus (moveTask for tasks, yq for
 // worktrees). Due changes rewrite plan.toml directly (tasks) or yq
-// the worktree plan. Both fields can be applied in one call.
-func applyStatusDue(it inventoryItem, target statusKind, due time.Time) error {
+// the worktree plan. When clear is true, the .due field is deleted
+// rather than set. Status and due changes can be applied in one call.
+func applyStatusDue(it inventoryItem, target statusKind, due time.Time, clear bool) error {
 	if target != "" {
 		if err := setStatus(it, target); err != nil {
 			return err
 		}
 	}
+	if clear {
+		return setDue(it, target, time.Time{}, true)
+	}
 	if !due.IsZero() {
-		if err := setDue(it, target, due); err != nil {
-			return err
-		}
+		return setDue(it, target, due, false)
 	}
 	return nil
 }
 
-// setDue writes the due-date to the plan file. For tasks, target may be
-// non-empty when setStatus just moved the file — resolve the new path
-// via taskDir(target) rather than the stale it.Task.Path.
-func setDue(it inventoryItem, movedTo statusKind, due time.Time) error {
+// setDue writes (or clears) the due-date on the plan file. For tasks,
+// target may be non-empty when setStatus just moved the file — resolve
+// the new path via taskDir(target) rather than the stale it.Task.Path.
+// When clear is true the .due field is removed via yq's del(); otherwise
+// it's set to due formatted as RFC3339 (yq re-emits it as native TOML
+// datetime).
+func setDue(it inventoryItem, movedTo statusKind, due time.Time, clear bool) error {
 	planPath := ""
 	switch {
 	case it.Task != nil:
@@ -210,10 +231,11 @@ func setDue(it inventoryItem, movedTo statusKind, due time.Time) error {
 	default:
 		return fmt.Errorf("unknown item type")
 	}
-	// yq encodes RFC3339 strings as native TOML datetime on output.
-	stamp := due.Format(time.RFC3339)
-	cmd := exec.Command("yq", "-p", "toml", "-o", "toml", "-i",
-		fmt.Sprintf(`.due = "%s"`, stamp), planPath)
+	expr := fmt.Sprintf(`.due = "%s"`, due.Format(time.RFC3339))
+	if clear {
+		expr = `del(.due)`
+	}
+	cmd := exec.Command("yq", "-p", "toml", "-o", "toml", "-i", expr, planPath)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

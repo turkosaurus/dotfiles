@@ -47,7 +47,14 @@
       "mcp__signoz__signoz_search_logs",
       "mcp__signoz__signoz_get_field_keys",
       "mcp__signoz__signoz_query_metrics",
-      "mcp__signoz__signoz_search_traces"
+      "mcp__signoz__signoz_search_traces",
+      "mcp__bigquery__list_dataset_ids",
+      "mcp__bigquery__list_table_ids",
+      "mcp__bigquery__get_dataset_info",
+      "mcp__bigquery__get_table_info",
+      "mcp__bigquery__search_catalog",
+      "mcp__bigquery__forecast",
+      "mcp__bigquery__analyze_contribution"
     ],
     "deny": [
       "Read(./.env)",
