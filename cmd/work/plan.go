@@ -82,7 +82,7 @@ const (
 type plan struct {
 	Title  string     `toml:"title"`
 	Status statusKind `toml:"status"`
-	Due    time.Time  `toml:"due"`
+	Due    time.Time  `toml:"due,omitempty"`
 	Tasks  []string   `toml:"tasks"`
 	Slack  slack      `toml:"slack"`
 	Issues []Issue    `toml:"issue"`
@@ -143,11 +143,9 @@ type comment struct {
 }
 
 func defaultPlan(title string) plan {
-	due := time.Now().AddDate(0, 0, 1)
 	return plan{
 		Title:  title,
 		Status: statusOpen,
-		Due:    time.Date(due.Year(), due.Month(), due.Day(), 0, 0, 0, 0, time.Local),
 	}
 }
 

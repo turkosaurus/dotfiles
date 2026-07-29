@@ -221,11 +221,11 @@ func planSprint(r sprintFetchResult, dryRun bool) (sprintOutput, []sprintAction,
 		}
 		createNote := fmt.Sprintf("new → %s", target)
 		out.info("%s %s (%s)", createVerb, title, createNote)
-		urlCopy, titleCopy, tgt, projURL, itStatus := it.Content.URL, title, target, c.Sprint.ProjectURL, it.Status
+		urlCopy, titleCopy, tgt, projURL, itStatus, sprintEnd := it.Content.URL, title, target, c.Sprint.ProjectURL, it.Status, it.SprintEnd
 		actions = append(actions, sprintAction{
 			label: titleCopy,
 			do: func() error {
-				np, err := newTask(titleCopy, tgt, time.Time{})
+				np, err := newTask(titleCopy, tgt, sprintEnd)
 				if err != nil {
 					return err
 				}
@@ -487,6 +487,10 @@ type projectItem struct {
 	Closed    bool               `json:"closed"` // GitHub issue/PR state, not project column
 	Assignees []string           `json:"assignees"`
 	Content   projectItemContent `json:"content"`
+	// SprintEnd is the last day of the item's iteration on the Sprint
+	// field (startDate + duration - 1, midnight local). Zero when the
+	// item isn't assigned to any iteration on this project.
+	SprintEnd time.Time `json:"-"`
 }
 
 type projectItemContent struct {
@@ -514,6 +518,22 @@ func currentGitHubLogin() (string, error) {
 	return resp.Viewer.Login, nil
 }
 
+// iterationEnd returns the last day of an iteration (startDate + duration
+// - 1) at midnight local. startDate arrives as "YYYY-MM-DD" from the
+// ProjectV2ItemFieldIterationValue payload; duration is in days. Any
+// missing / unparseable input yields the zero Time — callers should
+// check IsZero() before using the result.
+func iterationEnd(startDate string, duration int) time.Time {
+	if startDate == "" || duration <= 0 {
+		return time.Time{}
+	}
+	t, err := time.ParseInLocation("2006-01-02", startDate, time.Local)
+	if err != nil {
+		return time.Time{}
+	}
+	return t.AddDate(0, 0, duration-1)
+}
+
 // projectURLRe matches https://github.com/{orgs|users}/<owner>/projects/<n>
 var projectURLRe = regexp.MustCompile(`^https://github\.com/(?:orgs|users)/([^/]+)/projects/(\d+)/?$`)
 
@@ -539,8 +559,17 @@ type searchNode struct {
 	Assignees    struct{ Nodes []struct{ Login string } }
 	ProjectItems struct {
 		Nodes []struct {
-			Project          struct{ Number int }
-			FieldValueByName struct{ Name string }
+			Project struct{ Number int }
+			// Status holds the current column name; Sprint holds the
+			// iteration this item is assigned to (startDate + duration
+			// in days). Both come back as the GraphQL union type when
+			// unset — an empty struct — so callers must check .Name /
+			// .StartDate before use.
+			Status struct{ Name string } `json:"status"`
+			Sprint struct {
+				StartDate string `json:"startDate"`
+				Duration  int    `json:"duration"`
+			} `json:"sprint"`
 		}
 	}
 }
@@ -599,9 +628,11 @@ func fetchSprintItems(owner string, num int, assignees []string, onFirstReply fu
 					continue
 				}
 				var status string
+				var sprintEnd time.Time
 				for _, pi := range n.ProjectItems.Nodes {
 					if pi.Project.Number == num {
-						status = pi.FieldValueByName.Name
+						status = pi.Status.Name
+						sprintEnd = iterationEnd(pi.Sprint.StartDate, pi.Sprint.Duration)
 						break
 					}
 				}
@@ -615,6 +646,7 @@ func fetchSprintItems(owner string, num int, assignees []string, onFirstReply fu
 					Closed:    n.Closed,
 					Assignees: logins,
 					Content:   projectItemContent{URL: n.URL, Title: n.Title},
+					SprintEnd: sprintEnd,
 				})
 				seen[n.URL] = true
 			}

@@ -75,3 +75,6 @@ if [ -f "$HOME/p/google-cloud-sdk/path.zsh.inc" ]; then . "$HOME/p/google-cloud-
 if [ -f "$HOME/p/google-cloud-sdk/completion.zsh.inc" ]; then . "$HOME/p/google-cloud-sdk/completion.zsh.inc"; fi
 
 [[ -f ~/.secrets ]] && source ~/.secrets
+
+# opencode
+export PATH=/Users/scrubjay/.opencode/bin:$PATH
