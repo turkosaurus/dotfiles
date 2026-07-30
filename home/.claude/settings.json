@@ -92,7 +92,11 @@
       "mcp__freshdesk__list_solution_articles",
       "mcp__freshdesk__view_solution_article",
       "mcp__freshdesk__list_companies",
-      "mcp__freshdesk__view_company"
+      "mcp__freshdesk__view_company",
+      "mcp__signoz__signoz_search_logs",
+      "mcp__signoz__signoz_get_field_keys",
+      "mcp__signoz__signoz_query_metrics",
+      "mcp__signoz__signoz_search_traces"
     ],
     "deny": [
       "Read(./.env)",
