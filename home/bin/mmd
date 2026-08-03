@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+
+# Render a mermaid diagram to PNG.
+# Reads mermaid source from stdin or -f/--file.
+# Writes to -o/--out (or "-" for stdout PNG bytes), else displays
+# inline in the terminal via chafa (Kitty graphics protocol, works
+# in Ghostty and Kitty).
+#
+# Usage:
+#   mmd [-f|--file <path>] [-o|--out <path>]
+#
+# Examples:
+#   echo 'graph TD; A-->B' | mmd
+#   mmd -f diagram.mmd
+#   mmd -f diagram.mmd -o diagram.png
+#   mmd -f diagram.mmd -o - | pngquant - > small.png
+
+set -euo pipefail
+
+red='\033[0;31m'
+cyan='\033[0;36m'
+dim='\033[2m'
+reset='\033[0m'
+
+verbose=0
+timeout=30
+
+die() {
+  printf "${red}error${reset}: %s\n" "$*" >&2
+  exit 1
+}
+
+info() {
+  (( verbose )) || return 0
+  printf "${cyan}info${reset} ${dim}%s${reset}\n" "$*" >&2
+}
+
+# Render mermaid source (arg $1 = source string) into PNG at path $2.
+# Non-zero exit on any failure; nothing written on failure.
+# Swap this body to change backends:
+#   mermaid.ink (hosted, flaky, no local deps but sends diagram out):
+#     b64=$(printf '%s' "$1" | base64 | tr -d '\n' | tr '+/' '-_' | tr -d '=')
+#     curl -fsSL -o "$2" "https://mermaid.ink/img/${b64}?type=png"
+#   kroki (self-host: docker run -d -p 8000:8000 yuzutech/kroki):
+#     curl -fsSL -X POST --data-binary "$1" \
+#       -H 'Content-Type: text/plain' -o "$2" http://localhost:8000/mermaid/png
+mmd_render() {
+  local src=$1 dest=$2 in err
+  in=$(mktemp "${TMPDIR:-/tmp}/mmd.XXXXXX.mmd")
+  err=$(mktemp)
+  printf '%s' "$src" >"$in"
+  info "mmdc -i $in -o $dest"
+  if ! timeout "$timeout" mmdc -q -i "$in" -o "$dest" >/dev/null 2>"$err"; then
+    local rc=$? msg
+    msg=$(cat "$err")
+    rm -f "$in" "$err"
+    (( rc == 124 )) && die "mmdc timed out after ${timeout}s"
+    die "mmdc failed: $msg"
+  fi
+  rm -f "$in" "$err"
+}
+
+file=""
+out=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -f | --file)
+      file="${2:-}"
+      shift 2
+      ;;
+    -o | --out)
+      out="${2:-}"
+      shift 2
+      ;;
+    -v | --verbose)
+      verbose=1
+      shift
+      ;;
+    -t | --timeout)
+      timeout="${2:-}"
+      shift 2
+      ;;
+    -h | --help)
+      sed -n '3,16p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *) die "unknown arg: $1" ;;
+  esac
+done
+
+command -v mmdc >/dev/null || \
+  die "mmdc required (npm i -g @mermaid-js/mermaid-cli)"
+command -v timeout >/dev/null || \
+  die "timeout required (brew install coreutils)"
+
+if [[ -n "$file" ]]; then
+  [[ -f "$file" ]] || die "not found: $file"
+  src=$(cat "$file")
+  info "read ${#src} bytes from $file"
+else
+  [[ -t 0 ]] && die "no input (pass -f or pipe to stdin)"
+  src=$(cat)
+  info "read ${#src} bytes from stdin"
+fi
+
+[[ -n "$src" ]] || die "empty input"
+
+if [[ -z "$out" ]]; then
+  command -v chafa >/dev/null ||
+    die "chafa required for inline display, install to continue or use -o"
+  info "output: inline (chafa -f kitty)"
+  png=$(mktemp "${TMPDIR:-/tmp}/mmd.XXXXXX.png")
+  trap 'rm -f "$png"' EXIT
+  mmd_render "$src" "$png"
+  chafa -f kitty "$png"
+elif [[ "$out" == "-" ]]; then
+  info "output: stdout"
+  png=$(mktemp "${TMPDIR:-/tmp}/mmd.XXXXXX.png")
+  trap 'rm -f "$png"' EXIT
+  mmd_render "$src" "$png"
+  cat "$png"
+else
+  info "output: $out"
+  mmd_render "$src" "$out"
+fi
