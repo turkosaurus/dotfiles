@@ -20,6 +20,7 @@ yq = "4"
 "aqua:neilotoole/sq" = "latest"
 ripgrep = "15"
 fd = "10"
+"npm:@mermaid-js/mermaid-cli" = "latest"
 
 # formatters & linters
 shfmt = "3"
