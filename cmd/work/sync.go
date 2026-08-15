@@ -581,6 +581,17 @@ func syncRoot(root string, dryRun bool) syncOutcome {
 		p.Issues[i] = fresh
 	}
 
+	// Branch has diverged from base → flip open to working. Only touches
+	// open; waiting/working/closed are left alone so the user's manual
+	// signals aren't clobbered.
+	if p.Status == statusOpen {
+		if ahead, err := commitsBeyondBase(root); err != nil {
+			log.Debug("ahead check failed", log.Args("err", err))
+		} else if ahead {
+			p.Status = statusWorking
+		}
+	}
+
 	// PR reached a terminal state (MERGED or CLOSED) → flag for cleanup.
 	// We deliberately don't gate on `p.Status != statusClosed`: the
 	// worktree existing on disk is the invariant, and if it's here we
