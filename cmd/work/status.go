@@ -98,6 +98,10 @@ func printPlanStatus(p plan) error {
 		pterm.Println()
 		for _, pr := range p.PRs {
 			label := pr.Mergeable
+			switch strings.ToUpper(pr.State) {
+			case "MERGED", "CLOSED":
+				label = strings.ToLower(pr.State)
+			}
 			if label == "" {
 				label = pr.State
 			}
