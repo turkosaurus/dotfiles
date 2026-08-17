@@ -179,11 +179,33 @@ func planSprint(r sprintFetchResult, dryRun bool) (sprintOutput, []sprintAction,
 			label := planLabel(*p)
 			stampNeeded := issueNeedsStamp(*p, it.Content.URL, c.Sprint.ProjectURL, it.Status)
 			updateIssueProject(p, it.Content.URL, c.Sprint.ProjectURL, it.Status)
+			// The iteration this item now sits in on the board. If the
+			// item was rolled into a new sprint since the plan was created,
+			// refresh due so it tracks the current iteration end instead
+			// of pointing back at a past one.
+			dueDrifted := !it.SprintEnd.IsZero() &&
+				!p.Due.Equal(it.SprintEnd) &&
+				target != statusClosed
 			if p.Status == target {
 				// Closed items that stay closed are done — no summary
 				// noise, no stamp write. Everything else may still need
 				// a silent stamp if project fields drifted.
 				if target == statusClosed {
+					continue
+				}
+				if dueDrifted {
+					note := fmt.Sprintf("due: %s → %s",
+						dueNote(p.Due), it.SprintEnd.Format("2006-01-02"))
+					out.info("%s %s (%s)", updateVerb, label, note)
+					pRef, newDue := p, it.SprintEnd
+					actions = append(actions, sprintAction{
+						label: label,
+						do: func() error {
+							pRef.Due = newDue
+							return writePlan(*pRef)
+						},
+					})
+					updated++
 					continue
 				}
 				if stampNeeded {
@@ -203,11 +225,19 @@ func planSprint(r sprintFetchResult, dryRun bool) (sprintOutput, []sprintAction,
 				continue
 			}
 			note := fmt.Sprintf("%s → %s", p.Status, target)
+			if dueDrifted {
+				note += fmt.Sprintf(", due → %s", it.SprintEnd.Format("2006-01-02"))
+			}
 			out.info("%s %s (%s)", updateVerb, label, note)
-			pRef, tgt := p, target
+			pRef, tgt, newDue, applyDue := p, target, it.SprintEnd, dueDrifted
 			actions = append(actions, sprintAction{
 				label: label,
-				do:    func() error { return updatePlanStatus(pRef, tgt) },
+				do: func() error {
+					if applyDue {
+						pRef.Due = newDue
+					}
+					return updatePlanStatus(pRef, tgt)
+				},
 			})
 			updated++
 			continue
@@ -457,6 +487,15 @@ func resolveAssignees(cfg []string) ([]string, error) {
 	return out, nil
 }
 
+
+// dueNote renders a due date for reconcile summary lines, or "none" when
+// the plan has no due set (so the "→ new-date" side reads cleanly).
+func dueNote(t time.Time) string {
+	if t.IsZero() {
+		return "none"
+	}
+	return t.Format("2006-01-02")
+}
 
 // updatePlanStatus rewrites p's status. For task plans the underlying file is
 // moved into the correct ~/w/t/<status>/ directory; for worktree plans the

@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pterm/pterm"
@@ -18,6 +20,10 @@ import (
 const defaultConfigTemplate = `# work config — per-user settings. Edited with 'work config'.
 # Location precedence:
 #   $WORK_CONFIG → $XDG_CONFIG_HOME/work/config.toml → ~/.config/work/config.toml
+
+# How long a working plan can go without a commit before sync demotes it
+# to open (skipped when the plan has a due date). Accepts "14d", "48h", etc.
+stale_after = "14d"
 
 [path]
 # Module directory (contains go.mod) that 'work install' rebuilds from.
@@ -79,10 +85,41 @@ type config struct {
 	Path   pathConfig   `toml:"path"`
 	Sprint sprintConfig `toml:"sprint"`
 
+	// StaleAfter is the age at which a working plan with no due date
+	// gets demoted to open by sync. Empty means the built-in default
+	// (see defaultStaleAfter). Accepts a "d" suffix (e.g. "14d").
+	StaleAfter string `toml:"stale_after"`
+
 	// LegacySource carries the old [source] section so we can migrate
 	// configs written before the rename. loadConfig lifts LegacySource.Path
 	// into Path.Source if the latter is unset.
 	LegacySource legacySourceConfig `toml:"source"`
+}
+
+// defaultStaleAfter is the fallback when config.default_stale is empty
+// or unparseable.
+const defaultStaleAfter = 14 * 24 * time.Hour
+
+// parseStale reads a "1d" / "48h" / "30m" spec. Empty or unparseable
+// input returns defaultStaleAfter. "d" is not native to time.ParseDuration,
+// so we translate it to hours before delegating.
+func parseStale(s string) time.Duration {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return defaultStaleAfter
+	}
+	if strings.HasSuffix(s, "d") {
+		n, err := strconv.Atoi(strings.TrimSuffix(s, "d"))
+		if err != nil || n <= 0 {
+			return defaultStaleAfter
+		}
+		return time.Duration(n) * 24 * time.Hour
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil || d <= 0 {
+		return defaultStaleAfter
+	}
+	return d
 }
 
 // pathConfig collects the filesystem knobs. Empty fields fall back to

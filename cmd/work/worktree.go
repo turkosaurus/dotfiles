@@ -102,7 +102,7 @@ func pickInventory(items []inventoryItem) (inventoryItem, error) {
 	sel, err := pterm.DefaultInteractiveSelect.
 		WithOptions(labels).
 		WithFilter(true).
-		WithMaxHeight(20).
+		WithMaxHeight(pickerHeight()).
 		Show()
 	if err != nil {
 		return inventoryItem{}, fmt.Errorf("pick: %w", err)

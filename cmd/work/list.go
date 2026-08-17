@@ -215,6 +215,18 @@ func formatLabels(items []inventoryItem) []string {
 	return labels
 }
 
+// pickerHeight sizes an interactive picker to the current terminal, leaving
+// margin for the title, filter input, and prompt line. Floors at 10 so tiny
+// terminals still show a usable window.
+func pickerHeight() int {
+	const margin = 6
+	h := pterm.GetTerminalHeight() - margin
+	if h < 10 {
+		return 10
+	}
+	return h
+}
+
 // truncateRunes returns s truncated to at most max visible runes,
 // replacing the last rune with an ellipsis when clipped. Assumes single-
 // width glyphs (matches runeLen).

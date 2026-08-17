@@ -91,6 +91,8 @@ alias ll='ls -alF'
 alias la='ls -A'
 alias l='ls -CF'
 
+tq() { yq -p toml -oy "$@"; }
+
 
 # Alias definitions.
 # You may want to put all your additions into a separate file like

@@ -47,7 +47,7 @@ func runMerge(_ *mergeCmd) error {
 	sel, err := pterm.DefaultInteractiveMultiselect.
 		WithOptions(labels).
 		WithFilter(true).
-		WithMaxHeight(20).
+		WithMaxHeight(pickerHeight()).
 		WithKeySelect(keys.Tab).
 		WithKeyConfirm(keys.Enter).
 		Show()
