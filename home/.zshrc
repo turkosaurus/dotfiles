@@ -70,6 +70,8 @@ work() {
 
 export GOFLAGS=-buildvcs=false # fix worktree wonkiness
 
+tq() { yq -p toml -oy "$@"; }
+
 # gcloud
 if [ -f "$HOME/p/google-cloud-sdk/path.zsh.inc" ]; then . "$HOME/p/google-cloud-sdk/path.zsh.inc"; fi
 if [ -f "$HOME/p/google-cloud-sdk/completion.zsh.inc" ]; then . "$HOME/p/google-cloud-sdk/completion.zsh.inc"; fi

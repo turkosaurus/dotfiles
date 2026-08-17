@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pterm/pterm"
@@ -581,14 +582,19 @@ func syncRoot(root string, dryRun bool) syncOutcome {
 		p.Issues[i] = fresh
 	}
 
-	// Branch has diverged from base → flip open to working. Only touches
-	// open; waiting/working/closed are left alone so the user's manual
-	// signals aren't clobbered.
+	// Non-draft OPEN PR → flip open to working.
 	if p.Status == statusOpen {
-		if ahead, err := commitsBeyondBase(root); err != nil {
-			log.Debug("ahead check failed", log.Args("err", err))
-		} else if ahead {
+		if bPR := firstPR(p); bPR.State == "OPEN" && bPR.Mergeable != "draft" {
 			p.Status = statusWorking
+		}
+	}
+
+	// Working + no due + no commit in config.stale_after → demote to open.
+	// Signals abandonment without deleting the worktree.
+	if p.Status == statusWorking && p.Due.IsZero() {
+		cfg, _ := loadConfig()
+		if t, err := headCommitTime(root); err == nil && time.Since(t) > parseStale(cfg.StaleAfter) {
+			p.Status = statusOpen
 		}
 	}
 

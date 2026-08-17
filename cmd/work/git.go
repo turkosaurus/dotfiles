@@ -4,8 +4,23 @@ import (
 	"fmt"
 	"net/url"
 	"os/exec"
+	"strconv"
 	"strings"
+	"time"
 )
+
+// headCommitTime returns the commit time of HEAD in dir.
+func headCommitTime(dir string) (time.Time, error) {
+	out, err := exec.Command("git", "-C", dir, "log", "-1", "--format=%ct", "HEAD").Output()
+	if err != nil {
+		return time.Time{}, fmt.Errorf("git log HEAD: %w", err)
+	}
+	sec, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parse %q: %w", out, err)
+	}
+	return time.Unix(sec, 0), nil
+}
 
 // repoRoot returns the toplevel directory of the git repo containing dir.
 func repoRoot(dir string) (string, error) {
@@ -27,24 +42,6 @@ func currentBranch(dir string) (string, error) {
 		return "", fmt.Errorf("no branch (detached HEAD?)")
 	}
 	return b, nil
-}
-
-// commitsBeyondBase reports whether HEAD has any commits not in the base
-// branch (origin/main, falling back to origin/master). Any git failure —
-// missing base ref, detached HEAD, etc. — is reported as (false, err) so
-// callers can treat the check as "unknown" and leave state untouched.
-func commitsBeyondBase(dir string) (bool, error) {
-	for _, base := range []string{"origin/main", "origin/master"} {
-		if err := exec.Command("git", "-C", dir, "rev-parse", "--verify", base).Run(); err != nil {
-			continue
-		}
-		out, err := exec.Command("git", "-C", dir, "rev-list", "--count", base+"..HEAD").Output()
-		if err != nil {
-			return false, fmt.Errorf("rev-list %s..HEAD: %w", base, err)
-		}
-		return strings.TrimSpace(string(out)) != "0", nil
-	}
-	return false, fmt.Errorf("no origin/main or origin/master")
 }
 
 // originOwnerRepo parses the origin remote URL into owner and repo.
