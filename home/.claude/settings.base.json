@@ -135,7 +135,7 @@
         ]
       }
     ],
-    "TaskCompleted": [
+    "Stop": [
       {
         "matcher": "",
         "hooks": [
