@@ -22,6 +22,7 @@ cursor-style-blink = true
 
 # Bell
 shell-integration-features = no-cursor,sudo,no-title
+bell-features = system,audio,attention
 
 # Quick terminal
 quick-terminal-position = right
