@@ -6,7 +6,7 @@ export AGNOSTER_CONTEXT_FG=black
 plugins=(git mise)
 
 # PATH before oh-my-zsh so its mise plugin can find the mise binary
-export PATH=$PATH:~/bin:~/.local/bin
+export PATH=~/bin:~/.local/bin:$PATH
 export PATH=$PATH:~/.pulumi/bin
 
 #shellcheck disable=SC1091
@@ -79,4 +79,4 @@ if [ -f "$HOME/p/google-cloud-sdk/completion.zsh.inc" ]; then . "$HOME/p/google-
 [[ -f ~/.secrets ]] && source ~/.secrets
 
 # opencode
-export PATH=/Users/user/.opencode/bin:$PATH
+export PATH=$HOME/.opencode/bin:$PATH

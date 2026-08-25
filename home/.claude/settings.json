@@ -44,10 +44,55 @@
       "Bash(git rev-parse:*)",
       "Bash(git ls-files:*)",
       "Read(**)",
-      "mcp__signoz__signoz_search_logs",
-      "mcp__signoz__signoz_get_field_keys",
-      "mcp__signoz__signoz_query_metrics",
-      "mcp__signoz__signoz_search_traces"
+      "mcp__claude_ai_signoz__signoz_aggregate_logs",
+      "mcp__claude_ai_signoz__signoz_aggregate_traces",
+      "mcp__claude_ai_signoz__signoz_check_metric_cardinality",
+      "mcp__claude_ai_signoz__signoz_check_metric_usage",
+      "mcp__claude_ai_signoz__signoz_execute_builder_query",
+      "mcp__claude_ai_signoz__signoz_fetch_doc",
+      "mcp__claude_ai_signoz__signoz_get_alert",
+      "mcp__claude_ai_signoz__signoz_get_alert_history",
+      "mcp__claude_ai_signoz__signoz_get_dashboard",
+      "mcp__claude_ai_signoz__signoz_get_field_keys",
+      "mcp__claude_ai_signoz__signoz_get_field_values",
+      "mcp__claude_ai_signoz__signoz_get_notification_channel",
+      "mcp__claude_ai_signoz__signoz_get_org_overview",
+      "mcp__claude_ai_signoz__signoz_get_service_top_operations",
+      "mcp__claude_ai_signoz__signoz_get_top_metrics",
+      "mcp__claude_ai_signoz__signoz_get_trace_details",
+      "mcp__claude_ai_signoz__signoz_get_view",
+      "mcp__claude_ai_signoz__signoz_list_alert_rules",
+      "mcp__claude_ai_signoz__signoz_list_alerts",
+      "mcp__claude_ai_signoz__signoz_list_dashboard_templates",
+      "mcp__claude_ai_signoz__signoz_list_dashboards",
+      "mcp__claude_ai_signoz__signoz_list_metrics",
+      "mcp__claude_ai_signoz__signoz_list_notification_channels",
+      "mcp__claude_ai_signoz__signoz_list_services",
+      "mcp__claude_ai_signoz__signoz_list_views",
+      "mcp__claude_ai_signoz__signoz_query_metrics",
+      "mcp__claude_ai_signoz__signoz_search_docs",
+      "mcp__claude_ai_signoz__signoz_search_logs",
+      "mcp__claude_ai_signoz__signoz_search_traces",
+      "mcp__bigquery__analyze_contribution",
+      "mcp__bigquery__ask_data_insights",
+      "mcp__bigquery__execute_sql",
+      "mcp__bigquery__forecast",
+      "mcp__bigquery__get_dataset_info",
+      "mcp__bigquery__get_table_info",
+      "mcp__bigquery__list_dataset_ids",
+      "mcp__bigquery__list_table_ids",
+      "mcp__bigquery__search_catalog",
+      "mcp__freshdesk__get_ticket",
+      "mcp__freshdesk__get_ticket_conversation",
+      "mcp__freshdesk__get_contact",
+      "mcp__freshdesk__get_ticket_fields",
+      "mcp__freshdesk__search_tickets",
+      "mcp__freshdesk__list_canned_responses",
+      "mcp__freshdesk__view_canned_response",
+      "mcp__freshdesk__list_solution_articles",
+      "mcp__freshdesk__view_solution_article",
+      "mcp__freshdesk__list_companies",
+      "mcp__freshdesk__view_company"
     ],
     "deny": [
       "Read(./.env)",
@@ -79,6 +124,17 @@
       }
     ],
     "TaskCompleted": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/bin/tmux-notify"
+          }
+        ]
+      }
+    ],
+    "Stop": [
       {
         "matcher": "",
         "hooks": [
