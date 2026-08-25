@@ -170,7 +170,7 @@ func readPlan(planPath string) (plan, error) {
 
 // relToWork returns p relative to defaultWorkDir when p is under it, else p
 // unchanged. Used at write-time to keep plan files portable — an absolute
-// `/Users/user/w/t/1.toml` becomes `t/1.toml`. There is no inverse
+// `$HOME/w/t/1.toml` becomes `t/1.toml`. There is no inverse
 // helper: readPlan overrides `p.Path` from the file's on-disk location, so
 // callers never see the stored relative form in memory.
 func relToWork(p string) string {
