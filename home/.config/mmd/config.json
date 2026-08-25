@@ -1,0 +1,29 @@
+{
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "'Roboto Mono', ui-monospace, monospace",
+    "fontSize": "14px",
+
+    "primaryColor": "#24283b",
+    "primaryTextColor": "#c0caf5",
+    "primaryBorderColor": "#7aa2f7",
+
+    "secondaryColor": "#414868",
+    "secondaryTextColor": "#c0caf5",
+    "secondaryBorderColor": "#bb9af7",
+
+    "tertiaryColor": "#1f2335",
+    "tertiaryTextColor": "#a9b1d6",
+    "tertiaryBorderColor": "#7dcfff",
+
+    "lineColor": "#7aa2f7",
+    "textColor": "#c0caf5",
+
+    "noteBkgColor": "#e0af68",
+    "noteTextColor": "#1a1b26",
+    "noteBorderColor": "#ff9e64",
+
+    "errorBkgColor": "#f7768e",
+    "errorTextColor": "#1a1b26"
+  }
+}
