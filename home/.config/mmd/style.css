@@ -1,0 +1,49 @@
+/* Tokyo Night palette for mermaid diagrams. */
+
+/* Dark canvas — mermaid.js themeVariables `background` doesn't set
+   the SVG canvas; this does. mmd passes `-b transparent` so this wins. */
+svg {
+  background-color: #1a1b26;
+}
+
+/* Edge labels default to a white pill — override to match canvas.
+   If you change the svg background above, update this to match. */
+.edgeLabel {
+  background-color: #1a1b26 !important;
+  color: #c0caf5 !important;
+}
+
+/* Subgraph (cluster) boxes. */
+.cluster rect {
+  fill: #1f2335 !important;
+  stroke: #414868 !important;
+}
+
+/* Named node classes — use in a diagram with:
+     classDef tn-green fill:#9ece6a
+     A[node]:::tn-green
+   or:
+     class A,B,C tn-green
+   The classDef line above is only needed if mermaid warns about an
+   unknown class; the CSS below styles it regardless. */
+/* Descendant (not child) so state/class diagrams — which nest the
+   shape inside an extra <g> wrapper — also color correctly. */
+.tn-red    rect, .tn-red    polygon, .tn-red    circle { fill:#f7768e !important; stroke:#db4b4b !important; }
+.tn-orange rect, .tn-orange polygon, .tn-orange circle { fill:#ff9e64 !important; stroke:#e0873a !important; }
+.tn-yellow rect, .tn-yellow polygon, .tn-yellow circle { fill:#e0af68 !important; stroke:#b8860b !important; }
+.tn-green  rect, .tn-green  polygon, .tn-green  circle { fill:#9ece6a !important; stroke:#73a942 !important; }
+.tn-cyan   rect, .tn-cyan   polygon, .tn-cyan   circle { fill:#7dcfff !important; stroke:#2ac3de !important; }
+.tn-blue   rect, .tn-blue   polygon, .tn-blue   circle { fill:#7aa2f7 !important; stroke:#3d59a1 !important; }
+.tn-purple rect, .tn-purple polygon, .tn-purple circle { fill:#bb9af7 !important; stroke:#9d7cd8 !important; }
+
+/* Label text on colored nodes reads against the fill, so use the dark
+   canvas color for contrast. */
+.tn-red span,    .tn-red    .nodeLabel,
+.tn-orange span, .tn-orange .nodeLabel,
+.tn-yellow span, .tn-yellow .nodeLabel,
+.tn-green span,  .tn-green  .nodeLabel,
+.tn-cyan span,   .tn-cyan   .nodeLabel,
+.tn-blue span,   .tn-blue   .nodeLabel,
+.tn-purple span, .tn-purple .nodeLabel {
+  color: #1a1b26 !important;
+}
