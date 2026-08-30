@@ -12,6 +12,8 @@ python = "3.13"
 golangci-lint = "2.4.0"
 terraform = "1.13.2"
 terragrunt = "0.93.13"
+# required by nvim-treesitter `main` branch (>= 0.26.1); not npm
+"aqua:tree-sitter/tree-sitter" = "0.26.11"
 
 # cli tools
 fzf = "latest"
