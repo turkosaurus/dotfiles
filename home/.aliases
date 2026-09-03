@@ -8,3 +8,7 @@ alias gd='git diff'
 
 alias ww='work -wW'
 alias ws='work status'
+
+# nvim inline diff view (gitsigns)
+alias nvd='nvim +Diff'
+alias nvD='nvim +DiffMain'

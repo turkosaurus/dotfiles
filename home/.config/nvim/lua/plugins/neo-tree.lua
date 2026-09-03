@@ -12,13 +12,14 @@ return {
 		{ "|", ":Neotree document_symbols<CR>", desc = "neotree symbols", silent = true },
 	},
 	opts = {
-		sources = { "filesystem", "document_symbols" },
+		sources = { "filesystem", "document_symbols", "git_status" },
 		source_selector = {
 			winbar = true,
 			statusline = false,
 			sources = {
 				{ source = "filesystem", display_name = " Files" },
 				{ source = "document_symbols", display_name = "󰊕 Symbols" },
+				{ source = "git_status", display_name = "\u{e702} Git" },
 			},
 		},
 		filesystem = {

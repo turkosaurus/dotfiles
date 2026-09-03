@@ -185,7 +185,8 @@
   "effortLevel": "high",
   "tui": "fullscreen",
   "theme": "dark-ansi",
-  "skipAutoPermissionPrompt": true,
+  "editorMode": "vim",
+  "preferredNotifChannel": "notifications_disabled",
   "mcpServers": {
     "slack": {
       "command": "npx",
