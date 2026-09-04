@@ -66,6 +66,87 @@ local function diff_stats(root, base)
 	return stats
 end
 
+-- Fold unchanged regions, keeping CONTEXT lines around each hunk. A
+-- closed fold renders as one full-width rule line with the count
+-- (vim folds are single-line, so this stands in for a rule/text/rule
+-- sandwich). <cr>/za reopens one, zR all.
+local CONTEXT = 5
+
+function _G.InlineDiffFoldText()
+	local n = vim.v.foldend - vim.v.foldstart + 1
+	return "─ ⋯ " .. n .. " unchanged lines ⋯ "
+end
+
+local function apply_context_folds(buf)
+	local hunks = require("gitsigns").get_hunks(buf) or {}
+	if #hunks == 0 then
+		-- file may have just been restored to base state: drop folds
+		if vim.w.inline_diff_folds then
+			vim.cmd("silent! normal! zE")
+		end
+		return
+	end
+	local last = vim.api.nvim_buf_line_count(buf)
+	local ranges = {}
+	for _, h in ipairs(hunks) do
+		-- delete-only hunks have count 0 and can anchor at line 0
+		local anchor = math.max(h.added.start, 1)
+		table.insert(ranges, {
+			math.max(1, anchor - CONTEXT),
+			math.min(last, anchor + math.max(h.added.count, 1) - 1 + CONTEXT),
+		})
+	end
+	table.sort(ranges, function(a, b)
+		return a[1] < b[1]
+	end)
+	local folds, prev = {}, 0
+	for _, r in ipairs(ranges) do
+		if r[1] - 1 - prev >= 2 then
+			table.insert(folds, { prev + 1, r[1] - 1 })
+		end
+		prev = math.max(prev, r[2])
+	end
+	if last - prev >= 2 then
+		table.insert(folds, { prev + 1, last })
+	end
+	-- the window may carry treesitter folding (fdm=expr, nofoldenable);
+	-- save it so close can restore, then switch to manual closed folds
+	if not vim.w.inline_diff_folds then
+		vim.w.inline_diff_folds = {
+			foldmethod = vim.wo.foldmethod,
+			foldenable = vim.wo.foldenable,
+			foldlevel = vim.wo.foldlevel,
+			foldtext = vim.wo.foldtext,
+			fillchars = vim.wo.fillchars,
+		}
+	end
+	vim.wo.foldmethod = "manual"
+	vim.wo.foldenable = true
+	vim.wo.foldlevel = 0
+	vim.wo.foldtext = "v:lua.InlineDiffFoldText()"
+	vim.wo.fillchars = "fold:─"
+	vim.cmd("silent! normal! zE")
+	for _, f in ipairs(folds) do
+		vim.cmd(("silent! %d,%dfold"):format(f[1], f[2]))
+	end
+end
+
+-- Saving in the view changes the hunk set, so refresh the context
+-- folds once gitsigns settles; otherwise a new hunk can hide inside
+-- a collapsed fold (and open folds re-collapse to fresh context).
+vim.api.nvim_create_autocmd("BufWritePost", {
+	callback = function(ev)
+		if not vim.w.inline_diff_folds then
+			return
+		end
+		vim.defer_fn(function()
+			if vim.api.nvim_get_current_buf() == ev.buf and vim.w.inline_diff_folds then
+				apply_context_folds(ev.buf)
+			end
+		end, 200)
+	end,
+})
+
 -- Land the cursor on the first change once gitsigns has attached
 -- and computed hunks (async, hence the deferred retry).
 local function first_hunk(buf, tries)
@@ -74,6 +155,7 @@ local function first_hunk(buf, tries)
 			return
 		end
 		if require("gitsigns").get_hunks(buf) then
+			apply_context_folds(buf)
 			require("gitsigns").nav_hunk("first", { navigation_message = false })
 		elseif (tries or 0) < 10 then
 			first_hunk(buf, (tries or 0) + 1)
@@ -137,6 +219,11 @@ local function panel_open_file()
 		vim.keymap.set("n", "<s-tab>", function()
 			panel_nav(-1)
 		end, { buffer = buf, desc = "Prev changed file" })
+		vim.keymap.set("n", "<cr>", function()
+			if vim.fn.foldclosed(".") ~= -1 then
+				vim.cmd("normal! zv")
+			end
+		end, { buffer = buf, desc = "Open fold" })
 	end
 	for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
 		if vim.b[vim.api.nvim_win_get_buf(w)].inline_diff_panel then
@@ -236,9 +323,26 @@ local function inline_diff_reset()
 			if vim.api.nvim_buf_is_valid(b) then
 				pcall(vim.keymap.del, "n", "<tab>", { buffer = b })
 				pcall(vim.keymap.del, "n", "<s-tab>", { buffer = b })
+				pcall(vim.keymap.del, "n", "<cr>", { buffer = b })
 			end
 		end
 		panel_state = nil
+	end
+	-- clear context folds in windows the tab close didn't take out,
+	-- restoring each window's saved fold setup
+	for _, w in ipairs(vim.api.nvim_list_wins()) do
+		local saved = vim.w[w].inline_diff_folds
+		if saved then
+			vim.api.nvim_win_call(w, function()
+				vim.cmd("silent! normal! zE")
+				vim.wo.foldmethod = saved.foldmethod
+				vim.wo.foldenable = saved.foldenable
+				vim.wo.foldlevel = saved.foldlevel
+				vim.wo.foldtext = saved.foldtext
+				vim.wo.fillchars = saved.fillchars
+				vim.w.inline_diff_folds = nil
+			end)
+		end
 	end
 	view_tab = nil
 end
