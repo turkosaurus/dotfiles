@@ -2,20 +2,16 @@
 
 # Render a mermaid diagram to PNG.
 #
-# Usage: mmd [-w WIDTH] [-s SCALE] [input] [output]
+# Usage: mmd [input] [output]
 #
 # input:  path, or '-' / omitted for stdin
 # output: path, '-' for stdout PNG, or omitted for inline display
 #         via chafa (Kitty graphics protocol; Ghostty + Kitty).
 #
-# -w, --width WIDTH   canvas width in px (default: $COLUMNS * 10)
-# -s, --scale SCALE   puppeteer scale factor (default: 3)
-#
 # Examples:
 #   echo 'graph TD; A-->B' | mmd
 #   mmd diagram.mmd
 #   mmd diagram.mmd diagram.png
-#   mmd -w 3000 diagram.mmd
 #   mmd diagram.mmd - | pngquant - > small.png
 #
 # Config: $XDG_CONFIG_HOME/mmd/config.json (or ~/.config/mmd/config.json)
@@ -31,8 +27,6 @@ reset='\033[0m'
 
 verbose=0
 timeout=30
-width=""
-scale=3
 
 die() {
   printf "${red}error${reset}: %s\n" "$*" >&2
@@ -59,9 +53,7 @@ config_dir() {
 #       -H 'Content-Type: text/plain' -o "$2" http://localhost:8000/mermaid/png
 mmd_render() {
   local src=$1 dest=$2 dir in err cfgdir cfg css rc=0 msg
-  local cols=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
-  local w=${width:-$(( cols * 10 ))}
-  local args=(-b transparent -w "$w" -s "$scale")
+  local args=(-b transparent)
   dir=$(mktemp -d "${TMPDIR:-/tmp}/mmd.XXXXXX")
   trap 'rm -rf "$dir"' RETURN
   in="$dir/input.mmd"
@@ -93,10 +85,8 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -v | --verbose) verbose=1; shift ;;
     -t | --timeout) timeout="${2:-}"; shift 2 ;;
-    -w | --width)   width="${2:-}"; shift 2 ;;
-    -s | --scale)   scale="${2:-}"; shift 2 ;;
     -h | --help)
-      sed -n '3,22p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '3,19p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     --) shift; positional+=("$@"); break ;;
@@ -135,7 +125,7 @@ if [[ -z $out ]]; then
   png=$(mktemp "${TMPDIR:-/tmp}/mmd.XXXXXX.png")
   trap 'rm -f "$png"' EXIT
   mmd_render "$src" "$png"
-  chafa -f kitty --size "$(( ${COLUMNS:-80} - 1 ))x" "$png"
+  chafa -f kitty "$png"
 elif [[ $out == "-" ]]; then
   info "output: stdout"
   png=$(mktemp "${TMPDIR:-/tmp}/mmd.XXXXXX.png")
