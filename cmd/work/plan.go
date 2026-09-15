@@ -38,11 +38,56 @@ func firstPR(p plan) PR {
 func upsertPR(prs []PR, in PR) []PR {
 	for i, existing := range prs {
 		if existing.URL == in.URL {
+			in.Comments = mergeComments(existing.Comments, in.Comments)
 			prs[i] = in
 			return prs
 		}
 	}
 	return append(prs, in)
+}
+
+// mergeComments folds a freshly fetched comment list into the existing one
+// so locally authored fields survive a resync. Fetched entries carry only
+// upstream truth (body, source, author); status, title, fix_ref, plan, and
+// reply live solely in the plan file. Matching is by thread ID then author,
+// in order of appearance (a thread can hold several comments). Existing
+// entries whose thread no longer appears upstream (resolved or deleted) are
+// kept at the end — flipped to closed — when they hold local work; bare
+// ones are dropped.
+func mergeComments(existing, fresh []comment) []comment {
+	claimed := make([]bool, len(existing))
+	out := make([]comment, 0, len(fresh))
+	for _, f := range fresh {
+		for i, e := range existing {
+			if claimed[i] || e.Thread != f.Thread || e.Author != f.Author {
+				continue
+			}
+			claimed[i] = true
+			if e.Status != "" {
+				f.Status = e.Status
+			}
+			f.Title = e.Title
+			f.FixRef = e.FixRef
+			f.Plan = e.Plan
+			f.Reply = e.Reply
+			break
+		}
+		out = append(out, f)
+	}
+	for i, e := range existing {
+		if claimed[i] || !commentHasLocalWork(e) {
+			continue
+		}
+		e.Status = statusClosed
+		out = append(out, e)
+	}
+	return out
+}
+
+// commentHasLocalWork reports whether the user has authored anything on the
+// comment worth preserving after its thread disappears upstream.
+func commentHasLocalWork(c comment) bool {
+	return c.Title != "" || c.FixRef != "" || c.Plan != "" || c.Reply != ""
 }
 
 // compactPlan drops entries from p's array fields that carry no meaningful

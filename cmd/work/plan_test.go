@@ -75,6 +75,84 @@ func TestUpsertPR(t *testing.T) {
 	})
 }
 
+func TestMergeComments(t *testing.T) {
+	t.Run("preserves local fields on matched thread", func(t *testing.T) {
+		existing := []comment{{
+			Thread: "T1", Author: "rev", Source: "a.go:10",
+			Status: statusWorking, Title: "rename x",
+			FixRef: "abc123", Plan: "the plan", Reply: "the reply",
+			Comment: "old body",
+		}}
+		fresh := []comment{{
+			Thread: "T1", Author: "rev", Source: "a.go:12",
+			Status: statusOpen, Comment: "edited body",
+		}}
+		got := mergeComments(existing, fresh)
+		if len(got) != 1 {
+			t.Fatalf("len = %d, want 1", len(got))
+		}
+		c := got[0]
+		if c.Status != statusWorking || c.Title != "rename x" ||
+			c.FixRef != "abc123" || c.Plan != "the plan" || c.Reply != "the reply" {
+			t.Errorf("local fields not preserved: %+v", c)
+		}
+		if c.Comment != "edited body" || c.Source != "a.go:12" {
+			t.Errorf("fresh upstream fields not taken: %+v", c)
+		}
+	})
+
+	t.Run("empty existing status yields fresh open", func(t *testing.T) {
+		existing := []comment{{Thread: "T1", Author: "rev", Plan: "p"}}
+		fresh := []comment{{Thread: "T1", Author: "rev", Status: statusOpen}}
+		got := mergeComments(existing, fresh)
+		if got[0].Status != statusOpen {
+			t.Errorf("status = %q, want open", got[0].Status)
+		}
+	})
+
+	t.Run("same thread same author matches in order", func(t *testing.T) {
+		existing := []comment{
+			{Thread: "T1", Author: "rev", Comment: "first", Reply: "r1"},
+			{Thread: "T1", Author: "rev", Comment: "second", Reply: "r2"},
+		}
+		fresh := []comment{
+			{Thread: "T1", Author: "rev", Comment: "first", Status: statusOpen},
+			{Thread: "T1", Author: "rev", Comment: "second", Status: statusOpen},
+		}
+		got := mergeComments(existing, fresh)
+		if len(got) != 2 || got[0].Reply != "r1" || got[1].Reply != "r2" {
+			t.Errorf("in-order matching failed: %+v", got)
+		}
+	})
+
+	t.Run("resolved thread with local work kept closed", func(t *testing.T) {
+		existing := []comment{{
+			Thread: "gone", Author: "rev", Status: statusOpen, Reply: "draft",
+		}}
+		got := mergeComments(existing, nil)
+		if len(got) != 1 || got[0].Status != statusClosed || got[0].Reply != "draft" {
+			t.Errorf("local work not preserved as closed: %+v", got)
+		}
+	})
+
+	t.Run("resolved thread without local work dropped", func(t *testing.T) {
+		existing := []comment{{
+			Thread: "gone", Author: "rev", Status: statusOpen, Comment: "nit",
+		}}
+		if got := mergeComments(existing, nil); len(got) != 0 {
+			t.Errorf("bare comment kept: %+v", got)
+		}
+	})
+
+	t.Run("new fresh comment appended", func(t *testing.T) {
+		fresh := []comment{{Thread: "T2", Author: "rev", Status: statusOpen, Comment: "new"}}
+		got := mergeComments(nil, fresh)
+		if len(got) != 1 || got[0].Comment != "new" || got[0].Status != statusOpen {
+			t.Errorf("fresh comment not appended: %+v", got)
+		}
+	})
+}
+
 func TestFirstPR(t *testing.T) {
 	if firstPR(plan{}).URL != "" {
 		t.Errorf("firstPR on empty plan should return zero PR")
