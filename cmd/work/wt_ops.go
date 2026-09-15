@@ -532,6 +532,20 @@ func convertMergedPlanToTask(wt worktree) (string, error) {
 	return newPath, nil
 }
 
+// staleTasksToFile preserves a stale dir's pending tasks as a task file
+// and removes the source plan.toml so repeat syncs don't duplicate it.
+// Returns the new task path, or "" when there was nothing to preserve.
+func staleTasksToFile(wt worktree) (string, error) {
+	newPath, err := convertMergedPlanToTask(wt)
+	if err != nil || newPath == "" {
+		return newPath, err
+	}
+	if err := os.Remove(path.Join(wt.Path, planFileName)); err != nil {
+		return newPath, fmt.Errorf("remove stale plan: %w", err)
+	}
+	return newPath, nil
+}
+
 // removeWorktree runs `git worktree remove` and cleans up an empty repo parent.
 func removeWorktree(wt worktree) error {
 	cmd := exec.Command("git", "-C", wt.Path, "worktree", "remove", wt.Path)

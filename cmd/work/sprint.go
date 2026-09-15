@@ -708,7 +708,7 @@ func fetchSprintItems(owner string, num int, assignees []string, onFirstReply fu
 // covering worktree plans and task plans alike. When the same URL appears in
 // more than one plan, the last one wins — not ideal but sprint-sync is a
 // best-effort reconciliation and duplicates are the user's problem to resolve
-// (via `work rm` or `work convert`).
+// (via `work merge`, `work rm`, or `work convert`).
 func trackedPlans() (map[string]*plan, error) {
 	set := map[string]*plan{}
 	scan := func(pattern string) error {
@@ -726,8 +726,11 @@ func trackedPlans() (map[string]*plan, error) {
 				if iss.URL == "" {
 					continue
 				}
-				if prev, dup := set[iss.URL]; dup && prev.Path != pc.Path {
-					pterm.Warning.Printfln("issue %s linked in two plans: %s and %s",
+				// Two closed plans sharing an issue is settled history;
+				// only warn when at least one is still live.
+				if prev, dup := set[iss.URL]; dup && prev.Path != pc.Path &&
+					(prev.Status != statusClosed || pc.Status != statusClosed) {
+					pterm.Warning.Printfln("issue %s linked in two plans: %s and %s (fold with `work merge`)",
 						iss.URL, relPath(prev.Path), relPath(pc.Path))
 				}
 				set[iss.URL] = &pc

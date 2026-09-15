@@ -114,3 +114,61 @@ func TestConvertPlanToTaskIfPending(t *testing.T) {
 		t.Errorf("closed+tasks should convert to working; got %q", newPath4)
 	}
 }
+
+func TestStaleTasksToFile(t *testing.T) {
+	// Isolate HOME so ~/w/t/... points into a scratch dir.
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	defaultWorkDir = path.Join(tmp, "w")
+	defaultTaskDir = path.Join(defaultWorkDir, "t")
+	for _, s := range []statusKind{statusOpen, statusWaiting, statusWorking, statusClosed} {
+		if err := os.MkdirAll(taskDir(s), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+	}
+	if err := os.WriteFile(path.Join(defaultTaskDir, taskCounterFile), []byte("7\n"), 0o644); err != nil {
+		t.Fatalf("counter: %v", err)
+	}
+
+	// Husk: a plan.toml with tasks but no git checkout.
+	huskDir := path.Join(defaultWorkDir, "myrepo", "husk")
+	if err := os.MkdirAll(huskDir, 0o755); err != nil {
+		t.Fatalf("mkdir husk: %v", err)
+	}
+	planPath := path.Join(huskDir, planFileName)
+	p := plan{
+		Title:  "stale but tasky",
+		Status: statusOpen,
+		Tasks:  []string{"task one", "task two"},
+		Path:   planPath,
+	}
+	if err := writePlan(p); err != nil {
+		t.Fatalf("write plan: %v", err)
+	}
+
+	wt := worktree{Path: huskDir, Repo: "myrepo", Branch: "husk"}
+	newPath, err := staleTasksToFile(wt)
+	if err != nil {
+		t.Fatalf("staleTasksToFile: %v", err)
+	}
+	want := path.Join(taskDir(statusWorking), "7.toml")
+	if newPath != want {
+		t.Errorf("newPath = %q, want %q", newPath, want)
+	}
+	got, err := readPlan(newPath)
+	if err != nil {
+		t.Fatalf("read converted: %v", err)
+	}
+	if got.Title != "stale but tasky" || len(got.Tasks) != 2 || got.Status != statusWorking {
+		t.Errorf("plan not preserved: %+v", got)
+	}
+	if _, err := os.Stat(planPath); !os.IsNotExist(err) {
+		t.Errorf("stale plan.toml still present (err=%v), want removed", err)
+	}
+
+	// Second call is a no-op: the plan is gone, nothing to preserve.
+	again, err := staleTasksToFile(wt)
+	if err != nil || again != "" {
+		t.Errorf("repeat call: got (%q, %v), want (\"\", nil)", again, err)
+	}
+}

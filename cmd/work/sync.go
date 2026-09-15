@@ -299,6 +299,35 @@ func runSyncAll(dryRun bool) error {
 		return nil
 	}
 
+	// Stale dirs (checkout removed; leftover plan.toml or .claude kept
+	// the dir alive) can't be seeded or synced — report and skip so one
+	// husk doesn't fail every run.
+	live := wts[:0]
+	for _, wt := range wts {
+		if !isGitWorktree(wt.Path) {
+			// Queued work in the husk's plan must survive the rm -rf
+			// the warning below suggests.
+			if dryRun {
+				if p, err := readPlan(path.Join(wt.Path, planFileName)); err == nil && len(p.Tasks) > 0 {
+					pterm.Info.Printfln("would preserve %d task(s) from %s", len(p.Tasks), wt)
+				}
+			} else if converted, err := staleTasksToFile(wt); err != nil {
+				pterm.Warning.Printfln("preserve tasks from %s: %v", wt, err)
+			} else if converted != "" {
+				pterm.Info.Printfln("preserved pending tasks → %s", relPath(converted))
+			}
+			pterm.Warning.Printfln("skipping %s: not a git worktree (stale dir? rm -rf %s)",
+				wt, wt.Path)
+			continue
+		}
+		live = append(live, wt)
+	}
+	wts = live
+	if len(wts) == 0 {
+		pterm.Info.Printfln("no live worktrees under %s", defaultWorkDir)
+		return nil
+	}
+
 	// Bucket: which need seeding?
 	var missing []worktree
 	for _, wt := range wts {

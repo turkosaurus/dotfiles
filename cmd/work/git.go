@@ -44,6 +44,14 @@ func currentBranch(dir string) (string, error) {
 	return b, nil
 }
 
+// isGitWorktree reports whether dir is inside a git working tree. Dirs
+// under ~/w whose checkout is gone (leftover plan.toml or .claude kept
+// the dir alive) are not, and git operations on them can't succeed.
+func isGitWorktree(dir string) bool {
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "--is-inside-work-tree").Output()
+	return err == nil && strings.TrimSpace(string(out)) == "true"
+}
+
 // originOwnerRepo parses the origin remote URL into owner and repo.
 // Handles ssh (git@github.com:o/r) and https (https://github.com/o/r) forms.
 func originOwnerRepo(dir string) (owner, repo string, err error) {
