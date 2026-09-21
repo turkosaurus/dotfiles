@@ -1,0 +1,121 @@
+# AeroSpace — i3-style tiling for macOS.
+# https://nikitabobko.github.io/AeroSpace/guide
+#
+# Mod is hyper (cmd+ctrl+alt), bound to caps lock held; caps lock
+# tapped is still escape. See .config/karabiner/karabiner.json.
+# Hyper excludes shift, so shift stays free as the "move" qualifier,
+# exactly like i3's mod / mod+shift split. Karabiner emits the
+# right-side modifiers on purpose: the PC-style ctrl->cmd rules there
+# match left_control, and they claim a c f l n q r s t tab v w x z.
+# Right-side hyper passes through them untouched.
+#
+# Keeps the layer boundaries clean:
+#   hyper+hjkl  aerospace  focus window
+#   alt+arrows  tmux       focus pane
+#   C-Space     tmux       everything else
+
+config-version = 2
+
+start-at-login = true
+
+# Auto-reload needs one manual `aerospace reload-config` to arm it.
+auto-reload-config = true
+
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+
+accordion-padding = 30
+default-root-container-layout = 'tiles'
+default-root-container-orientation = 'auto'
+
+on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+focus-follows-mouse.enabled = false
+key-mapping.preset = 'qwerty'
+
+# Workspaces that survive being empty, so the layout doesn't shuffle
+# when the last window on one closes.
+persistent-workspaces = ["1", "2", "3", "4", "5"]
+
+[gaps]
+inner.horizontal = 8
+inner.vertical   = 8
+outer.top        = 8
+outer.bottom     = 8
+outer.left       = 8
+outer.right      = 8
+
+[mode.main.binding]
+
+# Layout.
+cmd-ctrl-alt-slash = 'layout tiles horizontal vertical'
+cmd-ctrl-alt-comma = 'layout accordion horizontal vertical'
+cmd-ctrl-alt-f     = 'fullscreen'
+
+# Focus. Stopping at the edge is the default --boundaries-action,
+# matching the no-wrap pane bindings in .tmux.conf.
+cmd-ctrl-alt-h = 'focus left'
+cmd-ctrl-alt-j = 'focus down'
+cmd-ctrl-alt-k = 'focus up'
+cmd-ctrl-alt-l = 'focus right'
+
+# Move.
+cmd-ctrl-alt-shift-h = 'move left'
+cmd-ctrl-alt-shift-j = 'move down'
+cmd-ctrl-alt-shift-k = 'move up'
+cmd-ctrl-alt-shift-l = 'move right'
+
+# Resize, quick nudges. Held-down repeat works without a mode.
+cmd-ctrl-alt-minus = 'resize smart -50'
+cmd-ctrl-alt-equal = 'resize smart +50'
+
+# Workspaces.
+cmd-ctrl-alt-1 = 'workspace 1'
+cmd-ctrl-alt-2 = 'workspace 2'
+cmd-ctrl-alt-3 = 'workspace 3'
+cmd-ctrl-alt-4 = 'workspace 4'
+cmd-ctrl-alt-5 = 'workspace 5'
+
+cmd-ctrl-alt-shift-1 = 'move-node-to-workspace 1'
+cmd-ctrl-alt-shift-2 = 'move-node-to-workspace 2'
+cmd-ctrl-alt-shift-3 = 'move-node-to-workspace 3'
+cmd-ctrl-alt-shift-4 = 'move-node-to-workspace 4'
+cmd-ctrl-alt-shift-5 = 'move-node-to-workspace 5'
+
+# Last-workspace toggle, mirroring `bind - last-window` in tmux.
+cmd-ctrl-alt-tab       = 'workspace-back-and-forth'
+cmd-ctrl-alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
+
+# Modes.
+cmd-ctrl-alt-r         = 'mode resize'
+cmd-ctrl-alt-semicolon = 'mode service'
+
+# Resize mode — hjkl here mirrors the prefix+HJKL resize bindings in
+# .tmux.conf, so the same fingers do the same job one layer up.
+[mode.resize.binding]
+h     = 'resize width -50'
+j     = 'resize height +50'
+k     = 'resize height -50'
+l     = 'resize width +50'
+enter = 'mode main'
+esc   = 'mode main'
+
+[mode.service.binding]
+esc       = ['reload-config', 'mode main']
+r         = ['flatten-workspace-tree', 'mode main']
+f         = ['layout floating tiling', 'mode main']
+backspace = ['close-all-windows-but-current', 'mode main']
+
+shift-h = ['join-with left', 'mode main']
+shift-j = ['join-with down', 'mode main']
+shift-k = ['join-with up', 'mode main']
+shift-l = ['join-with right', 'mode main']
+
+# Pin apps to workspaces, i3's `assign`. Bundle ids come from
+# `osascript -e 'id of app "Name"'`.
+[[on-window-detected]]
+if.app-id = 'com.mitchellh.ghostty'
+run = ['move-node-to-workspace 1']
+
+[[on-window-detected]]
+if.app-id = 'com.github.wez.wezterm'
+run = ['move-node-to-workspace 1']

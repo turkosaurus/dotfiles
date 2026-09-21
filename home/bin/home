@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# home: open a tmux window at $HOME with `gh dash` on top (2/3) and
+# the `ww` work picker below (1/3). Commands are typed via send-keys
+# so each pane keeps an interactive shell (aliases resolve, the `work`
+# shim's cd-on-pick works, and panes survive the programs exiting).
+set -euo pipefail
+
+if [[ -z "${TMUX:-}" ]]; then
+    echo "home: run inside tmux" >&2
+    exit 1
+fi
+
+tmux new-window -n home -c "$HOME"
+tmux send-keys 'gh dash' C-m
+tmux split-window -v -l '33%' -c "$HOME"
+tmux send-keys 'ww' C-m
+tmux select-pane -t '{top}'

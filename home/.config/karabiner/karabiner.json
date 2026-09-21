@@ -4,12 +4,19 @@
         {
             "name": "Default",
             "selected": true,
-            "simple_modifications": [
-                { "from": { "key_code": "caps_lock" }, "to": [{ "key_code": "escape" }] }
-            ],
+            "simple_modifications": [],
             "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" },
             "complex_modifications": {
                 "rules": [
+                    {
+                        "description": "Caps Lock → Escape on tap, right-side hyper (cmd+ctrl+alt) on hold",
+                        "manipulators": [
+                            { "type": "basic",
+                              "from": { "key_code": "caps_lock", "modifiers": { "optional": ["any"] } },
+                              "to":   [{ "key_code": "right_option", "modifiers": ["right_command", "right_control"] }],
+                              "to_if_alone": [{ "key_code": "escape" }] }
+                        ]
+                    },
                     {
                         "description": "PC-style shortcuts (Ctrl → Cmd, except terminals)",
                         "manipulators": [
