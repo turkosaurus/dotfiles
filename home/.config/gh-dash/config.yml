@@ -1,38 +1,35 @@
-# I'm not sure this is actually being called.
-ui:
-  sectionsShowCount: true
-table:
-  showSeparators: true
-  compact: true
-colors:
-  text:
-    primary: "#ffffff"
-    secondary: "#c6c6c6"
-    inverted: "#303030"
-    faint: "#8a8a8a"
-    warning: "#800000"
-    success: "#008000"
-    actor: "#c6c6c6"
-  background:
-    selected: "#808080"
-  border:
-    primary: "#808080"
-    secondary: "#c0c0c0"
-    faint: "#000000"
-  inline:
-    icons:
-      newcontributor: "077"
-      contributor: "075"
-      collaborator: "178"
-      member: "178"
-      owner: "178"
-      unknownrole: "178"
-icons:
-  inline:
-    newcontributor: "󰎔"
-    contributor: ""
-    collaborator: ""
-    member: ""
-    owner: ""
-    unknownrole: "󰭙"
+# gh-dash. Everything visual lives under `theme:`. A top-level `ui:`
+# or `colors:` parses cleanly and is then ignored, which is how this
+# file sat inert for a while.
+#
+# Note `showSeparator` is singular. The upstream docs spell it
+# `showSeparators`; the struct tag in internal/config/parser.go does
+# not, and the struct tag wins.
 
+defaults:
+  preview:
+    open: true
+    width: 50
+  layout:
+    prs:
+      # base is almost always the default branch, and the diff size
+      # is already in the preview pane.
+      base:
+        hidden: true
+      lines:
+        hidden: true
+
+theme:
+  ui:
+    sectionsShowCount: true
+    table:
+      compact: true
+      showSeparator: false
+  icons:
+    inline:
+      newcontributor: "󰎔"
+      contributor: ""
+      collaborator: ""
+      member: ""
+      owner: ""
+      unknownrole: "󰭙"

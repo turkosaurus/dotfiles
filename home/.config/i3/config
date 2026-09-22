@@ -1,0 +1,125 @@
+# i3 — the Linux half of the tiling setup.
+# https://i3wm.org/docs/userguide.html
+#
+# Mirrors .config/aerospace/aerospace.toml binding for binding, so the
+# same letters do the same jobs on both machines. The modifier is the
+# one thing that differs: Super here, caps-lock hyper on the mac.
+# Karabiner has no Linux equivalent that stays inside the dotfiles
+# symlink model, so the letters match and the mod key doesn't.
+#
+# Keeps the layer boundaries clean:
+#   $mod+hjkl   i3     focus window
+#   alt+arrows  tmux   focus pane
+#   C-Space     tmux   everything else
+
+set $mod Mod4
+
+font pango:RobotoMono Nerd Font 10
+
+# Drag floating windows with the mod held, i3's usual default.
+floating_modifier $mod
+
+# Stopping at the edge matches AeroSpace's default boundaries-action
+# and the no-wrap pane bindings in .tmux.conf.
+focus_wrapping no
+
+# Caps lock stays escape. bin/key sets this through gsettings, which
+# only applies under GNOME; an i3 session has to set xkb directly.
+exec --no-startup-id setxkbmap -option caps:escape
+
+# Launching, killing, and a menu. macOS supplies all three itself, so
+# these have no counterpart in aerospace.toml.
+bindsym $mod+Return exec ghostty
+bindsym $mod+d      exec --no-startup-id dmenu_run
+bindsym $mod+Shift+q kill
+
+# Gaps need i3 >= 4.22 (or the old i3-gaps fork). Ubuntu 24.04 ships
+# 4.23; 22.04 ships 4.20 and will error on these two lines.
+gaps inner 8
+gaps outer 8
+
+# Layout. i3 has tabbed and stacking where AeroSpace has accordion,
+# so $mod+comma toggles between them instead.
+bindsym $mod+slash fullscreen disable; layout toggle split
+bindsym $mod+comma layout toggle tabbed stacking
+bindsym $mod+f     fullscreen toggle
+
+# Focus.
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
+
+# Move.
+bindsym $mod+Shift+h move left
+bindsym $mod+Shift+j move down
+bindsym $mod+Shift+k move up
+bindsym $mod+Shift+l move right
+
+# Resize, quick nudges. i3's resize needs an explicit axis, so unlike
+# AeroSpace's `resize smart` these only touch width. Height lives in
+# resize mode below.
+bindsym $mod+minus resize shrink width 50 px
+bindsym $mod+equal resize grow   width 50 px
+
+# Workspaces. i3 destroys a workspace once its last window closes;
+# there is no persistent-workspaces equivalent, so 1-5 come and go.
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+
+# Last-workspace toggle, mirroring `bind - last-window` in tmux.
+bindsym $mod+Tab       workspace back_and_forth
+bindsym $mod+Shift+Tab move workspace to output next
+
+# Modes.
+bindsym $mod+r         mode "resize"
+bindsym $mod+semicolon mode "service"
+
+# Resize mode — hjkl here mirrors the prefix+HJKL resize bindings in
+# .tmux.conf, so the same fingers do the same job one layer up.
+mode "resize" {
+    bindsym h resize shrink width  50 px
+    bindsym j resize grow   height 50 px
+    bindsym k resize shrink height 50 px
+    bindsym l resize grow   width  50 px
+
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+
+# Service mode. Two AeroSpace entries have no i3 command behind them:
+# flatten-workspace-tree and close-all-windows-but-current. `r` does
+# an in-place restart instead, which is the nearest thing to a reset.
+# join-with has no equivalent either; i3 builds containers with
+# `split` before opening the window rather than merging after.
+mode "service" {
+    bindsym Escape    reload; mode "default"
+    bindsym r         restart
+    bindsym f         floating toggle; mode "default"
+    bindsym backspace mode "default"
+
+    bindsym v split vertical;   mode "default"
+    bindsym b split horizontal; mode "default"
+}
+
+# Pin apps to workspaces, AeroSpace's [[on-window-detected]]. Class
+# names come from `xprop WM_CLASS`, not bundle ids.
+assign [class="(?i)ghostty"] number 1
+assign [class="(?i)wezterm"] number 1
+assign [class="(?i)firefox"] number 2
+assign [class="(?i)slack"]   number 3
+
+# The workspace indicator macOS has no equivalent for.
+bar {
+    status_command i3status
+    position top
+}
