@@ -25,8 +25,13 @@ shell-integration-features = no-cursor,sudo,no-title
 bell-features = system,audio,attention
 
 # Quick terminal
-quick-terminal-position = right
+quick-terminal-position = top
 quick-terminal-animation-duration = 0.1
+# Home for herdr. autohide=false keeps the herd visible while focus is
+# elsewhere. Size sets the primary axis, which for a top drawer is
+# height; width is maximized already.
+quick-terminal-autohide = false
+quick-terminal-size = 80%
 
 # Keybindings
 keybind = global:ctrl+grave_accent=toggle_quick_terminal

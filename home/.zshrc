@@ -3,7 +3,7 @@ export ZSH="$HOME/.oh-my-zsh"
 export ZSH_THEME="agnoster"
 export AGNOSTER_CONTEXT_BG=magenta
 export AGNOSTER_CONTEXT_FG=black
-plugins=(git mise)
+plugins=(git herdr mise)
 
 # PATH before oh-my-zsh so its mise plugin can find the mise binary
 export PATH=~/bin:~/.local/bin:$PATH

@@ -13,6 +13,10 @@ terragrunt = "0.93.13"
 # required by nvim-treesitter `main` branch (>= 0.26.1); not npm
 "aqua:tree-sitter/tree-sitter" = "0.26.11"
 # cli tools
+# local LLM stack (see ~/p/locallm); machine-level, so pinned here
+# rather than in that repo, where the shims would resolve nowhere else
+ollama = "latest"
+pitchfork = "latest"
 # pi coding agent; aqua binary rather than npm so it survives node upgrades
 pi = "latest"
 fzf = "latest"
