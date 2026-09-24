@@ -36,13 +36,27 @@ key-mapping.preset = 'qwerty'
 # when the last window on one closes.
 persistent-workspaces = ["1", "2", "3", "4", "5"]
 
+# Pin workspaces to displays. Without this AeroSpace hands workspaces
+# out by monitor index, so every hotplug reassigns all five and the
+# external can come up with nothing assigned to it, hence blank.
+# 'main' is whichever display macOS gives the menu bar, so making the
+# external primary in System Settings inverts this split.
+# Patterns that match no attached monitor fall back to main, so the
+# laptop alone still gets all five.
+[workspace-to-monitor-force-assignment]
+1 = 'secondary'
+2 = 'secondary'
+3 = 'main'
+4 = 'main'
+5 = 'main'
+
 [gaps]
-inner.horizontal = 8
-inner.vertical   = 8
-outer.top        = 8
-outer.bottom     = 8
-outer.left       = 8
-outer.right      = 8
+inner.horizontal = 4
+inner.vertical   = 4
+outer.top        = 0
+outer.bottom     = 0
+outer.left       = 0
+outer.right      = 0
 
 [mode.main.binding]
 

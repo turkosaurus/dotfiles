@@ -92,7 +92,10 @@
       "mcp__freshdesk__list_solution_articles",
       "mcp__freshdesk__view_solution_article",
       "mcp__freshdesk__list_companies",
-      "mcp__freshdesk__view_company"
+      "mcp__freshdesk__view_company",
+      "Bash(herdr agent list:*)",
+      "Bash(herdr agent get:*)",
+      "Bash(herdr agent read:*)"
     ],
     "deny": [
       "Read(./.env)",

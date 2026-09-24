@@ -4,6 +4,12 @@
         {
             "name": "Default",
             "selected": true,
+            "devices": [
+                { "identifiers": { "vendor_id": 13364, "product_id": 480, "is_keyboard": true },
+                  "ignore": false },
+                { "identifiers": { "vendor_id": 13364, "product_id": 480, "is_keyboard": true, "is_pointing_device": true },
+                  "ignore": false }
+            ],
             "simple_modifications": [],
             "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" },
             "complex_modifications": {
@@ -15,6 +21,16 @@
                               "from": { "key_code": "caps_lock", "modifiers": { "optional": ["any"] } },
                               "to":   [{ "key_code": "right_option", "modifiers": ["right_command", "right_control"] }],
                               "to_if_alone": [{ "key_code": "escape" }] }
+                        ]
+                    },
+                    {
+                        "description": "Keychron Q11: caps sends escape (0x29) in firmware, so the caps_lock rule above never fires. Hyper hangs off escape, this device only. The board's real Esc sends the same usage and is indistinguishable, so it gains hyper-on-hold too.",
+                        "manipulators": [
+                            { "type": "basic",
+                              "from": { "key_code": "escape", "modifiers": { "optional": ["any"] } },
+                              "to":   [{ "key_code": "right_option", "modifiers": ["right_command", "right_control"] }],
+                              "to_if_alone": [{ "key_code": "escape" }],
+                              "conditions": [{ "type": "device_if", "identifiers": [{ "vendor_id": 13364, "product_id": 480 }] }] }
                         ]
                     },
                     {
