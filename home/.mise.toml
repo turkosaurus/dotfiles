@@ -17,8 +17,8 @@ terragrunt = "0.93.13"
 # rather than in that repo, where the shims would resolve nowhere else
 ollama = "latest"
 pitchfork = "latest"
-# pi coding agent; aqua binary rather than npm so it survives node upgrades
-pi = "latest"
+# pi coding agent; GitHub release binary rather than npm so it survives node upgrades
+"github:earendil-works/pi" = "latest"
 fzf = "latest"
 jq = "1.8"
 yq = "4"
