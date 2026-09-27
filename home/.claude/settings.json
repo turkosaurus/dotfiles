@@ -113,7 +113,7 @@
       "Bash(rm:*)"
     ]
   },
-  "model": "opus[1m]",
+  "model": "fable[1m]",
   "hooks": {
     "Notification": [
       {
