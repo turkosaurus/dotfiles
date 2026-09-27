@@ -1,14 +1,16 @@
 return {
+	{ "neovim/nvim-lspconfig" },
 	{ "williamboman/mason.nvim", opts = {} },
 	{ "j-hui/fidget.nvim", opts = {} },
 	{
 		"WhoIsSethDaniel/mason-tool-installer.nvim",
-		dependencies = { "williamboman/mason.nvim" },
+		dependencies = { "williamboman/mason.nvim", "neovim/nvim-lspconfig" },
 		config = function()
 			require("mason-tool-installer").setup({
 				ensure_installed = {
 					"gopls",
 					"pyright",
+					"rust-analyzer",
 					"bash-language-server",
 					"lua-language-server",
 					"stylua",
@@ -132,6 +134,8 @@ return {
 
 			vim.lsp.config("pyright", {})
 
+			vim.lsp.config("rust_analyzer", {})
+
 			vim.lsp.config("bashls", {
 				cmd = { "bash-language-server", "start" },
 				filetypes = { "sh", "zsh", "bash" },
@@ -172,7 +176,7 @@ return {
 			-- plugins/conform.lua) driven by ~/.config/taplo/taplo.toml.
 			vim.lsp.config("taplo", {})
 
-			vim.lsp.enable({ "gopls", "pyright", "bashls", "lua_ls", "yamlls", "taplo" })
+			vim.lsp.enable({ "gopls", "pyright", "rust_analyzer", "bashls", "lua_ls", "yamlls", "taplo" })
 		end,
 	},
 }
