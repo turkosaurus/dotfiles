@@ -1,0 +1,38 @@
+onboarding = false
+
+[theme]
+name = "tokyo-night"
+auto_switch = false
+
+[ui]
+# "auto" only borders split panes; "always" frames a lone one too.
+pane_borders = "always"
+# tokyonight blue, matching .tmux.conf pane-border-style.
+accent = "#7aa2f7"
+# Distinct glyphs per state instead of color-only dots.
+status_indicators = "symbols"
+# Agent name in the border, like tmux pane-border-status top.
+show_agent_labels_on_pane_borders = true
+
+[ui.sidebar.agents]
+row_gap = 1
+
+[ui.sidebar.spaces]
+row_gap = 1
+
+[keys]
+prefix = "ctrl+space"
+
+# tmux muscle memory: % side-by-side, " stacked. herdr's vertical/
+# horizontal naming is inverted relative to tmux's -h/-v.
+split_vertical = "prefix+%"
+split_horizontal = "prefix+\""
+
+# Navigate mode. Default gives j/k to pane up/down, so they did nothing
+# in the workspace list. Match the arrows instead: vertical moves
+# workspaces, horizontal moves panes. Pane up/down goes to shift+j/k;
+# ctrl+j is LF and would collide with the mode's reserved Enter.
+navigate_workspace_down = "j"
+navigate_workspace_up = "k"
+navigate_pane_down = "shift+j"
+navigate_pane_up = "shift+k"

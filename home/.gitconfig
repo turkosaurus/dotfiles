@@ -5,3 +5,6 @@
 [include]
 	path = ~/.gitconfig.local
 
+[user]
+	email = 55367187+turkosaurus@users.noreply.github.com
+	name = turk

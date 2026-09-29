@@ -1,2 +1,5 @@
 [settings]
 trusted_config_paths = ["~/p", "~/w"]
+
+[tools]
+claude-code = "latest"
