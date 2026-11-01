@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+case "$(uname -s)" in
+Linux)
+	# keyd is installed from source at /usr/local/bin (v2.5.0 here), so
+	# this only handles the config and the service. The repo copy of
+	# default.conf is the source of truth; /etc is a copy.
+	if (( $(id -u) == 0 )); then
+		sudo=""
+	elif command -v sudo &>/dev/null; then
+		sudo="sudo"
+	else
+		echo "error: need root or sudo to install keyd config" >&2
+		exit 1
+	fi
+
+	# readlink resolves the ~/bin symlink back into the repo.
+	src="$(dirname "$(readlink -f "$0")")/../../../etc/keyd/default.conf"
+	if [[ ! -f "$src" ]]; then
+		echo "error: missing $src" >&2
+		exit 1
+	fi
+
+	if ! command -v keyd &>/dev/null; then
+		echo "error: keyd not found; install it from source first" >&2
+		exit 1
+	fi
+
+	if ! $sudo install -Dm644 "$src" /etc/keyd/default.conf; then
+		echo "error: failed to copy keyd config" >&2
+		exit 1
+	fi
+	if ! $sudo systemctl daemon-reload; then
+		echo "error: systemctl daemon-reload failed" >&2
+		exit 1
+	fi
+	if ! $sudo systemctl enable --now keyd; then
+		echo "error: failed to enable keyd" >&2
+		exit 1
+	fi
+
+	# GNOME's own caps/esc swap would apply on top of keyd and undo it.
+	# Clear it once here; this is a no-op where gsettings is absent.
+	if command -v gsettings &>/dev/null; then
+		gsettings reset org.gnome.desktop.input-sources xkb-options \
+			|| echo "warn: could not reset GNOME xkb-options" >&2
+	fi
+
+	echo "note: caps lock is esc, esc is caps lock (see etc/keyd/default.conf)"
+	;;
+*)
+	echo "skipping keyd: Linux only"
+	;;
+esac

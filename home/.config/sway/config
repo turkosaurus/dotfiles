@@ -1,0 +1,111 @@
+# sway — the Wayland half of the tiling setup.
+# https://man.archlinux.org/man/sway.5
+#
+# Wayland port of .config/i3/config, binding for binding. Same letters,
+# same jobs, same layer boundaries (see the i3 config for the table).
+# Caps/Esc is handled by keyd (etc/keyd/default.conf), not here, so
+# this file has no keyboard-layout lines.
+
+set $mod Mod4
+
+font pango:RobotoMono Nerd Font 10
+
+# Drag floating windows with the mod held, i3's usual default.
+floating_modifier $mod
+
+# Stopping at the edge matches AeroSpace's default boundaries-action
+# and the no-wrap pane bindings in .tmux.conf.
+focus_wrapping no
+
+# Launching, killing, and a menu. macOS supplies all three itself, so
+# these have no counterpart in aerospace.toml. wmenu is the Wayland
+# stand-in for dmenu.
+bindsym $mod+Return exec ghostty
+bindsym $mod+d      exec wmenu-run
+bindsym $mod+Shift+q kill
+
+gaps inner 8
+gaps outer 8
+
+# Layout. i3 has tabbed and stacking where AeroSpace has accordion,
+# so $mod+comma toggles between them instead.
+bindsym $mod+slash fullscreen disable; layout toggle split
+bindsym $mod+comma layout toggle tabbed stacking
+bindsym $mod+f     fullscreen toggle
+
+# Focus.
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
+
+# Move.
+bindsym $mod+Shift+h move left
+bindsym $mod+Shift+j move down
+bindsym $mod+Shift+k move up
+bindsym $mod+Shift+l move right
+
+# Resize, quick nudges. Same width-only limit as the i3 config; height
+# lives in resize mode below.
+bindsym $mod+minus resize shrink width 50 px
+bindsym $mod+equal resize grow   width 50 px
+
+# Workspaces. Like i3, a workspace goes away once its last window
+# closes; there is no persistent-workspaces equivalent.
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+
+# Last-workspace toggle, mirroring `bind - last-window` in tmux.
+bindsym $mod+Tab       workspace back_and_forth
+bindsym $mod+Shift+Tab move workspace to output next
+
+# Modes.
+bindsym $mod+r         mode "resize"
+bindsym $mod+semicolon mode "service"
+
+# Resize mode — hjkl here mirrors the prefix+HJKL resize bindings in
+# .tmux.conf, so the same fingers do the same job one layer up.
+mode "resize" {
+    bindsym h resize shrink width  50 px
+    bindsym j resize grow   height 50 px
+    bindsym k resize shrink height 50 px
+    bindsym l resize grow   width  50 px
+
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+
+# Service mode. `r` restarts sway in place, the nearest thing to a
+# reset; see the i3 config for the AeroSpace entries with no equivalent.
+mode "service" {
+    bindsym Escape    reload; mode "default"
+    bindsym r         restart
+    bindsym f         floating toggle; mode "default"
+    bindsym backspace mode "default"
+
+    bindsym v split vertical;   mode "default"
+    bindsym b split horizontal; mode "default"
+}
+
+# Pin apps to workspaces. Native Wayland windows match on app_id, not
+# class; check ids with `swaymsg -t get_tree | grep app_id`. Xwayland
+# windows (Slack, some Electron builds) match on class instead.
+assign [app_id="(?i)ghostty"]  workspace number 1
+assign [app_id="(?i)wezterm"]  workspace number 1
+assign [app_id="(?i)firefox"]  workspace number 2
+assign [class="(?i)slack"]     workspace number 3
+
+# The workspace indicator macOS has no equivalent for.
+bar {
+    status_command i3status
+    position top
+}

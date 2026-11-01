@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+case "$(uname -s)" in
+Linux)
+	# sway is the Wayland i3. swaybar runs i3status for the bar, and
+	# wmenu stands in for dmenu on $mod+d.
+	pkgs=(sway wmenu i3status)
+
+	if (( $(id -u) == 0 )); then
+		sudo=""
+	elif command -v sudo &>/dev/null; then
+		sudo="sudo"
+	else
+		echo "error: need root or sudo to install: ${pkgs[*]}" >&2
+		exit 1
+	fi
+
+	if ! $sudo apt-get update -qq; then
+		echo "error: apt-get update failed" >&2
+		exit 1
+	fi
+	if ! $sudo apt-get install -y -qq "${pkgs[@]}"; then
+		echo "error: failed to install: ${pkgs[*]}" >&2
+		exit 1
+	fi
+
+	echo "note: log out and pick sway at the login screen"
+	echo "note: caps/esc comes from keyd; run bin/install/keyd"
+	;;
+*)
+	echo "skipping sway: Linux only"
+	;;
+esac
