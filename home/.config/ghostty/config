@@ -24,6 +24,9 @@ cursor-style-blink = true
 shell-integration-features = no-cursor,sudo,no-title
 bell-features = system,audio,attention
 
+# No popup on copy. tmux's OSC 52 copies already reach the terminal.
+app-notifications = no-clipboard-copy
+
 # Quick terminal
 quick-terminal-position = right
 quick-terminal-animation-duration = 0.1
