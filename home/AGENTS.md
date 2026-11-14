@@ -94,6 +94,22 @@ For other TOML files (e.g. `mise.toml`, config files), use `yq -p toml -o toml -
 - Prefer one topic per paragraph. Break lists onto their own lines
   rather than packing bullets into a single line.
 
+### breaking code comments
+
+Break at a natural boundary, not at the margin. Prefer, in order: a
+sentence end, then a clause boundary (before a conjunction, a colon, or
+a parenthetical). A short line that ends a thought beats a full one
+that splits a noun phrase.
+
+```go
+// geteuid reports the process effective uid.
+// Tests override it to simulate running as root.
+var geteuid = os.Geteuid
+```
+
+Never break between a name and its backticks or parens, inside an
+identifier path, or across an `->` arrow.
+
 ### TOML multi-line strings
 
 For any TOML string field long enough to warrant a multi-line literal

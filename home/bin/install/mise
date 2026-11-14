@@ -38,28 +38,15 @@ error() {
 }
 
 case "$OSTYPE" in
-darwin*)
-    if ! command -v brew &>/dev/null; then
-        error "homebrew not installed"
+darwin* | linux-gnu*)
+    # Homebrew's formula lags mise releases, and repos pin lockfile formats
+    # newer than it can read, so macOS uses the mise.run binary too.
+    if [[ "$OSTYPE" == darwin* ]] && command -v brew &>/dev/null &&
+        brew list --formula mise &>/dev/null; then
+        debug "removing homebrew mise in favor of mise.run..."
+        brew uninstall mise &>/dev/null || error "failed to uninstall homebrew mise"
     fi
 
-    if command -v mise &>/dev/null; then
-        debug "mise already installed, upgrading..."
-        if [[ "$VERBOSE" == "1" ]]; then
-            brew upgrade mise || error "failed to upgrade mise via homebrew"
-        else
-            brew upgrade mise &>/dev/null || error "failed to upgrade mise via homebrew"
-        fi
-    else
-        debug "installing mise via homebrew..."
-        if [[ "$VERBOSE" == "1" ]]; then
-            brew install mise || error "failed to install mise via homebrew"
-        else
-            brew install mise &>/dev/null || error "failed to install mise via homebrew"
-        fi
-    fi
-    ;;
-linux-gnu*)
     if command -v mise &>/dev/null; then
         debug "mise already installed, upgrading..."
         if [[ "$VERBOSE" == "1" ]]; then

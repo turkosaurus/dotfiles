@@ -2,7 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"strings"
+
+	"github.com/pterm/pterm"
 )
 
 type pickCmd struct {
@@ -54,20 +58,23 @@ func runPick(c *pickCmd) error {
 	return fmt.Errorf("no worktree for %q — switch to that branch in the main worktree and run `work new .`", c.Name)
 }
 
-// runMain emits the main worktree path for the current repo.
+// runMain emits the main worktree path for the current repo. Outside a
+// repo, or when its main tree can't be found, it falls back to the
+// worktree picker rather than failing.
 func runMain(_ *mainCmd) error {
 	if p := mainWorktreePath("."); p != "" {
 		emitPath(p)
 		return nil
 	}
 	// Fallback: scan ~/w/<repo>/* for any worktree, ask git from there.
-	repo, err := currentRepoName()
-	if err != nil {
-		return fmt.Errorf("main: %w", err)
+	repo := cwdRepoName()
+	if repo == "" {
+		pterm.Info.Println("main: not in a repo; pick a worktree")
+		return runPick(&pickCmd{filterSpec: filterSpec{Worktrees: true}})
 	}
 	wts, err := listWorktrees()
 	if err != nil {
-		return err
+		return fmt.Errorf("main: %w", err)
 	}
 	for _, wt := range wts {
 		if wt.Repo != repo {
@@ -78,7 +85,30 @@ func runMain(_ *mainCmd) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("main worktree not found")
+	pterm.Info.Printfln("main: no main worktree for %s; pick one", repo)
+	return runPick(&pickCmd{filterSpec: filterSpec{Worktrees: true}})
+}
+
+// cwdRepoName returns the repo for cwd: from git when inside one,
+// else from a ~/w/<repo>/... path (e.g. a removed worktree's parent).
+// Returns "" when neither applies.
+func cwdRepoName() string {
+	if repo, err := currentRepoName(); err == nil {
+		return repo
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	rel, ok := strings.CutPrefix(cwd, defaultWorkDir+"/")
+	if !ok {
+		return ""
+	}
+	repo := strings.SplitN(rel, "/", 2)[0]
+	if path.Join(defaultWorkDir, repo) == defaultTaskDir {
+		return ""
+	}
+	return repo
 }
 
 // runPrev writes the previously-visited path (saved by emitPath) as the

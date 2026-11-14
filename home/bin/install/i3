@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+case "$(uname -s)" in
+Linux)
+	# dmenu for $mod+d, i3status for the bar, x11-xkb-utils for the
+	# setxkbmap call that keeps caps lock as escape.
+	pkgs=(i3 i3status dmenu x11-xkb-utils)
+
+	if (( $(id -u) == 0 )); then
+		sudo=""
+	elif command -v sudo &>/dev/null; then
+		sudo="sudo"
+	else
+		echo "error: need root or sudo to install: ${pkgs[*]}" >&2
+		exit 1
+	fi
+
+	if ! $sudo apt-get update -qq; then
+		echo "error: apt-get update failed" >&2
+		exit 1
+	fi
+	if ! $sudo apt-get install -y -qq "${pkgs[@]}"; then
+		echo "error: failed to install: ${pkgs[*]}" >&2
+		exit 1
+	fi
+
+	# Gaps landed in i3 4.22. Older releases abort on the `gaps`
+	# lines in .config/i3/config rather than ignoring them.
+	version="$(i3 --version | sed -n 's/.*version \([0-9.]*\).*/\1/p')"
+	if [[ -n "$version" ]]; then
+		major="${version%%.*}"
+		minor="${version#*.}"
+		minor="${minor%%.*}"
+		if (( major < 4 || (major == 4 && minor < 22) )); then
+			echo "warn: i3 $version predates gaps support (4.22);" \
+				"drop the gaps lines from .config/i3/config" >&2
+		fi
+	fi
+
+	echo "note: log out and pick i3 at the session chooser"
+	echo "note: mod is Super; see .config/aerospace/aerospace.toml" \
+		"for the macOS half"
+	;;
+*)
+	echo "skipping i3: Linux only"
+	;;
+esac

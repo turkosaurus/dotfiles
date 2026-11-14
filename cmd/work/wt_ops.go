@@ -61,10 +61,15 @@ type cleanCmd struct {
 func runRm(c *rmCmd) error {
 	if c.Name != "" {
 		wt, err := selectWorktree(c.Name)
-		if err != nil {
+		switch {
+		case err == nil:
+			return processRm(inventoryItem{Worktree: &wt})
+		case c.Name != ".":
 			return fmt.Errorf("rm: %w", err)
 		}
-		return processRm(inventoryItem{Worktree: &wt})
+		// "." outside a worktree (main repo, ~/w/t, $HOME): offer the
+		// picker instead of failing.
+		pterm.Info.Printfln("rm: %v; pick instead", err)
 	}
 
 	items, err := loadInventory(true, true)

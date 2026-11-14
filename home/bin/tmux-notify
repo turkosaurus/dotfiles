@@ -37,9 +37,11 @@ c1=${TMUX_NOTIFY_COL1:-'\033[38;2;224;175;104m'}
 width=${TMUX_NOTIFY_WIDTH:-80}
 height=${TMUX_NOTIFY_HEIGHT:-32}
 
+# Outside tmux there is nothing to pop up, and the caller (herdr, a
+# bare shell, a Stop hook) does its own alerting. Exit quietly rather
+# than failing and making the hook report an error.
 if [[ -z "$TMUX" ]]; then
-  echo "Error: not running inside tmux" >&2
-  exit 1
+  exit 0
 fi
 
 # hooks may not have TMUX_PANE set — fall back to active pane

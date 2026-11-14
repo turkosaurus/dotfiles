@@ -16,6 +16,7 @@ if [[ -z "$CLAUDE_SETTINGS_MERGED" ]]; then
     # Merge: preserve user prefs (model), enforce base on everything else.
     # Use cp to write through any symlink rather than replacing it.
     if ! jq -s '.[0] * {
+        attribution:    .[1].attribution,
         env:            .[1].env,
         permissions:    .[1].permissions,
         hooks:          .[1].hooks,

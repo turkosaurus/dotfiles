@@ -3,7 +3,7 @@ export ZSH="$HOME/.oh-my-zsh"
 export ZSH_THEME="agnoster"
 export AGNOSTER_CONTEXT_BG=magenta
 export AGNOSTER_CONTEXT_FG=black
-plugins=(git mise)
+plugins=(git herdr mise)
 
 # PATH before oh-my-zsh so its mise plugin can find the mise binary
 export PATH=~/bin:~/.local/bin:$PATH
@@ -53,11 +53,11 @@ fi
 PROMPT=$(print "${PROMPT} \n %{\033[0 q%}${symbol} ")
 
 # work - git worktree wrapper with cd support
-# work-binary: $HOME/go/bin/work
+# work-binary: $HOME/.local/bin/work
 work() {
   local next="$HOME/w/.next"
   rm -f "$next"
-  "$HOME/go/bin/work" "$@"
+  "$HOME/.local/bin/work" "$@"
   local rc=$?
   if [[ -s "$next" ]]; then
     local target

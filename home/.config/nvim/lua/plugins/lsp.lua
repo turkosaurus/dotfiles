@@ -1,4 +1,6 @@
 return {
+	-- Provides the default lsp/<server>.lua configs (cmd, filetypes,
+	-- root_markers) that vim.lsp.enable() relies on.
 	{ "neovim/nvim-lspconfig" },
 	{ "williamboman/mason.nvim", opts = {} },
 	{ "j-hui/fidget.nvim", opts = {} },
@@ -13,6 +15,7 @@ return {
 					"rust-analyzer",
 					"bash-language-server",
 					"lua-language-server",
+					"rust-analyzer",
 					"stylua",
 					"shfmt",
 					"shellcheck",
@@ -156,6 +159,15 @@ return {
 				},
 			})
 
+			-- rust-analyzer runs clippy on save instead of plain cargo check.
+			vim.lsp.config("rust_analyzer", {
+				settings = {
+					["rust-analyzer"] = {
+						check = { command = "clippy" },
+					},
+				},
+			})
+
 			vim.lsp.config("yamlls", {
 				settings = {
 					yaml = {
@@ -176,7 +188,15 @@ return {
 			-- plugins/conform.lua) driven by ~/.config/taplo/taplo.toml.
 			vim.lsp.config("taplo", {})
 
-			vim.lsp.enable({ "gopls", "pyright", "rust_analyzer", "bashls", "lua_ls", "yamlls", "taplo" })
+			vim.lsp.enable({
+				"gopls",
+				"pyright",
+				"bashls",
+				"lua_ls",
+				"rust_analyzer",
+				"yamlls",
+				"taplo",
+			})
 		end,
 	},
 }
