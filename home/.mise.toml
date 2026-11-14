@@ -36,6 +36,9 @@ GOPATH = "{{ env.HOME }}/go"
 [settings]
 auto_install = true
 experimental = false
+# keep `go install` binaries in $GOPATH/bin, not inside the
+# version-specific install dir (which mise may wipe)
+go_set_gobin = false
 
 [settings.python]
 precompiled_flavor = "install_only_stripped"

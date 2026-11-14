@@ -86,9 +86,11 @@ For other TOML files (e.g. `mise.toml`, config files), use `yq -p toml -o toml -
 
 ## prose & text blocks
 
-- Wrap markdown, comments, docstrings, and skill-instruction prose at
-  ~80 characters. Longer lines are hard to diff and hard to read
+- Wrap comments, docstrings, and skill-instruction prose at ~80
+  characters. Longer lines are hard to diff and hard to read
   side-by-side.
+- **Never hard-wrap markdown** (READMEs, docs, `.md` prose). One
+  paragraph is one line; let the editor soft-wrap.
 - Prefer one topic per paragraph. Break lists onto their own lines
   rather than packing bullets into a single line.
 
