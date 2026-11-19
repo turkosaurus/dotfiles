@@ -267,3 +267,12 @@ func readLegacySourcePath() string {
 	}
 	return s
 }
+
+// reposRoot returns the directory holding primary clones: path.repos
+// from config, or ~/p when unset.
+func reposRoot() string {
+	if cfg, err := loadConfig(); err == nil && cfg.Path.Repos != "" {
+		return cfg.Path.Repos
+	}
+	return path.Join(os.Getenv("HOME"), "p")
+}

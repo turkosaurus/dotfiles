@@ -101,11 +101,7 @@ func newFromBranch(repo, branch string) error {
 		repo = r
 	}
 
-	cfg, _ := loadConfig()
-	reposDir := cfg.Path.Repos
-	if reposDir == "" {
-		reposDir = path.Join(os.Getenv("HOME"), "p")
-	}
+	reposDir := reposRoot()
 	repoDir := path.Join(reposDir, repo)
 	if fi, err := os.Stat(repoDir); err != nil || !fi.IsDir() {
 		return fmt.Errorf("new -b: repo %q not found under %s", repo, reposDir)

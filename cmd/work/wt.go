@@ -58,35 +58,53 @@ func runPick(c *pickCmd) error {
 	return fmt.Errorf("no worktree for %q — switch to that branch in the main worktree and run `work new .`", c.Name)
 }
 
-// runMain emits the main worktree path for the current repo. Outside a
-// repo, or when its main tree can't be found, it falls back to the
-// worktree picker rather than failing.
+// runMain emits the main worktree path for the current repo. It never
+// fails: when git can't answer (cwd deleted, broken worktree, not in a
+// repo) it walks a fallback chain and lands somewhere sensible.
+//
+//  1. git's main worktree for cwd
+//  2. <repos>/<repo> (default ~/p/<repo>)
+//  3. git's main worktree for any ~/w/<repo>/* worktree
+//  4. <repos> itself
 func runMain(_ *mainCmd) error {
-	if p := mainWorktreePath("."); p != "" {
-		emitPath(p)
-		return nil
+	emitPath(mainTarget())
+	return nil
+}
+
+// mainTarget resolves the destination for `work main`.
+func mainTarget() string {
+	if p := mainWorktreePath("."); isDir(p) {
+		return p
 	}
-	// Fallback: scan ~/w/<repo>/* for any worktree, ask git from there.
+	root := reposRoot()
 	repo := cwdRepoName()
 	if repo == "" {
-		pterm.Info.Println("main: not in a repo; pick a worktree")
-		return runPick(&pickCmd{filterSpec: filterSpec{Worktrees: true}})
+		return root
 	}
-	wts, err := listWorktrees()
-	if err != nil {
-		return fmt.Errorf("main: %w", err)
+	if p := path.Join(root, repo); isDir(p) {
+		return p
 	}
-	for _, wt := range wts {
-		if wt.Repo != repo {
-			continue
+	if wts, err := listWorktrees(); err == nil {
+		for _, wt := range wts {
+			if wt.Repo != repo {
+				continue
+			}
+			if p := mainWorktreePath(wt.Path); isDir(p) {
+				return p
+			}
 		}
-		if p := mainWorktreePath(wt.Path); p != "" {
-			emitPath(p)
-			return nil
-		}
 	}
-	pterm.Info.Printfln("main: no main worktree for %s; pick one", repo)
-	return runPick(&pickCmd{filterSpec: filterSpec{Worktrees: true}})
+	pterm.Info.Printfln("main: no main tree for %s; going to %s", repo, root)
+	return root
+}
+
+// isDir reports whether p names an existing directory.
+func isDir(p string) bool {
+	if p == "" {
+		return false
+	}
+	fi, err := os.Stat(p)
+	return err == nil && fi.IsDir()
 }
 
 // cwdRepoName returns the repo for cwd: from git when inside one,
@@ -96,9 +114,11 @@ func cwdRepoName() string {
 	if repo, err := currentRepoName(); err == nil {
 		return repo
 	}
+	// Getwd fails once cwd is deleted (e.g. a removed worktree);
+	// the shell's $PWD still names where we were.
 	cwd, err := os.Getwd()
 	if err != nil {
-		return ""
+		cwd = os.Getenv("PWD")
 	}
 	rel, ok := strings.CutPrefix(cwd, defaultWorkDir+"/")
 	if !ok {
